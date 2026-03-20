@@ -39,10 +39,10 @@ const float* Initialise(float sampling_frequency)
 {
 	s_sampling_frequency = sampling_frequency;
 
-	KickInitialise(sampling_frequency, &s_kick_p, &s_kick_s);
-	SnareInitialise(sampling_frequency, &s_snare_p, &s_snare_s);
-	HatInitialise(sampling_frequency, CLOSED_HAT, &s_closed_hat_p, &s_closed_hat_s);
-	HatInitialise(sampling_frequency, OPEN_HAT, &s_open_hat_p, &s_open_hat_s);
+	KickSet(STATE_DEAD, sampling_frequency, &s_kick_p, &s_kick_s);
+	SnareSet(STATE_DEAD, sampling_frequency, &s_snare_p, &s_snare_s);
+	HatSet(STATE_DEAD, sampling_frequency, CLOSED_HAT, &s_closed_hat_p, &s_closed_hat_s);
+	HatSet(STATE_DEAD, sampling_frequency, OPEN_HAT, &s_open_hat_p, &s_open_hat_s);
 
 	return s_buffer;
 }
@@ -51,10 +51,16 @@ const float* KeyOn(int key_no)
 {
 	switch (key_no)
 	{
-	default: KickInitialiseState(s_sampling_frequency, &s_kick_s); break;
-	case 1: SnareInitialiseState(s_sampling_frequency, &s_snare_s); break;
-	case 2: HatInitialiseState(&s_closed_hat_s); break;
-	case 3: HatInitialiseState(&s_open_hat_s); break;
+	default: KickSetState(STATE_START, s_sampling_frequency, &s_kick_s); break;
+	case 1: SnareSetState(STATE_START, s_sampling_frequency, &s_snare_s); break;
+	case 2:
+		HatSetState(STATE_START, &s_closed_hat_s);
+		HatSetState(STATE_DEAD, &s_open_hat_s);
+		break;
+	case 3:
+		HatSetState(STATE_START, &s_open_hat_s);
+		HatSetState(STATE_DEAD, &s_closed_hat_s);
+		break;
 	}
 
 	return s_buffer;

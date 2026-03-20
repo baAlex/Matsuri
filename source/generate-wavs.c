@@ -78,7 +78,7 @@ int main(void)
 		struct KickProgram p;
 		struct KickState s;
 
-		KickInitialise((float)(FREQUENCY), &p, &s);
+		KickSet(STATE_START, (float)(FREQUENCY), &p, &s);
 		RenderKick(&p, &s, s_buffer, s_buffer + BUFFER_LEN / 4);
 
 		if (sSave("new-kick.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 4) != 0)
@@ -90,7 +90,7 @@ int main(void)
 		struct SnareProgram p;
 		struct SnareState s;
 
-		SnareInitialise((float)(FREQUENCY), &p, &s);
+		SnareSet(STATE_START, (float)(FREQUENCY), &p, &s);
 		RenderSnare(&p, &s, s_buffer, s_buffer + BUFFER_LEN / 8);
 
 		if (sSave("new-snare.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 8) != 0)
@@ -102,7 +102,7 @@ int main(void)
 		struct HatProgram p;
 		struct HatState s;
 
-		HatInitialise((float)(FREQUENCY), OPEN_HAT, &p, &s);
+		HatSet(STATE_START, (float)(FREQUENCY), OPEN_HAT, &p, &s);
 		RenderHat(&p, &s, s_buffer, s_buffer + BUFFER_LEN);
 
 		if (sSave("new-hat-open.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN) != 0)
@@ -114,7 +114,7 @@ int main(void)
 		struct HatProgram p;
 		struct HatState s;
 
-		HatInitialise((float)(FREQUENCY), CLOSED_HAT, &p, &s);
+		HatSet(STATE_START, (float)(FREQUENCY), CLOSED_HAT, &p, &s);
 		RenderHat(&p, &s, s_buffer, s_buffer + BUFFER_LEN / 8);
 
 		if (sSave("new-hat-closed.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 8) != 0)

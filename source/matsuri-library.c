@@ -240,8 +240,9 @@ static float sSemitoneDetune(float x)
 }
 
 
-void OscillatorInitialise(float sampling_frequency, float frequency, float decay_ms, float delay_ms, float amplitude,
-                          float sweep_factor, struct OscillatorProgram* restrict p, struct OscillatorState* restrict s)
+void OscillatorSet(enum StateState state_state, float sampling_frequency, float frequency, float decay_ms,
+                   float delay_ms, float amplitude, float sweep_factor, struct OscillatorProgram* restrict p,
+                   struct OscillatorState* restrict s)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(frequency >= 0.0f);
@@ -256,27 +257,36 @@ void OscillatorInitialise(float sampling_frequency, float frequency, float decay
 	p->sweep_target = sSemitoneDetune(sweep_factor);
 	p->sweep_step = 1.0f - sFastNegExp((-LOG_100_PERCENT) / decay_frames);
 
-	OscillatorInitialiseState(sampling_frequency, frequency, delay_ms, amplitude, s);
+	OscillatorSetState(state_state, sampling_frequency, frequency, delay_ms, amplitude, s);
 }
 
-void OscillatorInitialiseState(float sampling_frequency, float frequency, float delay_ms, float amplitude,
-                               struct OscillatorState* restrict s)
+void OscillatorSetState(enum StateState state_state, float sampling_frequency, float frequency, float delay_ms,
+                        float amplitude, struct OscillatorState* restrict s)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(frequency >= 0.0f);
 	assert(delay_ms >= 0.0f);
 
-	s->delay = (int)((delay_ms * sampling_frequency) / 1000.0f) - 1;
-	s->v = ((frequency / sampling_frequency) * PI_TWO) * amplitude; // It's omega before its ^2
-	s->x = 0.0f;
-
-	s->sweep = 1.0;
+	switch (state_state)
+	{
+	case STATE_START:
+		s->delay = (int)((delay_ms * sampling_frequency) / 1000.0f) - 1;
+		s->v = ((frequency / sampling_frequency) * PI_TWO) * amplitude; // It's omega before its ^2
+		s->x = 0.0f;
+		s->sweep = 1.0;
+		break;
+	case STATE_DEAD:
+		s->delay = 0;
+		s->v = 0.0f;
+		s->x = 0.0f;
+		s->sweep = 0.0;
+	}
 }
 
 
-void EnvelopeInitialise(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms, float sustain,
-                        float decay2_ms, float amplitude, struct EnvelopeProgram* restrict p,
-                        struct EnvelopeState* restrict s)
+void EnvelopeSet(enum StateState state_state, float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
+                 float sustain, float decay2_ms, float amplitude, struct EnvelopeProgram* restrict p,
+                 struct EnvelopeState* restrict s)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(delay_ms >= 0.0f);
@@ -293,20 +303,29 @@ void EnvelopeInitialise(float sampling_frequency, float delay_ms, float attack_m
 	p->levels[2] = sustain * amplitude;
 	p->levels[3] = (decay2_ms <= 0.0f) ? (sustain * amplitude) : 0.0f;
 
-	EnvelopeInitialiseState(s);
+	EnvelopeSetState(state_state, s);
 }
 
-void EnvelopeInitialiseState(struct EnvelopeState* restrict s)
+void EnvelopeSetState(enum StateState state_state, struct EnvelopeState* restrict s)
 {
-	s->x = 0;
-	s->y = 0.0f;
-	s->stage = 0;
+	switch (state_state)
+	{
+	case STATE_START:
+		s->x = 0;
+		s->y = 0.0f;
+		s->stage = 0;
+		break;
+	case STATE_DEAD:
+		s->x = 0;
+		s->y = 0.0f;
+		s->stage = 3;
+	}
 }
 
 
-void ShapedEnvelopeInitialise(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
-                              float attack_shape, float decay_shape, struct ShapedEnvelopeProgram* restrict p,
-                              struct ShapedEnvelopeState* restrict s)
+void ShapedEnvelopeSet(enum StateState state_state, float sampling_frequency, float delay_ms, float attack_ms,
+                       float decay_ms, float attack_shape, float decay_shape, struct ShapedEnvelopeProgram* restrict p,
+                       struct ShapedEnvelopeState* restrict s)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(delay_ms >= 0.0f);
@@ -326,18 +345,27 @@ void ShapedEnvelopeInitialise(float sampling_frequency, float delay_ms, float at
 	p->shapes[0] = attack_shape;
 	p->shapes[1] = decay_shape;
 
-	ShapedEnvelopeInitialiseState(s);
+	ShapedEnvelopeSetState(state_state, s);
 }
 
-void ShapedEnvelopeInitialiseState(struct ShapedEnvelopeState* restrict s)
+void ShapedEnvelopeSetState(enum StateState state_state, struct ShapedEnvelopeState* restrict s)
 {
-	s->x = 0;
-	s->y = 0.0f;
-	s->stage = 0;
+	switch (state_state)
+	{
+	case STATE_START:
+		s->x = 0;
+		s->y = 0.0f;
+		s->stage = 0;
+		break;
+	case STATE_DEAD:
+		s->x = 0;
+		s->y = 0.0f;
+		s->stage = 3;
+	}
 }
 
 
-void NoiseInitialise(uint32_t seed, struct NoiseState* s)
+void NoiseSet(uint32_t seed, struct NoiseState* s)
 {
 	assert(seed != 0);
 	s->x = seed;
@@ -369,8 +397,8 @@ static float sCos(float x)
 }
 
 
-void FilterInitialise(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance,
-                      struct FilterProgram* restrict p, struct FilterState* restrict s)
+void FilterSet(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance,
+               struct FilterProgram* restrict p, struct FilterState* restrict s)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(cutoff >= 0.0f);
@@ -473,10 +501,10 @@ void FilterInitialise(float sampling_frequency, enum Filter12dbType type, float 
 	p->c[A1] = -p->c[A1];
 	p->c[A2] = -p->c[A2];
 
-	FilterInitialiseState(s);
+	FilterSetState(s);
 }
 
-void FilterInitialiseState(struct FilterState* restrict s)
+void FilterSetState(struct FilterState* restrict s)
 {
 	s->s[0] = 0.0f;
 	s->s[1] = 0.0f;
@@ -485,9 +513,9 @@ void FilterInitialiseState(struct FilterState* restrict s)
 }
 
 
-void SquareX6Initialise(float sampling_frequency, float amplitude, float frequency1, float frequency2, float frequency3,
-                        float frequency4, float frequency5, float frequency6, struct SquareX6Program* restrict p,
-                        struct SquareX6State* restrict s)
+void SquareX6Set(float sampling_frequency, float amplitude, float frequency1, float frequency2, float frequency3,
+                 float frequency4, float frequency5, float frequency6, struct SquareX6Program* restrict p,
+                 struct SquareX6State* restrict s)
 {
 	p->step[0] = (int32_t)((frequency1 / sampling_frequency) * (float)(MASK));
 	p->step[1] = (int32_t)((frequency2 / sampling_frequency) * (float)(MASK));
@@ -498,10 +526,10 @@ void SquareX6Initialise(float sampling_frequency, float amplitude, float frequen
 
 	p->amplitude = (1.0f / 6.0f) * amplitude;
 
-	SquareX6InitialiseState(s);
+	SquareX6SetState(s);
 }
 
-void SquareX6InitialiseState(struct SquareX6State* restrict s)
+void SquareX6SetState(struct SquareX6State* restrict s)
 {
 	if (0)
 	{
@@ -539,18 +567,19 @@ static int sEqual(float a, float b)
 #endif
 
 
-void KickInitialise(float sampling_frequency, struct KickProgram* restrict p, struct KickState* restrict s)
+void KickSet(enum StateState state_state, float sampling_frequency, struct KickProgram* restrict p,
+             struct KickState* restrict s)
 {
-	ShapedEnvelopeInitialise(sampling_frequency, 0.0f, 1.13f, 2.58f - 1.13f, -0.4f, 0.2f, &p->env, &s->env);
-	OscillatorInitialise(sampling_frequency, 60.0f, 270.0f, 2.58f, 0.7f, 0.0f, &p->osc[0], &s->osc[0]);
-	OscillatorInitialise(sampling_frequency, 120.0f, 65.0f, 2.58f, 0.3f, 0.0f, &p->osc[1], &s->osc[1]);
+	ShapedEnvelopeSet(state_state, sampling_frequency, 0.0f, 1.13f, 2.58f - 1.13f, -0.4f, 0.2f, &p->env, &s->env);
+	OscillatorSet(state_state, sampling_frequency, 60.0f, 270.0f, 2.58f, 0.7f, 0.0f, &p->osc[0], &s->osc[0]);
+	OscillatorSet(state_state, sampling_frequency, 120.0f, 65.0f, 2.58f, 0.3f, 0.0f, &p->osc[1], &s->osc[1]);
 }
 
-void KickInitialiseState(float sampling_frequency, struct KickState* restrict s)
+void KickSetState(enum StateState state_state, float sampling_frequency, struct KickState* restrict s)
 {
-	ShapedEnvelopeInitialiseState(&s->env);
-	OscillatorInitialiseState(sampling_frequency, 60.0f, 2.58f, 0.7f, &s->osc[0]);
-	OscillatorInitialiseState(sampling_frequency, 120.0f, 2.58f, 0.3f, &s->osc[1]);
+	ShapedEnvelopeSetState(state_state, &s->env);
+	OscillatorSetState(state_state, sampling_frequency, 60.0f, 2.58f, 0.7f, &s->osc[0]);
+	OscillatorSetState(state_state, sampling_frequency, 120.0f, 2.58f, 0.3f, &s->osc[1]);
 }
 
 static float sKickStep(const struct KickProgram* restrict p, struct KickState* restrict s)
@@ -576,22 +605,23 @@ void RenderAdditiveKick(const struct KickProgram* restrict p, struct KickState* 
 }
 
 
-void SnareInitialise(float sampling_frequency, struct SnareProgram* restrict p, struct SnareState* restrict s)
+void SnareSet(enum StateState state_state, float sampling_frequency, struct SnareProgram* restrict p,
+              struct SnareState* restrict s)
 {
-	OscillatorInitialise(sampling_frequency, 310.0f, 140.0f, 1.0f, 0.6f, -12.0f, &p->osc, &s->osc);
-	NoiseInitialise(666, &s->noise);
-	EnvelopeInitialise(sampling_frequency, 0.0f, 2.0f, 60.0f, 0.05f, 50.0f, 4.0f, &p->env, &s->env);
-	FilterInitialise(sampling_frequency, HIGHPASS_12DB, 3500.0f, 0.6f, &p->filter[0], &s->filter[0]);
-	FilterInitialise(sampling_frequency, RC_LOWPASS_6DB, 500.0f, 0.0f, &p->filter[1], &s->filter[1]);
+	OscillatorSet(state_state, sampling_frequency, 310.0f, 140.0f, 1.0f, 0.6f, -12.0f, &p->osc, &s->osc);
+	NoiseSet(666, &s->noise);
+	EnvelopeSet(state_state, sampling_frequency, 0.0f, 2.0f, 60.0f, 0.05f, 50.0f, 4.0f, &p->env, &s->env);
+	FilterSet(sampling_frequency, HIGHPASS_12DB, 3500.0f, 0.6f, &p->filter[0], &s->filter[0]);
+	FilterSet(sampling_frequency, RC_LOWPASS_6DB, 500.0f, 0.0f, &p->filter[1], &s->filter[1]);
 }
 
-void SnareInitialiseState(float sampling_frequency, struct SnareState* restrict s)
+void SnareSetState(enum StateState state_state, float sampling_frequency, struct SnareState* restrict s)
 {
-	OscillatorInitialiseState(sampling_frequency, 310.0f, 1.0f, 0.6f, &s->osc);
-	NoiseInitialise(666, &s->noise);
-	EnvelopeInitialiseState(&s->env);
-	FilterInitialiseState(&s->filter[0]);
-	FilterInitialiseState(&s->filter[1]);
+	OscillatorSetState(state_state, sampling_frequency, 310.0f, 1.0f, 0.6f, &s->osc);
+	NoiseSet(666, &s->noise);
+	EnvelopeSetState(state_state, &s->env);
+	FilterSetState(&s->filter[0]);
+	FilterSetState(&s->filter[1]);
 }
 
 static float sSnareStep(const struct SnareProgram* restrict p, struct SnareState* restrict s)
@@ -603,8 +633,7 @@ static float sSnareStep(const struct SnareProgram* restrict p, struct SnareState
 	return signal;
 }
 
-void RenderSnare(const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out,
-                 const float* out_end)
+void RenderSnare(const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out, const float* out_end)
 {
 	for (float* sample = out; sample < out_end; sample += 1)
 		*sample = sSnareStep(p, s);
@@ -618,8 +647,8 @@ void RenderAdditiveSnare(const struct SnareProgram* restrict p, struct SnareStat
 }
 
 
-void HatInitialise(float sampling_frequency, enum HatType type, struct HatProgram* restrict p,
-                   struct HatState* restrict s)
+void HatSet(enum StateState state_state, float sampling_frequency, enum HatType type, struct HatProgram* restrict p,
+            struct HatState* restrict s)
 {
 	const float magic_normalisation1 = 13.043748f; // Obtained in [b]
 	float short_length = 500.0f;
@@ -639,38 +668,39 @@ void HatInitialise(float sampling_frequency, enum HatType type, struct HatProgra
 		p->noise_gain = 0.0f;
 	}
 
-	SquareX6Initialise(sampling_frequency, magic_normalisation1, 684.35f, 511.97f, 305.88f, 420.2f, 271.14f, 201.23f,
-	                   &p->sqr, &s->sqr);
+	SquareX6Set(sampling_frequency, magic_normalisation1, 684.35f, 511.97f, 305.88f, 420.2f, 271.14f, 201.23f, &p->sqr,
+	            &s->sqr);
 
-	FilterInitialise(sampling_frequency, BANDPASS_12DB, 7100.0f, 2.5f, &p->bp[0], &s->bp[0]);
-	FilterInitialise(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.125f, &p->bp[1],
-	                 &s->bp[1]); // Resonance makes an hammer/anvil "clink" at the start
-	                             // 0.125 = a lot
-	                             // 0.5   = nothing (hat sounds more air-y)
+	FilterSet(sampling_frequency, BANDPASS_12DB, 7100.0f, 2.5f, &p->bp[0], &s->bp[0]);
+	FilterSet(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.125f, &p->bp[1],
+	          &s->bp[1]); // Resonance makes an hammer/anvil "clink" at the start
+	                      // 0.125 = a lot
+	                      // 0.5   = nothing (hat sounds more air-y)
 
-	ShapedEnvelopeInitialise(sampling_frequency, 0.0f, 1.0f, 1500.0f, 0.4f, 0.4f, &p->env_long, &s->env_long);
-	EnvelopeInitialise(sampling_frequency, 0.0f, 1.0f, 0.0f, 1.0f, short_length, 1.0f, &p->env_short, &s->env_short);
+	ShapedEnvelopeSet(state_state, sampling_frequency, 0.0f, 1.0f, 1500.0f, 0.4f, 0.4f, &p->env_long, &s->env_long);
+	EnvelopeSet(state_state, sampling_frequency, 0.0f, 1.0f, 0.0f, 1.0f, short_length, 1.0f, &p->env_short,
+	            &s->env_short);
 
-	FilterInitialise(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, &p->hp, &s->hp);
-	FilterInitialise(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, &p->lp, &s->lp);
+	FilterSet(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, &p->hp, &s->hp);
+	FilterSet(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, &p->lp, &s->lp);
 
-	NoiseInitialise(444, &s->noise);
+	NoiseSet(444, &s->noise);
 }
 
-void HatInitialiseState(struct HatState* restrict s)
+void HatSetState(enum StateState state_state, struct HatState* restrict s)
 {
-	SquareX6InitialiseState(&s->sqr);
+	SquareX6SetState(&s->sqr);
 
-	FilterInitialiseState(&s->bp[0]);
-	FilterInitialiseState(&s->bp[1]);
+	FilterSetState(&s->bp[0]);
+	FilterSetState(&s->bp[1]);
 
-	ShapedEnvelopeInitialiseState(&s->env_long);
-	EnvelopeInitialiseState(&s->env_short);
+	ShapedEnvelopeSetState(state_state, &s->env_long);
+	EnvelopeSetState(state_state, &s->env_short);
 
-	FilterInitialiseState(&s->hp);
-	FilterInitialiseState(&s->lp);
+	FilterSetState(&s->hp);
+	FilterSetState(&s->lp);
 
-	NoiseInitialise(444, &s->noise);
+	NoiseSet(444, &s->noise);
 }
 
 void RenderHat(const struct HatProgram* restrict p, struct HatState* restrict s, float* out, const float* out_end)

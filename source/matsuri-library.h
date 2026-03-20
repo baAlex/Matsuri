@@ -16,6 +16,13 @@ defined by the Mozilla Public License, v. 2.0.
 #include <stdint.h>
 
 
+enum StateState
+{
+	STATE_START,
+	STATE_DEAD // Completely dead, not a soft release
+};
+
+
 struct OscillatorProgram
 {
 	float zeta;
@@ -32,10 +39,10 @@ struct OscillatorState
 	float sweep;
 };
 
-void OscillatorInitialise(float sampling_frequency, float frequency, float decay_ms, float delay_ms, float amplitude,
-                          float sweep_factor, struct OscillatorProgram* p, struct OscillatorState* s);
-void OscillatorInitialiseState(float sampling_frequency, float frequency, float delay_ms, float amplitude,
-                               struct OscillatorState* s);
+void OscillatorSet(enum StateState, float sampling_frequency, float frequency, float decay_ms, float delay_ms,
+                   float amplitude, float sweep_factor, struct OscillatorProgram* p, struct OscillatorState* s);
+void OscillatorSetState(enum StateState, float sampling_frequency, float frequency, float delay_ms, float amplitude,
+                        struct OscillatorState* s);
 float OscillatorStep(const struct OscillatorProgram* p, struct OscillatorState* s);
 
 
@@ -52,9 +59,9 @@ struct EnvelopeState
 	uint8_t stage;
 };
 
-void EnvelopeInitialise(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms, float sustain,
-                        float decay2_ms, float amplitude, struct EnvelopeProgram* p, struct EnvelopeState* s);
-void EnvelopeInitialiseState(struct EnvelopeState* s);
+void EnvelopeSet(enum StateState, float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
+                 float sustain, float decay2_ms, float amplitude, struct EnvelopeProgram* p, struct EnvelopeState* s);
+void EnvelopeSetState(enum StateState, struct EnvelopeState* s);
 float EnvelopeStep(const struct EnvelopeProgram* p, struct EnvelopeState* s);
 
 
@@ -72,10 +79,10 @@ struct ShapedEnvelopeState
 	uint8_t stage;
 };
 
-void ShapedEnvelopeInitialise(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
-                              float attack_shape, float decay_shape, struct ShapedEnvelopeProgram* p,
-                              struct ShapedEnvelopeState* s);
-void ShapedEnvelopeInitialiseState(struct ShapedEnvelopeState* s);
+void ShapedEnvelopeSet(enum StateState, float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
+                       float attack_shape, float decay_shape, struct ShapedEnvelopeProgram* p,
+                       struct ShapedEnvelopeState* s);
+void ShapedEnvelopeSetState(enum StateState, struct ShapedEnvelopeState* s);
 float ShapedEnvelopeStep(const struct ShapedEnvelopeProgram* p, struct ShapedEnvelopeState* s);
 
 
@@ -84,7 +91,7 @@ struct NoiseState
 	uint32_t x;
 };
 
-void NoiseInitialise(uint32_t seed, struct NoiseState* s);
+void NoiseSet(uint32_t seed, struct NoiseState* s);
 float NoiseStep(struct NoiseState* s);
 
 
@@ -109,9 +116,9 @@ enum Filter12dbType
 	RC_LOWPASS_12DB
 };
 
-void FilterInitialise(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance,
-                      struct FilterProgram* p, struct FilterState* s);
-void FilterInitialiseState(struct FilterState* s);
+void FilterSet(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance,
+               struct FilterProgram* p, struct FilterState* s);
+void FilterSetState(struct FilterState* s);
 float FilterStep(float x, const struct FilterProgram* p, struct FilterState* s);
 
 
@@ -126,10 +133,10 @@ struct SquareX6State
 	int32_t phase[6];
 };
 
-void SquareX6Initialise(float sampling_frequency, float amplitude, float frequency1, float frequency2, float frequency3,
-                        float frequency4, float frequency5, float frequency6, struct SquareX6Program* p,
-                        struct SquareX6State* s);
-void SquareX6InitialiseState(struct SquareX6State* s);
+void SquareX6Set(float sampling_frequency, float amplitude, float frequency1, float frequency2, float frequency3,
+                 float frequency4, float frequency5, float frequency6, struct SquareX6Program* p,
+                 struct SquareX6State* s);
+void SquareX6SetState(struct SquareX6State* s);
 float SquareX6Step(const struct SquareX6Program* p, struct SquareX6State* s);
 
 
@@ -149,8 +156,8 @@ struct KickState
 	struct OscillatorState osc[2];
 };
 
-void KickInitialise(float sampling_frequency, struct KickProgram* p, struct KickState* s);
-void KickInitialiseState(float sampling_frequency, struct KickState* s);
+void KickSet(enum StateState, float sampling_frequency, struct KickProgram* p, struct KickState* s);
+void KickSetState(enum StateState, float sampling_frequency, struct KickState* s);
 void RenderKick(const struct KickProgram* p, struct KickState* s, float* out, const float* out_end);
 void RenderAdditiveKick(const struct KickProgram* p, struct KickState* s, float* out, const float* out_end);
 
@@ -170,8 +177,8 @@ struct SnareState
 	struct FilterState filter[2];
 };
 
-void SnareInitialise(float sampling_frequency, struct SnareProgram* p, struct SnareState* s);
-void SnareInitialiseState(float sampling_frequency, struct SnareState* s);
+void SnareSet(enum StateState, float sampling_frequency, struct SnareProgram* p, struct SnareState* s);
+void SnareSetState(enum StateState, float sampling_frequency, struct SnareState* s);
 void RenderSnare(const struct SnareProgram* p, struct SnareState* s, float* out, const float* out_end);
 void RenderAdditiveSnare(const struct SnareProgram* p, struct SnareState* s, float* out, const float* out_end);
 
@@ -181,10 +188,10 @@ struct HatProgram
 	struct SquareX6Program sqr;
 
 	struct FilterProgram bp[2]; // Bandpass is asymmetrical, 24 of highpass, 12 of lowpass,
-	                             // shared between all hats and cymbal
+	                            // shared between all hats and cymbal
 
 	struct ShapedEnvelopeProgram env_long; // Envelope has a weird shape emulated here by using two of them,
-	                                        // also, while both are exponential, one is more "lineal" than
+	                                       // also, while both are exponential, one is more "lineal" than
 	struct EnvelopeProgram env_short;      // the other, that's why the different types
 
 	struct FilterProgram hp; // For noise added by distorting
@@ -217,8 +224,8 @@ enum HatType
 	CLOSED_HAT
 };
 
-void HatInitialise(float sampling_frequency, enum HatType type, struct HatProgram* p, struct HatState* s);
-void HatInitialiseState(struct HatState* s);
+void HatSet(enum StateState, float sampling_frequency, enum HatType type, struct HatProgram* p, struct HatState* s);
+void HatSetState(enum StateState, struct HatState* s);
 void RenderHat(const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
 void RenderAdditiveHat(const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
 
