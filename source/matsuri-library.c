@@ -34,7 +34,7 @@ defined by the Mozilla Public License, v. 2.0.
 #define NOISE_SCALE 1.1920929e-7f       // 1 / ((2 ^ 24) / 2)
 
 
-float OscillatorStep(const struct OscillatorSettings* restrict p, struct OscillatorState* restrict s)
+float OscillatorStep(const struct OscillatorProgram* restrict p, struct OscillatorState* restrict s)
 {
 	const int go = (s->delay < 0) ? 1 : 0;
 
@@ -48,7 +48,7 @@ float OscillatorStep(const struct OscillatorSettings* restrict p, struct Oscilla
 }
 
 
-float EnvelopeStep(const struct EnvelopeSettings* restrict p, struct EnvelopeState* restrict s)
+float EnvelopeStep(const struct EnvelopeProgram* restrict p, struct EnvelopeState* restrict s)
 {
 	const uint32_t stage = s->stage; // Compiler wants these to be loaded in a
 	const uint32_t x = s->x;         // register in order to emit a CMOV
@@ -89,7 +89,7 @@ static float sEasing(float x, float f)
 	return (x - f * x) / (f - 2.0f * f * sAbs(x) + 1.0f);
 }
 
-float ShapedEnvelopeStep(const struct ShapedEnvelopeSettings* restrict p, struct ShapedEnvelopeState* restrict s)
+float ShapedEnvelopeStep(const struct ShapedEnvelopeProgram* restrict p, struct ShapedEnvelopeState* restrict s)
 {
 	const uint32_t stage = s->stage;
 	const uint32_t x = s->x;
@@ -128,7 +128,7 @@ float NoiseStep(struct NoiseState* restrict s)
 #define B2 X2
 #define A2 Y2
 
-float FilterStep(float x, const struct FilterSettings* restrict p, struct FilterState* restrict s)
+float FilterStep(float x, const struct FilterProgram* restrict p, struct FilterState* restrict s)
 {
 	const float y = (p->c_b0 * x)                                   //
 	                + (p->c[B1] * s->s[X1]) + (p->c[B2] * s->s[X2]) // [a]
@@ -146,7 +146,7 @@ float FilterStep(float x, const struct FilterSettings* restrict p, struct Filter
 #define MASK 16777215 // ((1 << PRECISION) - 1) (for PRECISION = 24)
 #define SHIFT 22      // (PRECISION - 2)        (for PRECISION = 24)
 
-float SquareX6Step(const struct SquareX6Settings* restrict p, struct SquareX6State* restrict s)
+float SquareX6Step(const struct SquareX6Program* restrict p, struct SquareX6State* restrict s)
 {
 	s->phase[0] = (s->phase[0] + p->step[0]) & MASK;
 	s->phase[1] = (s->phase[1] + p->step[1]) & MASK;
@@ -241,7 +241,7 @@ static float sSemitoneDetune(float x)
 
 
 void OscillatorInitialise(float sampling_frequency, float frequency, float decay_ms, float delay_ms, float amplitude,
-                          float sweep_factor, struct OscillatorSettings* restrict p, struct OscillatorState* restrict s)
+                          float sweep_factor, struct OscillatorProgram* restrict p, struct OscillatorState* restrict s)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(frequency >= 0.0f);
@@ -275,7 +275,7 @@ void OscillatorInitialiseState(float sampling_frequency, float frequency, float 
 
 
 void EnvelopeInitialise(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms, float sustain,
-                        float decay2_ms, float amplitude, struct EnvelopeSettings* restrict p,
+                        float decay2_ms, float amplitude, struct EnvelopeProgram* restrict p,
                         struct EnvelopeState* restrict s)
 {
 	assert(sampling_frequency >= 0.0f);
@@ -305,7 +305,7 @@ void EnvelopeInitialiseState(struct EnvelopeState* restrict s)
 
 
 void ShapedEnvelopeInitialise(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
-                              float attack_shape, float decay_shape, struct ShapedEnvelopeSettings* restrict p,
+                              float attack_shape, float decay_shape, struct ShapedEnvelopeProgram* restrict p,
                               struct ShapedEnvelopeState* restrict s)
 {
 	assert(sampling_frequency >= 0.0f);
@@ -370,7 +370,7 @@ static float sCos(float x)
 
 
 void FilterInitialise(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance,
-                      struct FilterSettings* restrict p, struct FilterState* restrict s)
+                      struct FilterProgram* restrict p, struct FilterState* restrict s)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(cutoff >= 0.0f);
@@ -486,7 +486,7 @@ void FilterInitialiseState(struct FilterState* restrict s)
 
 
 void SquareX6Initialise(float sampling_frequency, float amplitude, float frequency1, float frequency2, float frequency3,
-                        float frequency4, float frequency5, float frequency6, struct SquareX6Settings* restrict p,
+                        float frequency4, float frequency5, float frequency6, struct SquareX6Program* restrict p,
                         struct SquareX6State* restrict s)
 {
 	p->step[0] = (int32_t)((frequency1 / sampling_frequency) * (float)(MASK));
@@ -539,7 +539,7 @@ static int sEqual(float a, float b)
 #endif
 
 
-void KickInitialise(float sampling_frequency, struct KickSettings* restrict p, struct KickState* restrict s)
+void KickInitialise(float sampling_frequency, struct KickProgram* restrict p, struct KickState* restrict s)
 {
 	ShapedEnvelopeInitialise(sampling_frequency, 0.0f, 1.13f, 2.58f - 1.13f, -0.4f, 0.2f, &p->env, &s->env);
 	OscillatorInitialise(sampling_frequency, 60.0f, 270.0f, 2.58f, 0.7f, 0.0f, &p->osc[0], &s->osc[0]);
@@ -553,7 +553,7 @@ void KickInitialiseState(float sampling_frequency, struct KickState* restrict s)
 	OscillatorInitialiseState(sampling_frequency, 120.0f, 2.58f, 0.3f, &s->osc[1]);
 }
 
-static float sKickStep(const struct KickSettings* restrict p, struct KickState* restrict s)
+static float sKickStep(const struct KickProgram* restrict p, struct KickState* restrict s)
 {
 	float signal = -ShapedEnvelopeStep(&p->env, &s->env); // Initial click
 	signal += OscillatorStep(&p->osc[0], &s->osc[0]);
@@ -562,13 +562,13 @@ static float sKickStep(const struct KickSettings* restrict p, struct KickState* 
 	return signal;
 }
 
-void RenderKick(const struct KickSettings* restrict p, struct KickState* restrict s, float* out, const float* out_end)
+void RenderKick(const struct KickProgram* restrict p, struct KickState* restrict s, float* out, const float* out_end)
 {
 	for (float* sample = out; sample < out_end; sample += 1)
 		*sample = sKickStep(p, s);
 }
 
-void RenderAdditiveKick(const struct KickSettings* restrict p, struct KickState* restrict s, float* out,
+void RenderAdditiveKick(const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
                         const float* out_end)
 {
 	for (float* sample = out; sample < out_end; sample += 1)
@@ -576,7 +576,7 @@ void RenderAdditiveKick(const struct KickSettings* restrict p, struct KickState*
 }
 
 
-void SnareInitialise(float sampling_frequency, struct SnareSettings* restrict p, struct SnareState* restrict s)
+void SnareInitialise(float sampling_frequency, struct SnareProgram* restrict p, struct SnareState* restrict s)
 {
 	OscillatorInitialise(sampling_frequency, 310.0f, 140.0f, 1.0f, 0.6f, -12.0f, &p->osc, &s->osc);
 	NoiseInitialise(666, &s->noise);
@@ -594,7 +594,7 @@ void SnareInitialiseState(float sampling_frequency, struct SnareState* restrict 
 	FilterInitialiseState(&s->filter[1]);
 }
 
-static float sSnareStep(const struct SnareSettings* restrict p, struct SnareState* restrict s)
+static float sSnareStep(const struct SnareProgram* restrict p, struct SnareState* restrict s)
 {
 	float signal = OscillatorStep(&p->osc, &s->osc);
 	const float noise = NoiseStep(&s->noise) * EnvelopeStep(&p->env, &s->env);
@@ -603,14 +603,14 @@ static float sSnareStep(const struct SnareSettings* restrict p, struct SnareStat
 	return signal;
 }
 
-void RenderSnare(const struct SnareSettings* restrict p, struct SnareState* restrict s, float* out,
+void RenderSnare(const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out,
                  const float* out_end)
 {
 	for (float* sample = out; sample < out_end; sample += 1)
 		*sample = sSnareStep(p, s);
 }
 
-void RenderAdditiveSnare(const struct SnareSettings* restrict p, struct SnareState* restrict s, float* out,
+void RenderAdditiveSnare(const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out,
                          const float* out_end)
 {
 	for (float* sample = out; sample < out_end; sample += 1)
@@ -618,7 +618,7 @@ void RenderAdditiveSnare(const struct SnareSettings* restrict p, struct SnareSta
 }
 
 
-void HatInitialise(float sampling_frequency, enum HatType type, struct HatSettings* restrict p,
+void HatInitialise(float sampling_frequency, enum HatType type, struct HatProgram* restrict p,
                    struct HatState* restrict s)
 {
 	const float magic_normalisation1 = 13.043748f; // Obtained in [b]
@@ -673,7 +673,7 @@ void HatInitialiseState(struct HatState* restrict s)
 	NoiseInitialise(444, &s->noise);
 }
 
-void RenderHat(const struct HatSettings* restrict p, struct HatState* restrict s, float* out, const float* out_end)
+void RenderHat(const struct HatProgram* restrict p, struct HatState* restrict s, float* out, const float* out_end)
 {
 #ifndef NDEBUG
 	float max_level = 0.0f;
@@ -738,7 +738,7 @@ void RenderHat(const struct HatSettings* restrict p, struct HatState* restrict s
 	}
 }
 
-void RenderAdditiveHat(const struct HatSettings* restrict p, struct HatState* restrict s, float* out,
+void RenderAdditiveHat(const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
                        const float* out_end)
 {
 	float signal;

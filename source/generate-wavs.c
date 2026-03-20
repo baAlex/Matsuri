@@ -75,7 +75,7 @@ int main(void)
 {
 	if (1)
 	{
-		struct KickSettings p;
+		struct KickProgram p;
 		struct KickState s;
 
 		KickInitialise((float)(FREQUENCY), &p, &s);
@@ -87,7 +87,7 @@ int main(void)
 
 	if (1)
 	{
-		struct SnareSettings p;
+		struct SnareProgram p;
 		struct SnareState s;
 
 		SnareInitialise((float)(FREQUENCY), &p, &s);
@@ -99,7 +99,7 @@ int main(void)
 
 	if (1)
 	{
-		struct HatSettings p;
+		struct HatProgram p;
 		struct HatState s;
 
 		HatInitialise((float)(FREQUENCY), OPEN_HAT, &p, &s);
@@ -111,7 +111,7 @@ int main(void)
 
 	if (1)
 	{
-		struct HatSettings p;
+		struct HatProgram p;
 		struct HatState s;
 
 		HatInitialise((float)(FREQUENCY), CLOSED_HAT, &p, &s);

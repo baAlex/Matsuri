@@ -19,13 +19,13 @@ defined by the Mozilla Public License, v. 2.0.
 static float s_buffer[BUFFER_LEN];
 
 static float s_sampling_frequency;
-static struct KickSettings s_kick_p;
+static struct KickProgram s_kick_p;
 static struct KickState s_kick_s;
-static struct SnareSettings s_snare_p;
+static struct SnareProgram s_snare_p;
 static struct SnareState s_snare_s;
-static struct HatSettings s_closed_hat_p;
+static struct HatProgram s_closed_hat_p;
 static struct HatState s_closed_hat_s;
-static struct HatSettings s_open_hat_p;
+static struct HatProgram s_open_hat_p;
 static struct HatState s_open_hat_s;
 
 
