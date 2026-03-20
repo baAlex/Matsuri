@@ -152,6 +152,7 @@ struct KickState
 void KickInitialise(float sampling_frequency, struct KickSettings* p, struct KickState* s);
 void KickInitialiseState(float sampling_frequency, struct KickState* s);
 void RenderKick(const struct KickSettings* p, struct KickState* s, float* out, const float* out_end);
+void RenderAdditiveKick(const struct KickSettings* p, struct KickState* s, float* out, const float* out_end);
 
 
 struct SnareSettings
@@ -172,6 +173,7 @@ struct SnareState
 void SnareInitialise(float sampling_frequency, struct SnareSettings* p, struct SnareState* s);
 void SnareInitialiseState(float sampling_frequency, struct SnareState* s);
 void RenderSnare(const struct SnareSettings* p, struct SnareState* s, float* out, const float* out_end);
+void RenderAdditiveSnare(const struct SnareSettings* p, struct SnareState* s, float* out, const float* out_end);
 
 
 struct HatSettings
@@ -218,5 +220,6 @@ enum HatType
 void HatInitialise(float sampling_frequency, enum HatType type, struct HatSettings* p, struct HatState* s);
 void HatInitialiseState(struct HatState* s);
 void RenderHat(const struct HatSettings* p, struct HatState* s, float* out, const float* out_end);
+void RenderAdditiveHat(const struct HatSettings* p, struct HatState* s, float* out, const float* out_end);
 
 #endif

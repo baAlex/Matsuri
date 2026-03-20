@@ -18,8 +18,16 @@ defined by the Mozilla Public License, v. 2.0.
 #define BUFFER_LEN (44100 * 10)
 static float s_buffer[BUFFER_LEN];
 
-static struct SquareX6Settings s_p;
-static struct SquareX6State s_s;
+static float s_sampling_frequency;
+static struct KickSettings s_kick_p;
+static struct KickState s_kick_s;
+static struct SnareSettings s_snare_p;
+static struct SnareState s_snare_s;
+static struct HatSettings s_closed_hat_p;
+static struct HatState s_closed_hat_s;
+static struct HatSettings s_open_hat_p;
+static struct HatState s_open_hat_s;
+
 
 static uint32_t sMin(uint32_t a, uint32_t b)
 {
@@ -27,9 +35,29 @@ static uint32_t sMin(uint32_t a, uint32_t b)
 }
 
 
-void Initialise(float sampling_frequency)
+const float* Initialise(float sampling_frequency)
 {
-	SquareX6Initialise(sampling_frequency, 1.0f, 684.35f, 511.97f, 305.88f, 420.2f, 271.14f, 201.23f, &s_p, &s_s);
+	s_sampling_frequency = sampling_frequency;
+
+	KickInitialise(sampling_frequency, &s_kick_p, &s_kick_s);
+	SnareInitialise(sampling_frequency, &s_snare_p, &s_snare_s);
+	HatInitialise(sampling_frequency, CLOSED_HAT, &s_closed_hat_p, &s_closed_hat_s);
+	HatInitialise(sampling_frequency, OPEN_HAT, &s_open_hat_p, &s_open_hat_s);
+
+	return s_buffer;
+}
+
+const float* KeyOn(int key_no)
+{
+	switch (key_no)
+	{
+	default: KickInitialiseState(s_sampling_frequency, &s_kick_s); break;
+	case 1: SnareInitialiseState(s_sampling_frequency, &s_snare_s); break;
+	case 2: HatInitialiseState(&s_closed_hat_s); break;
+	case 3: HatInitialiseState(&s_open_hat_s); break;
+	}
+
+	return s_buffer;
 }
 
 const float* Render(uint32_t samples)
@@ -37,10 +65,10 @@ const float* Render(uint32_t samples)
 	if (samples > BUFFER_LEN)
 		return NULL;
 
-	for (float* sample = s_buffer; sample < s_buffer + sMin(BUFFER_LEN, samples); sample += 1)
-	{
-		*sample = SquareX6Step(&s_p, &s_s);
-	}
+	RenderKick(&s_kick_p, &s_kick_s, s_buffer, s_buffer + sMin(BUFFER_LEN, samples));
+	RenderAdditiveSnare(&s_snare_p, &s_snare_s, s_buffer, s_buffer + sMin(BUFFER_LEN, samples));
+	RenderAdditiveHat(&s_closed_hat_p, &s_closed_hat_s, s_buffer, s_buffer + sMin(BUFFER_LEN, samples));
+	RenderAdditiveHat(&s_open_hat_p, &s_open_hat_s, s_buffer, s_buffer + sMin(BUFFER_LEN, samples));
 
 	return s_buffer;
 }

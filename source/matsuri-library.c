@@ -387,8 +387,8 @@ void FilterInitialise(float sampling_frequency, enum Filter12dbType type, float 
 
 	switch (type)
 	{
-		// It's better to emulate 6db filters. It keeps the same API
-		// The Step() function is mostly the same (one multiplication,
+		// It's better to emulate 6db filters. It keeps the same API.
+		// Step() function is mostly the same (one multiplication,
 		// a shuffle, and a horizontal addition, just using packed
 		// floats rather than single floats). And it's less code.
 		// Only con is that it uses more coefficients
@@ -514,7 +514,7 @@ void SquareX6InitialiseState(struct SquareX6State* restrict s)
 	}
 	else
 	{
-		// Closed hat sound more natural, less clicky, which makes sense,
+		// Closed hat sounds more natural, less clicky, which makes sense,
 		// they are all in phase. That said real world 606 doesn't reset
 		// phase or anything, its square oscillators are always running
 		s->phase[0] = 0;
@@ -553,14 +553,26 @@ void KickInitialiseState(float sampling_frequency, struct KickState* restrict s)
 	OscillatorInitialiseState(sampling_frequency, 120.0f, 2.58f, 0.3f, &s->osc[1]);
 }
 
+static float sKickStep(const struct KickSettings* restrict p, struct KickState* restrict s)
+{
+	float signal = -ShapedEnvelopeStep(&p->env, &s->env); // Initial click
+	signal += OscillatorStep(&p->osc[0], &s->osc[0]);
+	signal += OscillatorStep(&p->osc[1], &s->osc[1]);
+
+	return signal;
+}
+
 void RenderKick(const struct KickSettings* restrict p, struct KickState* restrict s, float* out, const float* out_end)
 {
 	for (float* sample = out; sample < out_end; sample += 1)
-	{
-		*sample = -ShapedEnvelopeStep(&p->env, &s->env); // Initial click
-		*sample += OscillatorStep(&p->osc[0], &s->osc[0]);
-		*sample += OscillatorStep(&p->osc[1], &s->osc[1]);
-	}
+		*sample = sKickStep(p, s);
+}
+
+void RenderAdditiveKick(const struct KickSettings* restrict p, struct KickState* restrict s, float* out,
+                        const float* out_end)
+{
+	for (float* sample = out; sample < out_end; sample += 1)
+		*sample += sKickStep(p, s);
 }
 
 
@@ -582,16 +594,27 @@ void SnareInitialiseState(float sampling_frequency, struct SnareState* restrict 
 	FilterInitialiseState(&s->filter[1]);
 }
 
+static float sSnareStep(const struct SnareSettings* restrict p, struct SnareState* restrict s)
+{
+	float signal = OscillatorStep(&p->osc, &s->osc);
+	const float noise = NoiseStep(&s->noise) * EnvelopeStep(&p->env, &s->env);
+	signal += FilterStep(FilterStep(noise, &p->filter[0], &s->filter[0]), &p->filter[1], &s->filter[1]);
+
+	return signal;
+}
+
 void RenderSnare(const struct SnareSettings* restrict p, struct SnareState* restrict s, float* out,
                  const float* out_end)
 {
 	for (float* sample = out; sample < out_end; sample += 1)
-	{
-		const float noise = NoiseStep(&s->noise) * EnvelopeStep(&p->env, &s->env);
+		*sample = sSnareStep(p, s);
+}
 
-		*sample = OscillatorStep(&p->osc, &s->osc);
-		*sample += FilterStep(FilterStep(noise, &p->filter[0], &s->filter[0]), &p->filter[1], &s->filter[1]);
-	}
+void RenderAdditiveSnare(const struct SnareSettings* restrict p, struct SnareState* restrict s, float* out,
+                         const float* out_end)
+{
+	for (float* sample = out; sample < out_end; sample += 1)
+		*sample += sSnareStep(p, s);
 }
 
 
@@ -712,5 +735,32 @@ void RenderHat(const struct HatSettings* restrict p, struct HatState* restrict s
 		for (float* sample = out; sample < out_end; sample += 1)
 			*sample *= (1.0f / max_level);
 #endif
+	}
+}
+
+void RenderAdditiveHat(const struct HatSettings* restrict p, struct HatState* restrict s, float* out,
+                       const float* out_end)
+{
+	float signal;
+	for (float* sample = out; sample < out_end; sample += 1)
+	{
+		// Render bandpass filtered metallic noise
+		signal = SquareX6Step(&p->sqr, &s->sqr);
+		signal = FilterStep(signal, &p->bp[0], &s->bp[0]);
+		signal = FilterStep(signal, &p->bp[1], &s->bp[1]);
+
+		// Distort, and filter noise added by it (we want low frequencies clean)
+		signal = CheapDistortion(signal, -0.6f);
+		signal = FilterStep(signal, &p->hp, &s->hp);
+
+		// Envelope it
+		signal *= ShapedEnvelopeStep(&p->env_long, &s->env_long) * p->long_gain //
+		          + EnvelopeStep(&p->env_short, &s->env_short) * p->short_gain;
+
+		// Add transient white noise
+		signal += NoiseStep(&s->noise) * EnvelopeStep(&p->env_short, &s->env_short) * p->noise_gain;
+
+		// Final filter
+		*sample += FilterStep(signal, &p->lp, &s->lp) * p->magic_normalisation2;
 	}
 }

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<title>Matsuri WASM Plugin Test Page</title>
+
+	<script>
+		async function InitialiseMatsuriNode(audio_context) {
+			// Get stuff from the internet
+			const response = await fetch("matsuri.wasm");
+			const wasm_array = await response.arrayBuffer();
+
+			// Register the code of such stuff
+			await audio_context.audioWorklet.addModule("matsuri.js");
+
+			// Create a instance of that thing, and initialise it
+			let node = new AudioWorkletNode(audio_context, "matsuri-processor");
+			node.port.postMessage({ type: "initialise", wasm_array });
+
+			return node;
+		}
+
+		let g_audio_context = null;
+		let g_matsuri_node = null;
+
+		async function Play(no) {
+			if (g_audio_context == null)
+				g_audio_context = new AudioContext();
+			if (g_matsuri_node == null) {
+				g_matsuri_node = await InitialiseMatsuriNode(g_audio_context);
+				g_matsuri_node.connect(g_audio_context.destination);
+			}
+
+			g_matsuri_node.port.postMessage({ type: "key-on", key_no: no });
+		}
+
+		document.addEventListener("keydown", (event) => {
+			if (event.repeat == false) {
+				if (event.key == "z")
+					Play(0);
+				if (event.key == "c")
+					Play(1);
+				if (event.key == "g")
+					Play(2);
+				if (event.key == "j")
+					Play(3);
+			}
+		})
+	</script>
+</head>
+
+<body>
+	Hi!
+</body>
+
+</html>
