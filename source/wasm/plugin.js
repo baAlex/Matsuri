@@ -1,57 +1,56 @@
+/*
 
-// https://developer.mozilla.org/en-US/docs/Web/API/AudioWorkletProcessor#examples
-// https://jamiebeverley.net/ramblings/RustWASMAudioWorklets.html
+MIT No Attribution
 
-class MatsuriProcessor extends AudioWorkletProcessor {
-	constructor() {
-		super();
+Copyright 2026 Alexander Brandt
 
-		this.m_wasm = null;
-		this.m_view = null;
-		this.early_events = [];
+Permission is hereby granted, free of charge, to any person obtaining a copy of this
+software and associated documentation files (the "Software"), to deal in the Software
+without restriction, including without limitation the rights to use, copy, modify,
+merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so.
 
-		this.port.onmessage = async (event) => {
-			// Initialise
-			if (event.data.type == "initialise") {
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
 
-				// Bureaucracy
-				const obj = await WebAssembly.instantiate(event.data.wasm_array);
-				this.m_wasm = obj.instance.exports;
+export const MIDI_ACOUSTIC_BASS_DRUM_KEY = 35;
+export const MIDI_BASS_DRUM_KEY = 36;
+export const MIDI_ACOUSTIC_SNARE_KEY = 38;
+export const MIDI_ELECTRIC_SNARE_KEY = 40;
+export const MIDI_CLOSED_HIT_HAT_KEY = 42;
+export const MIDI_OPEN_HIT_HAT_KEY = 46;
 
-				const pointer = this.m_wasm.Initialise(sampleRate);
-				this.m_view = new Float32Array(this.m_wasm.memory.buffer, pointer, 128);
 
-				// Queued events?
-				for (const q of this.early_events) {
-					if (q.type == "key-on")
-						this.m_wasm.KeyOn(q.key_no);
-				}
+let s_wasm_array = null;
 
-				this.early_events.length = 0;
-			}
 
-			// Key On
-			else if (event.data.type == "key-on") {
-				if (this.m_wasm == null) // Ouch...
-					this.early_events.push(event.data);
-				else
-					this.m_wasm.KeyOn(event.data.key_no);
-			}
-		};
-	}
+export async function FetchAndRegister(audio_context) {
 
-	process(inputs, outputs, parameters) {
-		if (this.m_wasm == null || this.m_view == null)
-			return true;
+	// Fetch worklet code, register it on the context
+	await audio_context.audioWorklet.addModule("./matsuri-worklet.js");
 
-		this.m_wasm.Render(this.m_view.length);
-
-		const out = outputs[0];
-		for (let ch = 0; ch < out.length; ch++)
-			out[ch].set(this.m_view);
-
-		return true;
+	// Fetch WASM blob, make it an array
+	if (s_wasm_array == null) {
+		const response = await fetch("./matsuri.wasm");
+		s_wasm_array = await response.arrayBuffer();
 	}
 }
 
-registerProcessor("matsuri-processor", MatsuriProcessor);
+export class MatsuriNode extends AudioWorkletNode {
+
+	constructor(audio_context) {
+		super(audio_context, "matsuri-processor");
+
+		// Send WASM to worklet so it can finish its initialisation there
+		this.port.postMessage({ type: "initialise", array: s_wasm_array });
+	}
+
+	keyOn(no) {
+		this.port.postMessage({ type: "key-on", key_no: no });
+	}
+}

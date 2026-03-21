@@ -53,12 +53,12 @@ void KeyOn(int key_no)
 }
 
 
-const float* Render(uint32_t samples)
+const float* Render(float amplify, uint32_t samples)
 {
 	if (samples > BUFFER_LEN)
 		return NULL;
 
-	VoiceAllocatorRender(&s_allocator, s_buffer, samples);
+	VoiceAllocatorRender(&s_allocator, amplify, samples, s_buffer);
 
 	return s_buffer;
 }

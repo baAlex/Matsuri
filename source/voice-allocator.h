@@ -82,6 +82,6 @@ void VoiceAllocatorSet(struct VoiceAllocator* allocator, float sampling_frequenc
 void VoiceAllocatorPlay(struct VoiceAllocator* allocator, enum AllocationStrategy, uint32_t id,
                         enum VoiceAllocatorVoiceType type);
 void VoiceAllocatorStop(struct VoiceAllocator* allocator, uint32_t id);
-void VoiceAllocatorRender(struct VoiceAllocator* allocator, float* out, uint32_t samples);
+void VoiceAllocatorRender(struct VoiceAllocator* allocator, float amplify, uint32_t samples, float* out);
 
 #endif

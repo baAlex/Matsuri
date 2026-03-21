@@ -51,9 +51,22 @@ if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
 	set(WASM_JS_SRC "${CMAKE_SOURCE_DIR}/source/wasm/plugin.js")
 	set(WASM_JS_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm/matsuri.js")
 
+	set(WASM_JS_WORKLET_SRC "${CMAKE_SOURCE_DIR}/source/wasm/plugin-worklet.js")
+	set(WASM_JS_WORKLET_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm/matsuri-worklet.js")
+
 	if (CMAKE_BUILD_TYPE STREQUAL "Release")
 		set(MATSURI_WASM_CFLAGS "-O3")
 	endif ()
+
+	add_custom_command(
+		OUTPUT ${WASM_OUTPUT}
+		COMMAND clang --target=wasm32 -DFREESTANDING -ffreestanding --no-standard-libraries
+		        ${MATSURI_CFLAGS} ${MATSURI_WASM_CFLAGS} -fuse-ld=lld
+		        -Wl,--entry=Initialise -Wl,--export=Initialise -Wl,--export=Render -Wl,--export=KeyOn
+		        -Wl,--strip-all -Wl,--merge-data-segments
+		        ${WASM_SOURCES} -o ${WASM_OUTPUT}
+		DEPENDS ${WASM_SOURCES}
+	)
 
 	add_custom_command(
 		OUTPUT ${WASM_TEST_PAGE_DEST}
@@ -68,18 +81,15 @@ if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
 	)
 
 	add_custom_command(
-		OUTPUT ${WASM_OUTPUT}
-		COMMAND clang --target=wasm32 -DFREESTANDING -ffreestanding --no-standard-libraries
-		        ${MATSURI_CFLAGS} ${MATSURI_WASM_CFLAGS} -fuse-ld=lld
-		        -Wl,--entry=Initialise -Wl,--export=Initialise -Wl,--export=Render -Wl,--export=KeyOn
-		        -Wl,--strip-all -Wl,--merge-data-segments
-		        ${WASM_SOURCES} -o ${WASM_OUTPUT}
-		DEPENDS ${WASM_SOURCES}
+		OUTPUT ${WASM_JS_WORKLET_DEST}
+		COMMAND ${CMAKE_COMMAND} -E copy ${WASM_JS_WORKLET_SRC} ${WASM_JS_WORKLET_DEST}
+		DEPENDS ${WASM_JS_WORKLET_SRC}
 	)
 
 	add_custom_target("wasm" ALL DEPENDS ${WASM_OUTPUT})
-	add_custom_target("wasm-js" ALL DEPENDS ${WASM_TEST_PAGE_DEST})
-	add_custom_target("wasm-test-page" ALL DEPENDS ${WASM_JS_DEST})
+	add_custom_target("wasm-test-page" ALL DEPENDS ${WASM_TEST_PAGE_DEST})
+	add_custom_target("wasm-js-node" ALL DEPENDS ${WASM_JS_DEST})
+	add_custom_target("wasm-js-worklet" ALL DEPENDS ${WASM_JS_WORKLET_DEST})
 endif()
 
 

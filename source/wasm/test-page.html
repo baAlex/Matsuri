@@ -7,57 +7,57 @@
 
 	<title>Matsuri WASM Plugin Test Page</title>
 
-	<script>
-		async function InitialiseMatsuriNode(audio_context) {
-			// Get stuff from the internet
-			const response = await fetch("matsuri.wasm");
-			const wasm_array = await response.arrayBuffer();
+	<script type="module">
+		import * as matsuri from "./matsuri.js";
 
-			// Register the code of such stuff
-			await audio_context.audioWorklet.addModule("matsuri.js");
+		let ctx = null;
+		let node = null;
 
-			// Create a instance of that thing, and initialise it
-			let node = new AudioWorkletNode(audio_context, "matsuri-processor");
-			node.port.postMessage({ type: "initialise", wasm_array });
+		async function Play(key_no) {
 
-			return node;
-		}
+			// Initialise stuff
+			if (ctx == null || node == null) {
+				ctx = new AudioContext();
+				await matsuri.FetchAndRegister(ctx);
+				node = new matsuri.MatsuriNode(ctx);
+				node.connect(ctx.destination);
 
-		let g_audio_context = null;
-		let g_matsuri_node = null;
+				//
+				const slider = document.getElementById("volume-slider");
+				const gain_p = node.parameters.get("gain");
 
-		async function Play(no) {
-			if (g_audio_context == null)
-				g_audio_context = new AudioContext();
-			if (g_matsuri_node == null) {
-				g_matsuri_node = await InitialiseMatsuriNode(g_audio_context);
-				g_matsuri_node.connect(g_audio_context.destination);
+				gain_p.setValueAtTime(parseFloat(slider.value), ctx.currentTime);
+
+				slider.addEventListener("input", () => {
+					gain_p.setValueAtTime(parseFloat(slider.value), ctx.currentTime);
+				});
 			}
 
-			g_matsuri_node.port.postMessage({ type: "key-on", key_no: no });
+			// Play!
+			node.keyOn(key_no);
 		}
 
 		document.addEventListener("keydown", (event) => {
 			if (event.repeat == false) {
 				if (event.key == "z")
-					Play(35);
+					Play(matsuri.MIDI_ACOUSTIC_BASS_DRUM_KEY);
 				if (event.key == "x")
-					Play(36);
+					Play(matsuri.MIDI_BASS_DRUM_KEY);
 				if (event.key == "c")
-					Play(38);
+					Play(matsuri.MIDI_ACOUSTIC_SNARE_KEY);
 				if (event.key == "v")
-					Play(40);
+					Play(matsuri.MIDI_ELECTRIC_SNARE_KEY);
 				if (event.key == "g")
-					Play(42);
+					Play(matsuri.MIDI_CLOSED_HIT_HAT_KEY);
 				if (event.key == "j")
-					Play(46);
+					Play(matsuri.MIDI_OPEN_HIT_HAT_KEY);
 			}
 		})
 	</script>
 </head>
 
 <body>
-	Hi!
+	<label>Volume:<input type="range" id="volume-slider" min="0" max="1" value="1.0" step="0.01" /></label>
 </body>
 
 </html>

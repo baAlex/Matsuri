@@ -166,7 +166,7 @@ void VoiceAllocatorStop(struct VoiceAllocator* self, uint32_t id)
 }
 
 
-void VoiceAllocatorRender(struct VoiceAllocator* self, float* out, uint32_t samples)
+void VoiceAllocatorRender(struct VoiceAllocator* self, float amplify, uint32_t samples, float* out)
 {
 	// Render tails
 	for (float* sample = out; sample < out + samples; sample += 1)
@@ -190,19 +190,19 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, float* out, uint32_t samp
 		{
 		case TYPE_KICK:
 			i->last_signal =
-			    RenderAdditiveKick(1.0f, &self->program.kick, &i->state.kick, out, out + samples_to_render);
+			    RenderAdditiveKick(amplify * 1.0f, &self->program.kick, &i->state.kick, out, out + samples_to_render);
 			break;
 		case TYPE_SNARE:
-			i->last_signal =
-			    RenderAdditiveSnare(1.0f, &self->program.snare, &i->state.snare, out, out + samples_to_render);
+			i->last_signal = RenderAdditiveSnare(amplify * 1.0f, &self->program.snare, &i->state.snare, out,
+			                                     out + samples_to_render);
 			break;
 		case TYPE_OPEN_HAT:
 			i->last_signal =
-			    RenderAdditiveHat(0.4f, &self->program.open_hat, &i->state.hat, out, out + samples_to_render);
+			    RenderAdditiveHat(amplify * 0.4f, &self->program.open_hat, &i->state.hat, out, out + samples_to_render);
 			break;
 		case TYPE_CLOSED_HAT:
-			i->last_signal =
-			    RenderAdditiveHat(0.2f, &self->program.closed_hat, &i->state.hat, out, out + samples_to_render);
+			i->last_signal = RenderAdditiveHat(amplify * 0.2f, &self->program.closed_hat, &i->state.hat, out,
+			                                   out + samples_to_render);
 		}
 
 		// Update item
