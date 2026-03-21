@@ -79,7 +79,7 @@ int main(void)
 		struct KickState s;
 
 		KickSet(STATE_START, (float)(FREQUENCY), &p, &s);
-		RenderKick(&p, &s, s_buffer, s_buffer + BUFFER_LEN / 4);
+		RenderKick(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN / 4);
 
 		if (sSave("new-kick.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 4) != 0)
 			return EXIT_FAILURE;
@@ -91,7 +91,7 @@ int main(void)
 		struct SnareState s;
 
 		SnareSet(STATE_START, (float)(FREQUENCY), &p, &s);
-		RenderSnare(&p, &s, s_buffer, s_buffer + BUFFER_LEN / 8);
+		RenderSnare(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN / 8);
 
 		if (sSave("new-snare.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 8) != 0)
 			return EXIT_FAILURE;
@@ -103,7 +103,7 @@ int main(void)
 		struct HatState s;
 
 		HatSet(STATE_START, (float)(FREQUENCY), OPEN_HAT, &p, &s);
-		RenderHat(&p, &s, s_buffer, s_buffer + BUFFER_LEN);
+		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
 
 		if (sSave("new-hat-open.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN) != 0)
 			return EXIT_FAILURE;
@@ -115,7 +115,7 @@ int main(void)
 		struct HatState s;
 
 		HatSet(STATE_START, (float)(FREQUENCY), CLOSED_HAT, &p, &s);
-		RenderHat(&p, &s, s_buffer, s_buffer + BUFFER_LEN / 8);
+		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN / 8);
 
 		if (sSave("new-hat-closed.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 8) != 0)
 			return EXIT_FAILURE;

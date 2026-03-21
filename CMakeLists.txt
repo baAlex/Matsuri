@@ -42,7 +42,8 @@ target_link_libraries("generate-wavs" PRIVATE "matsuri-library")
 if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
 	set(WASM_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm/matsuri.wasm")
 	set(WASM_SOURCES "${CMAKE_SOURCE_DIR}/source/wasm/plugin.c"
-	                 "${CMAKE_SOURCE_DIR}/source/matsuri-library.c")
+	                 "${CMAKE_SOURCE_DIR}/source/matsuri-library.c"
+	                 "${CMAKE_SOURCE_DIR}/source/voice-allocator.c")
 
 	set(WASM_TEST_PAGE_SRC "${CMAKE_SOURCE_DIR}/source/wasm/test-page.html")
 	set(WASM_TEST_PAGE_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm/test-page.html")

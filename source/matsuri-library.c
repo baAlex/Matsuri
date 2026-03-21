@@ -240,24 +240,21 @@ static float sSemitoneDetune(float x)
 }
 
 
-void OscillatorSet(enum StateState state_state, float sampling_frequency, float frequency, float decay_ms,
-                   float delay_ms, float amplitude, float sweep_factor, struct OscillatorProgram* restrict p,
-                   struct OscillatorState* restrict s)
+void OscillatorSetProgram(float sampling_frequency, float frequency, float decay_ms, float sweep_factor,
+                          struct OscillatorProgram* restrict p)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(frequency >= 0.0f);
 	assert(decay_ms >= 0.0f);
 
-	const float decay_frames = (decay_ms * sampling_frequency) / 1000.0f;
+	const float decay_samples = (decay_ms * sampling_frequency) / 1000.0f;
 
-	p->zeta = (1.0f - sFastNegExp((-LOG_60DB) / decay_frames)) * 2.0f;
+	p->zeta = (1.0f - sFastNegExp((-LOG_60DB) / decay_samples)) * 2.0f;
 	p->omega = (frequency / sampling_frequency) * PI_TWO;
 	p->omega = p->omega * p->omega;
 
 	p->sweep_target = sSemitoneDetune(sweep_factor);
-	p->sweep_step = 1.0f - sFastNegExp((-LOG_100_PERCENT) / decay_frames);
-
-	OscillatorSetState(state_state, sampling_frequency, frequency, delay_ms, amplitude, s);
+	p->sweep_step = 1.0f - sFastNegExp((-LOG_100_PERCENT) / decay_samples);
 }
 
 void OscillatorSetState(enum StateState state_state, float sampling_frequency, float frequency, float delay_ms,
@@ -284,9 +281,8 @@ void OscillatorSetState(enum StateState state_state, float sampling_frequency, f
 }
 
 
-void EnvelopeSet(enum StateState state_state, float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
-                 float sustain, float decay2_ms, float amplitude, struct EnvelopeProgram* restrict p,
-                 struct EnvelopeState* restrict s)
+void EnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms, float sustain,
+                        float decay2_ms, float amplitude, struct EnvelopeProgram* restrict p)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(delay_ms >= 0.0f);
@@ -302,8 +298,6 @@ void EnvelopeSet(enum StateState state_state, float sampling_frequency, float de
 	p->levels[1] = amplitude;
 	p->levels[2] = sustain * amplitude;
 	p->levels[3] = (decay2_ms <= 0.0f) ? (sustain * amplitude) : 0.0f;
-
-	EnvelopeSetState(state_state, s);
 }
 
 void EnvelopeSetState(enum StateState state_state, struct EnvelopeState* restrict s)
@@ -323,9 +317,8 @@ void EnvelopeSetState(enum StateState state_state, struct EnvelopeState* restric
 }
 
 
-void ShapedEnvelopeSet(enum StateState state_state, float sampling_frequency, float delay_ms, float attack_ms,
-                       float decay_ms, float attack_shape, float decay_shape, struct ShapedEnvelopeProgram* restrict p,
-                       struct ShapedEnvelopeState* restrict s)
+void ShapedEnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
+                              float attack_shape, float decay_shape, struct ShapedEnvelopeProgram* restrict p)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(delay_ms >= 0.0f);
@@ -344,8 +337,6 @@ void ShapedEnvelopeSet(enum StateState state_state, float sampling_frequency, fl
 
 	p->shapes[0] = attack_shape;
 	p->shapes[1] = decay_shape;
-
-	ShapedEnvelopeSetState(state_state, s);
 }
 
 void ShapedEnvelopeSetState(enum StateState state_state, struct ShapedEnvelopeState* restrict s)
@@ -397,8 +388,8 @@ static float sCos(float x)
 }
 
 
-void FilterSet(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance,
-               struct FilterProgram* restrict p, struct FilterState* restrict s)
+void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance,
+                      struct FilterProgram* restrict p)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(cutoff >= 0.0f);
@@ -500,8 +491,6 @@ void FilterSet(float sampling_frequency, enum Filter12dbType type, float cutoff,
 	// Flip, in [a] used to be subtractions
 	p->c[A1] = -p->c[A1];
 	p->c[A2] = -p->c[A2];
-
-	FilterSetState(s);
 }
 
 void FilterSetState(struct FilterState* restrict s)
@@ -513,9 +502,8 @@ void FilterSetState(struct FilterState* restrict s)
 }
 
 
-void SquareX6Set(float sampling_frequency, float amplitude, float frequency1, float frequency2, float frequency3,
-                 float frequency4, float frequency5, float frequency6, struct SquareX6Program* restrict p,
-                 struct SquareX6State* restrict s)
+void SquareX6SetProgram(float sampling_frequency, float amplitude, float frequency1, float frequency2, float frequency3,
+                        float frequency4, float frequency5, float frequency6, struct SquareX6Program* restrict p)
 {
 	p->step[0] = (int32_t)((frequency1 / sampling_frequency) * (float)(MASK));
 	p->step[1] = (int32_t)((frequency2 / sampling_frequency) * (float)(MASK));
@@ -525,8 +513,6 @@ void SquareX6Set(float sampling_frequency, float amplitude, float frequency1, fl
 	p->step[5] = (int32_t)((frequency6 / sampling_frequency) * (float)(MASK));
 
 	p->amplitude = (1.0f / 6.0f) * amplitude;
-
-	SquareX6SetState(s);
 }
 
 void SquareX6SetState(struct SquareX6State* restrict s)
@@ -570,9 +556,15 @@ static int sEqual(float a, float b)
 void KickSet(enum StateState state_state, float sampling_frequency, struct KickProgram* restrict p,
              struct KickState* restrict s)
 {
-	ShapedEnvelopeSet(state_state, sampling_frequency, 0.0f, 1.13f, 2.58f - 1.13f, -0.4f, 0.2f, &p->env, &s->env);
-	OscillatorSet(state_state, sampling_frequency, 60.0f, 270.0f, 2.58f, 0.7f, 0.0f, &p->osc[0], &s->osc[0]);
-	OscillatorSet(state_state, sampling_frequency, 120.0f, 65.0f, 2.58f, 0.3f, 0.0f, &p->osc[1], &s->osc[1]);
+	KickSetProgram(sampling_frequency, p);
+	KickSetState(state_state, sampling_frequency, s);
+}
+
+void KickSetProgram(float sampling_frequency, struct KickProgram* restrict p)
+{
+	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, 1.13f, 2.58f - 1.13f, -0.4f, 0.2f, &p->env);
+	OscillatorSetProgram(sampling_frequency, 60.0f, 270.0f, 0.0f, &p->osc[0]);
+	OscillatorSetProgram(sampling_frequency, 120.0f, 65.0f, 0.0f, &p->osc[1]);
 }
 
 void KickSetState(enum StateState state_state, float sampling_frequency, struct KickState* restrict s)
@@ -591,28 +583,34 @@ static float sKickStep(const struct KickProgram* restrict p, struct KickState* r
 	return signal;
 }
 
-void RenderKick(const struct KickProgram* restrict p, struct KickState* restrict s, float* out, const float* out_end)
+void RenderKick(float amplify, const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
+                const float* out_end)
 {
 	for (float* sample = out; sample < out_end; sample += 1)
-		*sample = sKickStep(p, s);
+		*sample = sKickStep(p, s) * amplify;
 }
 
-void RenderAdditiveKick(const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
+void RenderAdditiveKick(float amplify, const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
                         const float* out_end)
 {
 	for (float* sample = out; sample < out_end; sample += 1)
-		*sample += sKickStep(p, s);
+		*sample += sKickStep(p, s) * amplify;
 }
 
 
 void SnareSet(enum StateState state_state, float sampling_frequency, struct SnareProgram* restrict p,
               struct SnareState* restrict s)
 {
-	OscillatorSet(state_state, sampling_frequency, 310.0f, 140.0f, 1.0f, 0.6f, -12.0f, &p->osc, &s->osc);
-	NoiseSet(666, &s->noise);
-	EnvelopeSet(state_state, sampling_frequency, 0.0f, 2.0f, 60.0f, 0.05f, 50.0f, 4.0f, &p->env, &s->env);
-	FilterSet(sampling_frequency, HIGHPASS_12DB, 3500.0f, 0.6f, &p->filter[0], &s->filter[0]);
-	FilterSet(sampling_frequency, RC_LOWPASS_6DB, 500.0f, 0.0f, &p->filter[1], &s->filter[1]);
+	SnareSetProgram(sampling_frequency, p);
+	SnareSetState(state_state, sampling_frequency, s);
+}
+
+void SnareSetProgram(float sampling_frequency, struct SnareProgram* restrict p)
+{
+	OscillatorSetProgram(sampling_frequency, 310.0f, 140.0f, -12.0f, &p->osc);
+	EnvelopeSetProgram(sampling_frequency, 0.0f, 2.0f, 60.0f, 0.05f, 50.0f, 4.0f, &p->env);
+	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 3500.0f, 0.6f, &p->filter[0]);
+	FilterSetProgram(sampling_frequency, RC_LOWPASS_6DB, 500.0f, 0.0f, &p->filter[1]);
 }
 
 void SnareSetState(enum StateState state_state, float sampling_frequency, struct SnareState* restrict s)
@@ -633,22 +631,29 @@ static float sSnareStep(const struct SnareProgram* restrict p, struct SnareState
 	return signal;
 }
 
-void RenderSnare(const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out, const float* out_end)
+void RenderSnare(float amplify, const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out,
+                 const float* out_end)
 {
 	for (float* sample = out; sample < out_end; sample += 1)
-		*sample = sSnareStep(p, s);
+		*sample = sSnareStep(p, s) * amplify;
 }
 
-void RenderAdditiveSnare(const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out,
-                         const float* out_end)
+void RenderAdditiveSnare(float amplify, const struct SnareProgram* restrict p, struct SnareState* restrict s,
+                         float* out, const float* out_end)
 {
 	for (float* sample = out; sample < out_end; sample += 1)
-		*sample += sSnareStep(p, s);
+		*sample += sSnareStep(p, s) * amplify;
 }
 
 
 void HatSet(enum StateState state_state, float sampling_frequency, enum HatType type, struct HatProgram* restrict p,
             struct HatState* restrict s)
+{
+	HatSetProgram(sampling_frequency, type, p);
+	HatSetState(state_state, s);
+}
+
+void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgram* restrict p)
 {
 	const float magic_normalisation1 = 13.043748f; // Obtained in [b]
 	float short_length = 500.0f;
@@ -668,23 +673,20 @@ void HatSet(enum StateState state_state, float sampling_frequency, enum HatType 
 		p->noise_gain = 0.0f;
 	}
 
-	SquareX6Set(sampling_frequency, magic_normalisation1, 684.35f, 511.97f, 305.88f, 420.2f, 271.14f, 201.23f, &p->sqr,
-	            &s->sqr);
+	SquareX6SetProgram(sampling_frequency, magic_normalisation1, 684.35f, 511.97f, 305.88f, 420.2f, 271.14f, 201.23f,
+	                   &p->sqr);
 
-	FilterSet(sampling_frequency, BANDPASS_12DB, 7100.0f, 2.5f, &p->bp[0], &s->bp[0]);
-	FilterSet(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.125f, &p->bp[1],
-	          &s->bp[1]); // Resonance makes an hammer/anvil "clink" at the start
-	                      // 0.125 = a lot
-	                      // 0.5   = nothing (hat sounds more air-y)
+	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 7100.0f, 2.5f, &p->bp[0]);
+	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.125f,
+	                 &p->bp[1]); // Resonance makes an hammer/anvil "clink" at the start
+	                             // 0.125 = a lot
+	                             // 0.5   = nothing (hat sounds more air-y)
 
-	ShapedEnvelopeSet(state_state, sampling_frequency, 0.0f, 1.0f, 1500.0f, 0.4f, 0.4f, &p->env_long, &s->env_long);
-	EnvelopeSet(state_state, sampling_frequency, 0.0f, 1.0f, 0.0f, 1.0f, short_length, 1.0f, &p->env_short,
-	            &s->env_short);
+	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, 1.0f, 1500.0f, 0.4f, 0.4f, &p->env_long);
+	EnvelopeSetProgram(sampling_frequency, 0.0f, 1.0f, 0.0f, 1.0f, short_length, 1.0f, &p->env_short);
 
-	FilterSet(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, &p->hp, &s->hp);
-	FilterSet(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, &p->lp, &s->lp);
-
-	NoiseSet(444, &s->noise);
+	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, &p->hp);
+	FilterSetProgram(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, &p->lp);
 }
 
 void HatSetState(enum StateState state_state, struct HatState* restrict s)
@@ -703,7 +705,8 @@ void HatSetState(enum StateState state_state, struct HatState* restrict s)
 	NoiseSet(444, &s->noise);
 }
 
-void RenderHat(const struct HatProgram* restrict p, struct HatState* restrict s, float* out, const float* out_end)
+void RenderHat(float amplify, const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
+               const float* out_end)
 {
 #ifndef NDEBUG
 	float max_level = 0.0f;
@@ -749,7 +752,7 @@ void RenderHat(const struct HatProgram* restrict p, struct HatState* restrict s,
 		*sample += NoiseStep(&s->noise) * EnvelopeStep(&p->env_short, &s->env_short) * p->noise_gain;
 
 		// Final filter
-		*sample = FilterStep(*sample, &p->lp, &s->lp) * p->magic_normalisation2;
+		*sample = FilterStep(*sample, &p->lp, &s->lp) * p->magic_normalisation2 * amplify;
 
 		// Normalisation
 #ifndef NDEBUG
@@ -768,7 +771,7 @@ void RenderHat(const struct HatProgram* restrict p, struct HatState* restrict s,
 	}
 }
 
-void RenderAdditiveHat(const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
+void RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
                        const float* out_end)
 {
 	float signal;
@@ -791,6 +794,6 @@ void RenderAdditiveHat(const struct HatProgram* restrict p, struct HatState* res
 		signal += NoiseStep(&s->noise) * EnvelopeStep(&p->env_short, &s->env_short) * p->noise_gain;
 
 		// Final filter
-		*sample += FilterStep(signal, &p->lp, &s->lp) * p->magic_normalisation2;
+		*sample += FilterStep(signal, &p->lp, &s->lp) * p->magic_normalisation2 * amplify;
 	}
 }

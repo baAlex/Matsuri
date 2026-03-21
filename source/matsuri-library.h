@@ -19,7 +19,7 @@ defined by the Mozilla Public License, v. 2.0.
 enum StateState
 {
 	STATE_START,
-	STATE_DEAD // Completely dead, not a soft release
+	STATE_DEAD // Completely dead, an hard stop, not a release
 };
 
 
@@ -39,8 +39,8 @@ struct OscillatorState
 	float sweep;
 };
 
-void OscillatorSet(enum StateState, float sampling_frequency, float frequency, float decay_ms, float delay_ms,
-                   float amplitude, float sweep_factor, struct OscillatorProgram* p, struct OscillatorState* s);
+void OscillatorSetProgram(float sampling_frequency, float frequency, float decay_ms, float sweep_factor,
+                          struct OscillatorProgram* p);
 void OscillatorSetState(enum StateState, float sampling_frequency, float frequency, float delay_ms, float amplitude,
                         struct OscillatorState* s);
 float OscillatorStep(const struct OscillatorProgram* p, struct OscillatorState* s);
@@ -59,8 +59,8 @@ struct EnvelopeState
 	uint8_t stage;
 };
 
-void EnvelopeSet(enum StateState, float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
-                 float sustain, float decay2_ms, float amplitude, struct EnvelopeProgram* p, struct EnvelopeState* s);
+void EnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms, float sustain,
+                        float decay2_ms, float amplitude, struct EnvelopeProgram* p);
 void EnvelopeSetState(enum StateState, struct EnvelopeState* s);
 float EnvelopeStep(const struct EnvelopeProgram* p, struct EnvelopeState* s);
 
@@ -79,9 +79,8 @@ struct ShapedEnvelopeState
 	uint8_t stage;
 };
 
-void ShapedEnvelopeSet(enum StateState, float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
-                       float attack_shape, float decay_shape, struct ShapedEnvelopeProgram* p,
-                       struct ShapedEnvelopeState* s);
+void ShapedEnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
+                              float attack_shape, float decay_shape, struct ShapedEnvelopeProgram* p);
 void ShapedEnvelopeSetState(enum StateState, struct ShapedEnvelopeState* s);
 float ShapedEnvelopeStep(const struct ShapedEnvelopeProgram* p, struct ShapedEnvelopeState* s);
 
@@ -116,8 +115,8 @@ enum Filter12dbType
 	RC_LOWPASS_12DB
 };
 
-void FilterSet(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance,
-               struct FilterProgram* p, struct FilterState* s);
+void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance,
+                      struct FilterProgram* p);
 void FilterSetState(struct FilterState* s);
 float FilterStep(float x, const struct FilterProgram* p, struct FilterState* s);
 
@@ -133,9 +132,8 @@ struct SquareX6State
 	int32_t phase[6];
 };
 
-void SquareX6Set(float sampling_frequency, float amplitude, float frequency1, float frequency2, float frequency3,
-                 float frequency4, float frequency5, float frequency6, struct SquareX6Program* p,
-                 struct SquareX6State* s);
+void SquareX6SetProgram(float sampling_frequency, float amplitude, float frequency1, float frequency2, float frequency3,
+                        float frequency4, float frequency5, float frequency6, struct SquareX6Program* p);
 void SquareX6SetState(struct SquareX6State* s);
 float SquareX6Step(const struct SquareX6Program* p, struct SquareX6State* s);
 
@@ -157,9 +155,12 @@ struct KickState
 };
 
 void KickSet(enum StateState, float sampling_frequency, struct KickProgram* p, struct KickState* s);
+void KickSetProgram(float sampling_frequency, struct KickProgram* p);
 void KickSetState(enum StateState, float sampling_frequency, struct KickState* s);
-void RenderKick(const struct KickProgram* p, struct KickState* s, float* out, const float* out_end);
-void RenderAdditiveKick(const struct KickProgram* p, struct KickState* s, float* out, const float* out_end);
+
+void RenderKick(float amplify, const struct KickProgram* p, struct KickState* s, float* out, const float* out_end);
+void RenderAdditiveKick(float amplify, const struct KickProgram* p, struct KickState* s, float* out,
+                        const float* out_end);
 
 
 struct SnareProgram
@@ -178,9 +179,11 @@ struct SnareState
 };
 
 void SnareSet(enum StateState, float sampling_frequency, struct SnareProgram* p, struct SnareState* s);
+void SnareSetProgram(float sampling_frequency, struct SnareProgram* p);
 void SnareSetState(enum StateState, float sampling_frequency, struct SnareState* s);
-void RenderSnare(const struct SnareProgram* p, struct SnareState* s, float* out, const float* out_end);
-void RenderAdditiveSnare(const struct SnareProgram* p, struct SnareState* s, float* out, const float* out_end);
+void RenderSnare(float amplify, const struct SnareProgram* p, struct SnareState* s, float* out, const float* out_end);
+void RenderAdditiveSnare(float amplify, const struct SnareProgram* p, struct SnareState* s, float* out,
+                         const float* out_end);
 
 
 struct HatProgram
@@ -225,8 +228,9 @@ enum HatType
 };
 
 void HatSet(enum StateState, float sampling_frequency, enum HatType type, struct HatProgram* p, struct HatState* s);
+void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgram* p);
 void HatSetState(enum StateState, struct HatState* s);
-void RenderHat(const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
-void RenderAdditiveHat(const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
+void RenderHat(float amplify, const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
+void RenderAdditiveHat(float amplify, const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
 
 #endif

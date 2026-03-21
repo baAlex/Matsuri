@@ -12,69 +12,53 @@ defined by the Mozilla Public License, v. 2.0.
 
 #include <stddef.h>
 
-#include "../matsuri-library.h"
+#include "../voice-allocator.h"
 
 
-#define BUFFER_LEN (44100 * 10)
+#define BUFFER_LEN (96000 * 5)
 static float s_buffer[BUFFER_LEN];
-
-static float s_sampling_frequency;
-static struct KickProgram s_kick_p;
-static struct KickState s_kick_s;
-static struct SnareProgram s_snare_p;
-static struct SnareState s_snare_s;
-static struct HatProgram s_closed_hat_p;
-static struct HatState s_closed_hat_s;
-static struct HatProgram s_open_hat_p;
-static struct HatState s_open_hat_s;
-
-
-static uint32_t sMin(uint32_t a, uint32_t b)
-{
-	return (a < b) ? a : b;
-}
+static struct VoiceAllocator s_allocator;
 
 
 const float* Initialise(float sampling_frequency)
 {
-	s_sampling_frequency = sampling_frequency;
-
-	KickSet(STATE_DEAD, sampling_frequency, &s_kick_p, &s_kick_s);
-	SnareSet(STATE_DEAD, sampling_frequency, &s_snare_p, &s_snare_s);
-	HatSet(STATE_DEAD, sampling_frequency, CLOSED_HAT, &s_closed_hat_p, &s_closed_hat_s);
-	HatSet(STATE_DEAD, sampling_frequency, OPEN_HAT, &s_open_hat_p, &s_open_hat_s);
-
+	VoiceAllocatorSet(&s_allocator, sampling_frequency, MAX_MAX_ITEMS);
 	return s_buffer;
 }
 
-const float* KeyOn(int key_no)
+
+void KeyOn(int key_no)
 {
+	// General MIDI mappings
+	// https://upload.wikimedia.org/wikipedia/commons/c/c2/GM_Standard_Drum_Map_on_the_keyboard.svg
+
 	switch (key_no)
 	{
-	default: KickSetState(STATE_START, s_sampling_frequency, &s_kick_s); break;
-	case 1: SnareSetState(STATE_START, s_sampling_frequency, &s_snare_s); break;
-	case 2:
-		HatSetState(STATE_START, &s_closed_hat_s);
-		HatSetState(STATE_DEAD, &s_open_hat_s);
+	default: break;
+	case 35: // fallthrough
+	case 36: //
+		VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 1, TYPE_KICK);
 		break;
-	case 3:
-		HatSetState(STATE_START, &s_open_hat_s);
-		HatSetState(STATE_DEAD, &s_closed_hat_s);
+	case 38: // fallthrough
+	case 40: //
+		VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 2, TYPE_SNARE);
+		break;
+	case 42: //
+		VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 3, TYPE_CLOSED_HAT);
+		break;
+	case 46: //
+		VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 3, TYPE_OPEN_HAT);
 		break;
 	}
-
-	return s_buffer;
 }
+
 
 const float* Render(uint32_t samples)
 {
 	if (samples > BUFFER_LEN)
 		return NULL;
 
-	RenderKick(&s_kick_p, &s_kick_s, s_buffer, s_buffer + sMin(BUFFER_LEN, samples));
-	RenderAdditiveSnare(&s_snare_p, &s_snare_s, s_buffer, s_buffer + sMin(BUFFER_LEN, samples));
-	RenderAdditiveHat(&s_closed_hat_p, &s_closed_hat_s, s_buffer, s_buffer + sMin(BUFFER_LEN, samples));
-	RenderAdditiveHat(&s_open_hat_p, &s_open_hat_s, s_buffer, s_buffer + sMin(BUFFER_LEN, samples));
+	VoiceAllocatorRender(&s_allocator, s_buffer, samples);
 
 	return s_buffer;
 }
