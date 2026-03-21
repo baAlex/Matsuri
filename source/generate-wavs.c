@@ -12,6 +12,7 @@ defined by the Mozilla Public License, v. 2.0.
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "matsuri-library.h"
 
@@ -120,6 +121,62 @@ int main(void)
 		if (sSave("new-hat-closed.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 8) != 0)
 			return EXIT_FAILURE;
 	}
+
+#ifndef NDEBUG
+	if (1)
+	{
+		struct KickProgram p;
+		struct KickState s;
+		struct TailProgram tail_p;
+		struct TailState tail_s;
+
+		KickSet(STATE_START, (float)(FREQUENCY), &p, &s);
+		TailSetProgram((float)(FREQUENCY), 10.0f, &tail_p);
+		TailSetState(&tail_s);
+
+		memset(s_buffer, 0, sizeof(float) * BUFFER_LEN);
+		const float last_signal =
+		    RenderKick(1.0f, &p, &s, s_buffer, s_buffer + 2460); // Fewer samples, cut in the middle
+
+		TailAccumulate(&tail_s, last_signal);
+
+		if (1)
+		{
+			for (size_t i = 2460; i < BUFFER_LEN / 4; i += 1)
+				s_buffer[i] = TailStep(&tail_p, &tail_s);
+		}
+
+		if (sSave("tail-test1.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 4) != 0)
+			return EXIT_FAILURE;
+	}
+
+	if (1)
+	{
+		struct SnareProgram p;
+		struct SnareState s;
+		struct TailProgram tail_p;
+		struct TailState tail_s;
+
+		SnareSet(STATE_START, (float)(FREQUENCY), &p, &s);
+		TailSetProgram((float)(FREQUENCY), 10.0f, &tail_p);
+		TailSetState(&tail_s);
+
+		memset(s_buffer, 0, sizeof(float) * BUFFER_LEN);
+		const float last_signal =
+		    RenderSnare(1.0f, &p, &s, s_buffer, s_buffer + 910); // Fewer samples, cut in the middle
+
+		TailAccumulate(&tail_s, last_signal);
+
+		if (1)
+		{
+			for (size_t i = 910; i < BUFFER_LEN / 8; i += 1)
+				s_buffer[i] = TailStep(&tail_p, &tail_s);
+		}
+
+		if (sSave("tail-test2.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 8) != 0)
+			return EXIT_FAILURE;
+	}
+#endif
 
 	return EXIT_SUCCESS;
 }

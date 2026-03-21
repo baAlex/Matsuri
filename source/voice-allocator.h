@@ -27,7 +27,7 @@ struct VoiceAllocatorVoice // Should be tiny in size, we iterate it a lot
 
 enum VoiceAllocatorVoiceType
 {
-	// A bit hardcoded, but, isn't not like I'm making new instruments every day
+	// A bit hardcoded, but, isn't like I'm making new instruments every day
 	TYPE_KICK,
 	TYPE_SNARE,
 	TYPE_OPEN_HAT,
@@ -43,6 +43,8 @@ struct VoiceAllocatorState // Big as instruments require it, we don't access thi
 		struct SnareState snare;
 		struct HatState hat;
 	} state;
+
+	float last_signal;
 };
 
 struct VoiceAllocator
@@ -52,6 +54,9 @@ struct VoiceAllocator
 
 	struct VoiceAllocatorVoice voices[MAX_MAX_ITEMS];
 	struct VoiceAllocatorState states[MAX_MAX_ITEMS];
+
+	struct TailProgram tail_p;
+	struct TailState tail_s;
 
 	struct
 	{

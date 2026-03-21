@@ -220,6 +220,13 @@ float FancyDistortion(float x, float f)
 }
 
 
+float TailStep(struct TailProgram* p, struct TailState* s)
+{
+	s->x *= p->c;
+	return s->x;
+}
+
+
 //
 
 
@@ -541,17 +548,27 @@ void SquareX6SetState(struct SquareX6State* restrict s)
 }
 
 
-#ifndef NDEBUG
-static int sEqual(float a, float b)
+void TailSetProgram(float sampling_frequency, float decay_ms, struct TailProgram* restrict p)
 {
-	// https://embeddeduse.com/2019/08/26/qt-compare-two-floats/
-
-	if (sAbs(a - b) > 1.0e-5f * sMax(sAbs(a), sAbs(b)))
-		return 1;
-	return 0;
+	const float decay_samples = (decay_ms * sampling_frequency) / 1000.0f;
+	p->c = sFastNegExp((-LOG_100_PERCENT) / decay_samples);
 }
-#endif
 
+void TailSetState(struct TailState* restrict s)
+{
+	s->x = 0.0f;
+}
+
+void TailAccumulate(struct TailState* restrict s, float signal)
+{
+	s->x += signal;
+}
+
+
+float KickDuration(void)
+{
+	return (2.58f + 270.0f) + ((2.58f + 270.0f) * 10.0f) / 100.0f;
+}
 
 void KickSet(enum StateState state_state, float sampling_frequency, struct KickProgram* restrict p,
              struct KickState* restrict s)
@@ -579,24 +596,38 @@ static float sKickStep(const struct KickProgram* restrict p, struct KickState* r
 	float signal = -ShapedEnvelopeStep(&p->env, &s->env); // Initial click
 	signal += OscillatorStep(&p->osc[0], &s->osc[0]);
 	signal += OscillatorStep(&p->osc[1], &s->osc[1]);
-
 	return signal;
 }
 
-void RenderKick(float amplify, const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
-                const float* out_end)
+float RenderKick(float amplify, const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
+                 const float* out_end)
 {
+	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
-		*sample = sKickStep(p, s) * amplify;
+	{
+		signal = sKickStep(p, s) * amplify;
+		*sample = signal;
+	}
+	return signal;
 }
 
-void RenderAdditiveKick(float amplify, const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
-                        const float* out_end)
+float RenderAdditiveKick(float amplify, const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
+                         const float* out_end)
 {
+	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
-		*sample += sKickStep(p, s) * amplify;
+	{
+		signal = sKickStep(p, s) * amplify;
+		*sample += signal;
+	}
+	return signal;
 }
 
+
+float SnareDuration(void)
+{
+	return 140.0f + (140.0f * 10.0f) / 100.0f;
+}
 
 void SnareSet(enum StateState state_state, float sampling_frequency, struct SnareProgram* restrict p,
               struct SnareState* restrict s)
@@ -627,24 +658,56 @@ static float sSnareStep(const struct SnareProgram* restrict p, struct SnareState
 	float signal = OscillatorStep(&p->osc, &s->osc);
 	const float noise = NoiseStep(&s->noise) * EnvelopeStep(&p->env, &s->env);
 	signal += FilterStep(FilterStep(noise, &p->filter[0], &s->filter[0]), &p->filter[1], &s->filter[1]);
-
 	return signal;
 }
 
-void RenderSnare(float amplify, const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out,
-                 const float* out_end)
+float RenderSnare(float amplify, const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out,
+                  const float* out_end)
 {
+	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
-		*sample = sSnareStep(p, s) * amplify;
+	{
+		signal = sSnareStep(p, s) * amplify;
+		*sample = signal;
+	}
+	return signal;
 }
 
-void RenderAdditiveSnare(float amplify, const struct SnareProgram* restrict p, struct SnareState* restrict s,
-                         float* out, const float* out_end)
+float RenderAdditiveSnare(float amplify, const struct SnareProgram* restrict p, struct SnareState* restrict s,
+                          float* out, const float* out_end)
 {
+	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
-		*sample += sSnareStep(p, s) * amplify;
+	{
+		signal = sSnareStep(p, s) * amplify;
+		*sample += signal;
+	}
+	return signal;
 }
 
+
+#ifndef NDEBUG
+static int sEqual(float a, float b)
+{
+	// https://embeddeduse.com/2019/08/26/qt-compare-two-floats/
+
+	if (sAbs(a - b) > 1.0e-5f * sMax(sAbs(a), sAbs(b)))
+		return 1;
+	return 0;
+}
+#endif
+
+
+float HatDuration(enum HatType type)
+{
+	switch (type)
+	{
+	case OPEN_HAT: return 1500.0f + (1500.0f * 10.0f) / 100.0f;
+	case CLOSED_HAT: return 500.0f + (500.0f * 10.0f) / 100.0f;
+	}
+
+	return 0.0f;
+}
 
 void HatSet(enum StateState state_state, float sampling_frequency, enum HatType type, struct HatProgram* restrict p,
             struct HatState* restrict s)
@@ -705,8 +768,8 @@ void HatSetState(enum StateState state_state, struct HatState* restrict s)
 	NoiseSet(444, &s->noise);
 }
 
-void RenderHat(float amplify, const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
-               const float* out_end)
+float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
+                const float* out_end)
 {
 #ifndef NDEBUG
 	float max_level = 0.0f;
@@ -769,10 +832,12 @@ void RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSta
 			*sample *= (1.0f / max_level);
 #endif
 	}
+
+	return *(out_end - 1); // Hacky, but normalisation makes it tricky
 }
 
-void RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
-                       const float* out_end)
+float RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
+                        const float* out_end)
 {
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
@@ -794,6 +859,8 @@ void RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, struc
 		signal += NoiseStep(&s->noise) * EnvelopeStep(&p->env_short, &s->env_short) * p->noise_gain;
 
 		// Final filter
-		*sample += FilterStep(signal, &p->lp, &s->lp) * p->magic_normalisation2 * amplify;
+		signal = FilterStep(signal, &p->lp, &s->lp) * p->magic_normalisation2 * amplify;
+		*sample += signal;
 	}
+	return signal;
 }

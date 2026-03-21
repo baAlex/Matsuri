@@ -47,6 +47,9 @@ void VoiceAllocatorSet(struct VoiceAllocator* self, float sampling_frequency, in
 	sMemset(self->voices, 0, sizeof(struct VoiceAllocatorVoice) * (size_t)(max_items));
 	sMemset(self->states, 0, sizeof(struct VoiceAllocatorState) * (size_t)(max_items));
 
+	TailSetProgram(sampling_frequency, 10.0f, &self->tail_p);
+	TailSetState(&self->tail_s);
+
 	KickSetProgram(sampling_frequency, &self->program.kick);
 	SnareSetProgram(sampling_frequency, &self->program.snare);
 	HatSetProgram(sampling_frequency, OPEN_HAT, &self->program.open_hat);
@@ -84,7 +87,8 @@ static uint32_t sFindAndSetQueueItem(struct VoiceAllocator* self, enum Allocatio
 		{
 			if (self->voices[i].id == id)
 			{
-				self->voices[i].remaining = 0; // TODO, hard stop
+				TailAccumulate(&self->tail_s, self->states[i].last_signal);
+				self->voices[i].remaining = 0;
 				item_to_use = i;
 			}
 
@@ -126,19 +130,19 @@ void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy str
 	{
 	case TYPE_KICK:
 		KickSetState(STATE_START, self->sampling_frequency, &self->states[item].state.kick);
-		self->voices[item].remaining = 0xFFFFFFFF; // TODO, ask
+		self->voices[item].remaining = (uint32_t)((KickDuration() * self->sampling_frequency) / 1000.0f);
 		break;
 	case TYPE_SNARE:
 		SnareSetState(STATE_START, self->sampling_frequency, &self->states[item].state.snare);
-		self->voices[item].remaining = 0xFFFFFFFF; // TODO, ask
+		self->voices[item].remaining = (uint32_t)((SnareDuration() * self->sampling_frequency) / 1000.0f);
 		break;
 	case TYPE_OPEN_HAT:
 		HatSetState(STATE_START, &self->states[item].state.hat);
-		self->voices[item].remaining = 0xFFFFFFFF; // TODO, ask
+		self->voices[item].remaining = (uint32_t)((HatDuration(OPEN_HAT) * self->sampling_frequency) / 1000.0f);
 		break;
 	case TYPE_CLOSED_HAT:
 		HatSetState(STATE_START, &self->states[item].state.hat);
-		self->voices[item].remaining = 0xFFFFFFFF; // TODO, ask
+		self->voices[item].remaining = (uint32_t)((HatDuration(CLOSED_HAT) * self->sampling_frequency) / 1000.0f);
 	}
 }
 
@@ -151,11 +155,12 @@ void VoiceAllocatorStop(struct VoiceAllocator* self, uint32_t id)
 	for (uint32_t item = 0; item < self->max_items; item += 1)
 	{
 		struct VoiceAllocatorVoice* v = self->voices + item;
-		// struct VoiceAllocatorState* s = self->states + item;
+		struct VoiceAllocatorState* s = self->states + item;
 
 		if (v->id == id && v->remaining != 0)
 		{
-			v->remaining = 0; // TODO, hard stop
+			TailAccumulate(&self->tail_s, s->last_signal);
+			v->remaining = 0;
 		}
 	}
 }
@@ -163,8 +168,9 @@ void VoiceAllocatorStop(struct VoiceAllocator* self, uint32_t id)
 
 void VoiceAllocatorRender(struct VoiceAllocator* self, float* out, uint32_t samples)
 {
-	// Paint it white
-	sMemset(out, 0, sizeof(float) * samples);
+	// Render tails
+	for (float* sample = out; sample < out + samples; sample += 1)
+		*sample = TailStep(&self->tail_p, &self->tail_s);
 
 	// Render items
 	for (uint32_t item = 0; item < self->max_items; item += 1)
@@ -183,16 +189,20 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, float* out, uint32_t samp
 		switch (i->type)
 		{
 		case TYPE_KICK:
-			RenderAdditiveKick(1.0f, &self->program.kick, &i->state.kick, out, out + samples_to_render);
+			i->last_signal =
+			    RenderAdditiveKick(1.0f, &self->program.kick, &i->state.kick, out, out + samples_to_render);
 			break;
 		case TYPE_SNARE:
-			RenderAdditiveSnare(1.0f, &self->program.snare, &i->state.snare, out, out + samples_to_render);
+			i->last_signal =
+			    RenderAdditiveSnare(1.0f, &self->program.snare, &i->state.snare, out, out + samples_to_render);
 			break;
 		case TYPE_OPEN_HAT:
-			RenderAdditiveHat(0.5f, &self->program.open_hat, &i->state.hat, out, out + samples_to_render);
+			i->last_signal =
+			    RenderAdditiveHat(0.4f, &self->program.open_hat, &i->state.hat, out, out + samples_to_render);
 			break;
 		case TYPE_CLOSED_HAT:
-			RenderAdditiveHat(0.2f, &self->program.closed_hat, &i->state.hat, out, out + samples_to_render);
+			i->last_signal =
+			    RenderAdditiveHat(0.2f, &self->program.closed_hat, &i->state.hat, out, out + samples_to_render);
 		}
 
 		// Update item
