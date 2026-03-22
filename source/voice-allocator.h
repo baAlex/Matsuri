@@ -28,7 +28,7 @@ struct VoiceAllocatorVoice // Should be tiny in size, we iterate it a lot
 enum VoiceAllocatorVoiceType
 {
 	// A bit hardcoded, but, isn't like I'm making new instruments every day
-	TYPE_KICK,
+	TYPE_KICK = 0,
 	TYPE_SNARE,
 	TYPE_OPEN_HAT,
 	TYPE_CLOSED_HAT
@@ -57,6 +57,7 @@ struct VoiceAllocator
 
 	struct TailProgram tail_p;
 	struct TailState tail_s;
+	float amplify[4]; // One for each VoiceAllocatorVoiceType
 
 	struct
 	{
@@ -81,7 +82,8 @@ enum AllocationStrategy
 void VoiceAllocatorSet(struct VoiceAllocator* allocator, float sampling_frequency, int max_items);
 void VoiceAllocatorPlay(struct VoiceAllocator* allocator, enum AllocationStrategy, uint32_t id,
                         enum VoiceAllocatorVoiceType type);
+void VoiceAllocatorConfigure(struct VoiceAllocator* allocator, enum VoiceAllocatorVoiceType type, float amplify);
 void VoiceAllocatorStop(struct VoiceAllocator* allocator, uint32_t id);
-void VoiceAllocatorRender(struct VoiceAllocator* allocator, float amplify, uint32_t samples, float* out);
+void VoiceAllocatorRender(struct VoiceAllocator* allocator, uint32_t samples, float* out);
 
 #endif

@@ -166,7 +166,13 @@ void VoiceAllocatorStop(struct VoiceAllocator* self, uint32_t id)
 }
 
 
-void VoiceAllocatorRender(struct VoiceAllocator* self, float amplify, uint32_t samples, float* out)
+void VoiceAllocatorConfigure(struct VoiceAllocator* self, enum VoiceAllocatorVoiceType type, float amplify)
+{
+	self->amplify[(int)(type)] = amplify;
+}
+
+
+void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* out)
 {
 	// Render tails
 	for (float* sample = out; sample < out + samples; sample += 1)
@@ -183,26 +189,25 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, float amplify, uint32_t s
 			continue;
 
 		// Render
-		// TODO, hardcoded volumes
 		const uint32_t samples_to_render = sMin(q->remaining, samples);
 
 		switch (i->type)
 		{
 		case TYPE_KICK:
-			i->last_signal =
-			    RenderAdditiveKick(amplify * 1.0f, &self->program.kick, &i->state.kick, out, out + samples_to_render);
+			i->last_signal = RenderAdditiveKick(self->amplify[TYPE_KICK], &self->program.kick, &i->state.kick, out,
+			                                    out + samples_to_render);
 			break;
 		case TYPE_SNARE:
-			i->last_signal = RenderAdditiveSnare(amplify * 1.0f, &self->program.snare, &i->state.snare, out,
+			i->last_signal = RenderAdditiveSnare(self->amplify[TYPE_SNARE], &self->program.snare, &i->state.snare, out,
 			                                     out + samples_to_render);
 			break;
 		case TYPE_OPEN_HAT:
-			i->last_signal =
-			    RenderAdditiveHat(amplify * 0.4f, &self->program.open_hat, &i->state.hat, out, out + samples_to_render);
+			i->last_signal = RenderAdditiveHat(self->amplify[TYPE_OPEN_HAT], &self->program.open_hat, &i->state.hat,
+			                                   out, out + samples_to_render);
 			break;
 		case TYPE_CLOSED_HAT:
-			i->last_signal = RenderAdditiveHat(amplify * 0.2f, &self->program.closed_hat, &i->state.hat, out,
-			                                   out + samples_to_render);
+			i->last_signal = RenderAdditiveHat(self->amplify[TYPE_CLOSED_HAT], &self->program.closed_hat, &i->state.hat,
+			                                   out, out + samples_to_render);
 		}
 
 		// Update item

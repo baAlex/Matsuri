@@ -23,14 +23,13 @@ class MatsuriProcessor extends AudioWorkletProcessor {
 	// https://developer.mozilla.org/en-US/docs/Web/API/AudioWorkletNode/parameters
 
 	static get parameterDescriptors() {
+		// https://developer.mozilla.org/en-US/docs/Web/API/AudioParam#k-rate
 		return [
-			{
-				name: "gain",
-				defaultValue: 1.0,
-				minValue: 0.0,
-				maxValue: 1.0,
-				automationRate: "k-rate", // https://developer.mozilla.org/en-US/docs/Web/API/AudioParam#k-rate
-			},
+			{ name: "gain", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "gain-bass-drum", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "gain-snare", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "gain-closed-hit-hat", defaultValue: 0.2, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "gain-open-hit-hat", defaultValue: 0.4, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 		];
 	}
 
@@ -46,7 +45,7 @@ class MatsuriProcessor extends AudioWorkletProcessor {
 
 		this.port.onmessage = async (event) => {
 			// Initialise
-			if (event.data.type == "initialise") {
+			if (event.data.type == "Initialise") {
 
 				// Bureaucracy
 				const obj = await WebAssembly.instantiate(event.data.array);
@@ -57,19 +56,19 @@ class MatsuriProcessor extends AudioWorkletProcessor {
 
 				// Queued events?
 				for (const q of this.early_events) {
-					if (q.type == "key-on")
-						this.m_wasm.KeyOn(q.key_no);
+					if (q.type == "Midi")
+						this.m_wasm.Midi(q.byte0, q.byte1, q.byte2);
 				}
 
 				this.early_events.length = 0;
 			}
 
-			// Key On
-			else if (event.data.type == "key-on") {
-				if (this.m_wasm == null) // Ouch...
+			// Midi
+			else if (event.data.type == "Midi") {
+				if (this.m_wasm == null)
 					this.early_events.push(event.data);
 				else
-					this.m_wasm.KeyOn(event.data.key_no);
+					this.m_wasm.Midi(event.data.byte0, event.data.byte1, event.data.byte2);
 			}
 		};
 	}
@@ -78,7 +77,13 @@ class MatsuriProcessor extends AudioWorkletProcessor {
 		if (this.m_wasm == null || this.m_view == null)
 			return true;
 
-		this.m_wasm.Render(parameters["gain"][0], this.m_view.length);
+		this.m_wasm.Render(
+			parameters["gain"][0],
+			parameters["gain-bass-drum"][0],
+			parameters["gain-snare"][0],
+			parameters["gain-closed-hit-hat"][0],
+			parameters["gain-open-hit-hat"][0],
+			this.m_view.length);
 
 		const out = outputs[0];
 		for (let ch = 0; ch < out.length; ch += 1)

@@ -47,10 +47,16 @@ export class MatsuriNode extends AudioWorkletNode {
 		super(audio_context, "matsuri-processor");
 
 		// Send WASM to worklet so it can finish its initialisation there
-		this.port.postMessage({ type: "initialise", array: s_wasm_array });
+		this.port.postMessage({ type: "Initialise", array: s_wasm_array });
 	}
 
-	keyOn(no) {
-		this.port.postMessage({ type: "key-on", key_no: no });
+	noteOn(note_no, velocity = 0.5) {
+		// 144 = Note On, Channel 0
+		const v = Math.min(Math.max(velocity, 0), 1) * 127;
+		this.port.postMessage({ type: "Midi", byte0: 144, byte1: note_no, byte2: v });
+	}
+
+	midi(byte0, byte1, byte2) {
+		this.port.postMessage({ type: "Midi", byte0, byte1, byte2 });
 	}
 }

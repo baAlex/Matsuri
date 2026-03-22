@@ -62,7 +62,7 @@ if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
 		OUTPUT ${WASM_OUTPUT}
 		COMMAND clang --target=wasm32 -DFREESTANDING -ffreestanding --no-standard-libraries
 		        ${MATSURI_CFLAGS} ${MATSURI_WASM_CFLAGS} -fuse-ld=lld
-		        -Wl,--entry=Initialise -Wl,--export=Initialise -Wl,--export=Render -Wl,--export=KeyOn
+		        -Wl,--entry=Initialise -Wl,--export=Initialise -Wl,--export=Midi -Wl,--export=Render
 		        -Wl,--strip-all -Wl,--merge-data-segments
 		        ${WASM_SOURCES} -o ${WASM_OUTPUT}
 		DEPENDS ${WASM_SOURCES}

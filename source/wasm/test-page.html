@@ -13,51 +13,119 @@
 		let ctx = null;
 		let node = null;
 
-		async function Play(key_no) {
+		async function InitialiseStuff() {
+			function ConnectSliderParameter(slider_id, parameter_name) {
+				const slider = document.getElementById(slider_id);
+				const parameter = node.parameters.get(parameter_name);
 
-			// Initialise stuff
-			if (ctx == null || node == null) {
-				ctx = new AudioContext();
-				await matsuri.FetchAndRegister(ctx);
-				node = new matsuri.MatsuriNode(ctx);
-				node.connect(ctx.destination);
-
-				//
-				const slider = document.getElementById("volume-slider");
-				const gain_p = node.parameters.get("gain");
-
-				gain_p.setValueAtTime(parseFloat(slider.value), ctx.currentTime);
+				parameter.setValueAtTime(parseFloat(slider.value), ctx.currentTime);
 
 				slider.addEventListener("input", () => {
-					gain_p.setValueAtTime(parseFloat(slider.value), ctx.currentTime);
+					parameter.setValueAtTime(parseFloat(slider.value), ctx.currentTime);
 				});
 			}
 
-			// Play!
-			node.keyOn(key_no);
+			ctx = new AudioContext();
+
+			await matsuri.FetchAndRegister(ctx);
+			node = new matsuri.MatsuriNode(ctx);
+			node.connect(ctx.destination);
+
+			ConnectSliderParameter("slider-gain", "gain");
+			ConnectSliderParameter("slider-gain-bass-drum", "gain-bass-drum");
+			ConnectSliderParameter("slider-gain-snare", "gain-snare");
+			ConnectSliderParameter("slider-gain-closed-hit-hat", "gain-closed-hit-hat");
+			ConnectSliderParameter("slider-gain-open-hit-hat", "gain-open-hit-hat");
+		}
+
+		async function NoteOn(key_no) {
+			if (ctx == null || node == null)
+				await InitialiseStuff();
+			node.noteOn(key_no);
+		}
+
+		async function Midi(byte0, byte1, byte2) {
+			if (ctx == null || node == null)
+				await InitialiseStuff();
+			node.midi(byte0, byte1, byte2);
 		}
 
 		document.addEventListener("keydown", (event) => {
 			if (event.repeat == false) {
 				if (event.key == "z")
-					Play(matsuri.MIDI_ACOUSTIC_BASS_DRUM_KEY);
+					NoteOn(matsuri.MIDI_ACOUSTIC_BASS_DRUM_KEY);
 				if (event.key == "x")
-					Play(matsuri.MIDI_BASS_DRUM_KEY);
+					NoteOn(matsuri.MIDI_BASS_DRUM_KEY);
 				if (event.key == "c")
-					Play(matsuri.MIDI_ACOUSTIC_SNARE_KEY);
+					NoteOn(matsuri.MIDI_ACOUSTIC_SNARE_KEY);
 				if (event.key == "v")
-					Play(matsuri.MIDI_ELECTRIC_SNARE_KEY);
+					NoteOn(matsuri.MIDI_ELECTRIC_SNARE_KEY);
 				if (event.key == "g")
-					Play(matsuri.MIDI_CLOSED_HIT_HAT_KEY);
+					NoteOn(matsuri.MIDI_CLOSED_HIT_HAT_KEY);
 				if (event.key == "j")
-					Play(matsuri.MIDI_OPEN_HIT_HAT_KEY);
+					NoteOn(matsuri.MIDI_OPEN_HIT_HAT_KEY);
 			}
 		})
+
+		navigator.requestMIDIAccess().then(access => {
+			for (const input of access.inputs.values()) {
+				input.onmidimessage = msg => {
+					Midi(msg.data[0], msg.data[1], msg.data[2])
+				};
+			}
+		});
 	</script>
+
+	<style>
+		body {
+			font-family: system-ui;
+		}
+
+		label {
+			display: block;
+		}
+
+		input {
+			display: block;
+		}
+
+		.flex {
+			display: flex;
+		}
+	</style>
 </head>
 
 <body>
-	<label>Volume:<input type="range" id="volume-slider" min="0" max="1" value="1.0" step="0.01" /></label>
+	<div class="flex">
+		<fieldset>
+			<legend>Gain:</legend>
+
+			<label>Master:
+				<input type="range" id="slider-gain" min=" 0" max="1" value="1.0" step="0.01" list="marker1" /></label>
+			<label>Bass Drum:
+				<input type="range" id="slider-gain-bass-drum" min=" 0" max="1" value="1.0" step="0.01"
+					list="marker1" /></label>
+			<label>Snare:
+				<input type="range" id="slider-gain-snare" min=" 0" max="1" value="1.0" step="0.01"
+					list="marker1" /></label>
+			<label>Closed Hit-Hat:
+				<input type="range" id="slider-gain-closed-hit-hat" min=" 0" max="1" value="0.2" step="0.01"
+					list="marker.2" /></label>
+			<label>Open Hit-Hat:
+				<input type="range" id="slider-gain-open-hit-hat" min=" 0" max="1" value="0.4" step="0.01"
+					list="marker.4" /></label>
+
+			<datalist id="marker1">
+				<option value="1"></option>
+			</datalist>
+			<datalist id="marker.2">
+				<option value="0.2"></option>
+			</datalist>
+			<datalist id="marker.4">
+				<option value="0.4"></option>
+			</datalist>
+		</fieldset>
+	</div>
 </body>
 
 </html>

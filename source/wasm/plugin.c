@@ -27,38 +27,72 @@ const float* Initialise(float sampling_frequency)
 }
 
 
-void KeyOn(int key_no)
+void Midi(int byte0, int byte1, int byte2)
 {
-	// General MIDI mappings
-	// https://upload.wikimedia.org/wikipedia/commons/c/c2/GM_Standard_Drum_Map_on_the_keyboard.svg
+	// Per MIDI protocol, any error is silently ignored
 
-	switch (key_no)
+	byte0 &= 0xFF; // We accept integers because is friendly with WASM,
+	byte1 &= 0xFF; // but we don't want any higher bit
+	byte2 &= 0xFF;
+
+	// "Note Off" message
+	if ((byte0 >> 4) == 8)
 	{
-	default: break;
-	case 35: // fallthrough
-	case 36: //
-		VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 1, TYPE_KICK);
-		break;
-	case 38: // fallthrough
-	case 40: //
-		VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 2, TYPE_SNARE);
-		break;
-	case 42: //
-		VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 3, TYPE_CLOSED_HAT);
-		break;
-	case 46: //
-		VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 3, TYPE_OPEN_HAT);
-		break;
+		// Ignoring these
+	}
+
+	// "Note On" message
+	if ((byte0 >> 4) == 9) // Ignoring channel
+	{
+		if (byte1 < 128) // Valid note range
+		{
+			if (byte2 == 0)
+			{
+				// Velocity = 0 = Implicit "Note Off" -> Ignoring it
+			}
+			else
+			{
+				// Finally "Note On":
+
+				// General MIDI mappings
+				// https://upload.wikimedia.org/wikipedia/commons/c/c2/GM_Standard_Drum_Map_on_the_keyboard.svg
+
+				switch (byte1)
+				{
+				default: break;
+				case 35: // fallthrough
+				case 36: //
+					VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 1, TYPE_KICK);
+					break;
+				case 38: // fallthrough
+				case 40: //
+					VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 2, TYPE_SNARE);
+					break;
+				case 42: //
+					VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 3, TYPE_CLOSED_HAT);
+					break;
+				case 46: //
+					VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 3, TYPE_OPEN_HAT);
+					break;
+				}
+			}
+		}
 	}
 }
 
 
-const float* Render(float amplify, uint32_t samples)
+const float* Render(float amplify, float kick_amplify, float snare_amplify, float closed_hat_amplify,
+                    float open_hat_amplify, uint32_t samples)
 {
 	if (samples > BUFFER_LEN)
 		return NULL;
 
-	VoiceAllocatorRender(&s_allocator, amplify, samples, s_buffer);
+	VoiceAllocatorConfigure(&s_allocator, TYPE_KICK, amplify * kick_amplify);
+	VoiceAllocatorConfigure(&s_allocator, TYPE_SNARE, amplify * snare_amplify);
+	VoiceAllocatorConfigure(&s_allocator, TYPE_CLOSED_HAT, amplify * closed_hat_amplify);
+	VoiceAllocatorConfigure(&s_allocator, TYPE_OPEN_HAT, amplify * open_hat_amplify);
+
+	VoiceAllocatorRender(&s_allocator, samples, s_buffer);
 
 	return s_buffer;
 }
