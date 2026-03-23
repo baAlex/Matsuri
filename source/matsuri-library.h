@@ -168,12 +168,14 @@ struct KickState
 {
 	struct ShapedEnvelopeState env;
 	struct OscillatorState osc[2];
+	float distortion;
+	float click_amplify;
 };
 
 float KickDuration(void);
-void KickSet(enum StateState, float sampling_frequency, struct KickProgram* p, struct KickState* s);
+void KickSet(enum StateState, float sampling_frequency, float velocity, struct KickProgram* p, struct KickState* s);
 void KickSetProgram(float sampling_frequency, struct KickProgram* p);
-void KickSetState(enum StateState, float sampling_frequency, struct KickState* s);
+void KickSetState(enum StateState, float sampling_frequency, float velocity, struct KickState* s);
 
 float RenderKick(float amplify, const struct KickProgram* p, struct KickState* s, float* out, const float* out_end);
 float RenderAdditiveKick(float amplify, const struct KickProgram* p, struct KickState* s, float* out,
@@ -193,12 +195,14 @@ struct SnareState
 	struct EnvelopeState env;
 	struct NoiseState noise;
 	struct FilterState filter[2];
+	float distortion;
+	float noise_amplify;
 };
 
 float SnareDuration(void);
-void SnareSet(enum StateState, float sampling_frequency, struct SnareProgram* p, struct SnareState* s);
+void SnareSet(enum StateState, float sampling_frequency, float velocity, struct SnareProgram* p, struct SnareState* s);
 void SnareSetProgram(float sampling_frequency, struct SnareProgram* p);
-void SnareSetState(enum StateState, float sampling_frequency, struct SnareState* s);
+void SnareSetState(enum StateState, float sampling_frequency, float velocity, struct SnareState* s);
 
 float RenderSnare(float amplify, const struct SnareProgram* p, struct SnareState* s, float* out, const float* out_end);
 float RenderAdditiveSnare(float amplify, const struct SnareProgram* p, struct SnareState* s, float* out,
@@ -238,6 +242,8 @@ struct HatState
 	struct FilterState lp;
 
 	struct NoiseState noise;
+
+	float velocity;
 };
 
 enum HatType
@@ -247,9 +253,10 @@ enum HatType
 };
 
 float HatDuration(enum HatType type);
-void HatSet(enum StateState, float sampling_frequency, enum HatType type, struct HatProgram* p, struct HatState* s);
+void HatSet(enum StateState, float sampling_frequency, float velocity, enum HatType type, struct HatProgram* p,
+            struct HatState* s);
 void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgram* p);
-void HatSetState(enum StateState, struct HatState* s);
+void HatSetState(enum StateState, float velocity, struct HatState* s);
 
 float RenderHat(float amplify, const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
 float RenderAdditiveHat(float amplify, const struct HatProgram* p, struct HatState* s, float* out,

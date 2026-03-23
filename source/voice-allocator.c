@@ -118,7 +118,7 @@ static uint32_t sFindAndSetQueueItem(struct VoiceAllocator* self, enum Allocatio
 
 
 void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy strategy, uint32_t id,
-                        enum VoiceAllocatorVoiceType type)
+                        enum VoiceAllocatorVoiceType type, float velocity)
 {
 	const uint32_t item = sFindAndSetQueueItem(self, strategy, id);
 	if (item == MAX_MAX_ITEMS)
@@ -129,19 +129,19 @@ void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy str
 	switch (type)
 	{
 	case TYPE_KICK:
-		KickSetState(STATE_START, self->sampling_frequency, &self->states[item].state.kick);
+		KickSetState(STATE_START, self->sampling_frequency, velocity, &self->states[item].state.kick);
 		self->voices[item].remaining = (uint32_t)((KickDuration() * self->sampling_frequency) / 1000.0f);
 		break;
 	case TYPE_SNARE:
-		SnareSetState(STATE_START, self->sampling_frequency, &self->states[item].state.snare);
+		SnareSetState(STATE_START, self->sampling_frequency, velocity, &self->states[item].state.snare);
 		self->voices[item].remaining = (uint32_t)((SnareDuration() * self->sampling_frequency) / 1000.0f);
 		break;
 	case TYPE_OPEN_HAT:
-		HatSetState(STATE_START, &self->states[item].state.hat);
+		HatSetState(STATE_START, velocity, &self->states[item].state.hat);
 		self->voices[item].remaining = (uint32_t)((HatDuration(OPEN_HAT) * self->sampling_frequency) / 1000.0f);
 		break;
 	case TYPE_CLOSED_HAT:
-		HatSetState(STATE_START, &self->states[item].state.hat);
+		HatSetState(STATE_START, velocity, &self->states[item].state.hat);
 		self->voices[item].remaining = (uint32_t)((HatDuration(CLOSED_HAT) * self->sampling_frequency) / 1000.0f);
 	}
 }

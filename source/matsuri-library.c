@@ -570,11 +570,11 @@ float KickDuration(void)
 	return (2.58f + 270.0f) + ((2.58f + 270.0f) * 10.0f) / 100.0f;
 }
 
-void KickSet(enum StateState state_state, float sampling_frequency, struct KickProgram* restrict p,
+void KickSet(enum StateState state_state, float sampling_frequency, float velocity, struct KickProgram* restrict p,
              struct KickState* restrict s)
 {
 	KickSetProgram(sampling_frequency, p);
-	KickSetState(state_state, sampling_frequency, s);
+	KickSetState(state_state, sampling_frequency, velocity, s);
 }
 
 void KickSetProgram(float sampling_frequency, struct KickProgram* restrict p)
@@ -584,40 +584,50 @@ void KickSetProgram(float sampling_frequency, struct KickProgram* restrict p)
 	OscillatorSetProgram(sampling_frequency, 120.0f, 65.0f, 0.0f, &p->osc[1]);
 }
 
-void KickSetState(enum StateState state_state, float sampling_frequency, struct KickState* restrict s)
+static float sMap(float in_a, float in_b, float out_a, float out_b, float f)
 {
+	return out_a + (out_b - out_a) * ((f - in_a) / (in_b - in_a));
+}
+
+void KickSetState(enum StateState state_state, float sampling_frequency, float velocity, struct KickState* restrict s)
+{
+	const float general_amplify = velocity;
+
+	s->distortion = sMap(0.5f, 1.0f, 0.0f, -0.25f, sMax(velocity, 0.5f));
+	s->click_amplify = general_amplify;
+
 	ShapedEnvelopeSetState(state_state, &s->env);
-	OscillatorSetState(state_state, sampling_frequency, 60.0f, 2.58f, 0.7f, &s->osc[0]);
-	OscillatorSetState(state_state, sampling_frequency, 120.0f, 2.58f, 0.3f, &s->osc[1]);
+	OscillatorSetState(state_state, sampling_frequency, 60.0f, 2.58f, 0.7f * general_amplify, &s->osc[0]);
+	OscillatorSetState(state_state, sampling_frequency, 120.0f, 2.58f, 0.3f * general_amplify, &s->osc[1]);
 }
 
 static float sKickStep(const struct KickProgram* restrict p, struct KickState* restrict s)
 {
-	float signal = -ShapedEnvelopeStep(&p->env, &s->env); // Initial click
+	float signal = -ShapedEnvelopeStep(&p->env, &s->env) * s->click_amplify; // Initial click
 	signal += OscillatorStep(&p->osc[0], &s->osc[0]);
 	signal += OscillatorStep(&p->osc[1], &s->osc[1]);
-	return signal;
+	return CheapDistortion(signal, s->distortion);
 }
 
-float RenderKick(float amplify, const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
+float RenderKick(float mixer_amplify, const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
                  const float* out_end)
 {
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
-		signal = sKickStep(p, s) * amplify;
+		signal = sKickStep(p, s) * mixer_amplify;
 		*sample = signal;
 	}
 	return signal;
 }
 
-float RenderAdditiveKick(float amplify, const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
-                         const float* out_end)
+float RenderAdditiveKick(float mixer_amplify, const struct KickProgram* restrict p, struct KickState* restrict s,
+                         float* out, const float* out_end)
 {
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
-		signal = sKickStep(p, s) * amplify;
+		signal = sKickStep(p, s) * mixer_amplify;
 		*sample += signal;
 	}
 	return signal;
@@ -629,24 +639,30 @@ float SnareDuration(void)
 	return 140.0f + (140.0f * 10.0f) / 100.0f;
 }
 
-void SnareSet(enum StateState state_state, float sampling_frequency, struct SnareProgram* restrict p,
+void SnareSet(enum StateState state_state, float sampling_frequency, float velocity, struct SnareProgram* restrict p,
               struct SnareState* restrict s)
 {
 	SnareSetProgram(sampling_frequency, p);
-	SnareSetState(state_state, sampling_frequency, s);
+	SnareSetState(state_state, sampling_frequency, velocity, s);
 }
 
 void SnareSetProgram(float sampling_frequency, struct SnareProgram* restrict p)
 {
 	OscillatorSetProgram(sampling_frequency, 310.0f, 140.0f, -12.0f, &p->osc);
-	EnvelopeSetProgram(sampling_frequency, 0.0f, 2.0f, 60.0f, 0.05f, 50.0f, 4.0f, &p->env);
+	EnvelopeSetProgram(sampling_frequency, 0.0f, 2.0f, 60.0f, 0.05f, 50.0f, 3.0f, &p->env);
 	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 3500.0f, 0.6f, &p->filter[0]);
 	FilterSetProgram(sampling_frequency, RC_LOWPASS_6DB, 500.0f, 0.0f, &p->filter[1]);
 }
 
-void SnareSetState(enum StateState state_state, float sampling_frequency, struct SnareState* restrict s)
+void SnareSetState(enum StateState state_state, float sampling_frequency, float velocity, struct SnareState* restrict s)
 {
-	OscillatorSetState(state_state, sampling_frequency, 310.0f, 1.0f, 0.6f, &s->osc);
+	const float general_amplify = velocity;
+
+	s->distortion = sMap(0.5f, 1.0f, 0.0f, -0.3f, sMax(velocity, 0.5f));
+	s->noise_amplify = sMap(0.5f, 1.0f, 1.0f, 1.75f, sMax(velocity, 0.5f)) * general_amplify;
+	const float osc_amplify = sMap(0.5f, 1.0f, 1.0f, 0.6f, sMax(velocity, 0.5f)) * general_amplify;
+
+	OscillatorSetState(state_state, sampling_frequency, 310.0f, 1.0f, 0.6f * osc_amplify, &s->osc);
 	NoiseSet(666, &s->noise);
 	EnvelopeSetState(state_state, &s->env);
 	FilterSetState(&s->filter[0]);
@@ -656,30 +672,33 @@ void SnareSetState(enum StateState state_state, float sampling_frequency, struct
 static float sSnareStep(const struct SnareProgram* restrict p, struct SnareState* restrict s)
 {
 	float signal = OscillatorStep(&p->osc, &s->osc);
+
 	const float noise = NoiseStep(&s->noise) * EnvelopeStep(&p->env, &s->env);
-	signal += FilterStep(FilterStep(noise, &p->filter[0], &s->filter[0]), &p->filter[1], &s->filter[1]);
-	return signal;
+	signal +=
+	    FilterStep(FilterStep(noise, &p->filter[0], &s->filter[0]), &p->filter[1], &s->filter[1]) * s->noise_amplify;
+
+	return CheapDistortion(signal, s->distortion);
 }
 
-float RenderSnare(float amplify, const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out,
+float RenderSnare(float mixer_amplify, const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out,
                   const float* out_end)
 {
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
-		signal = sSnareStep(p, s) * amplify;
+		signal = sSnareStep(p, s) * mixer_amplify;
 		*sample = signal;
 	}
 	return signal;
 }
 
-float RenderAdditiveSnare(float amplify, const struct SnareProgram* restrict p, struct SnareState* restrict s,
+float RenderAdditiveSnare(float mixer_amplify, const struct SnareProgram* restrict p, struct SnareState* restrict s,
                           float* out, const float* out_end)
 {
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
-		signal = sSnareStep(p, s) * amplify;
+		signal = sSnareStep(p, s) * mixer_amplify;
 		*sample += signal;
 	}
 	return signal;
@@ -709,11 +728,11 @@ float HatDuration(enum HatType type)
 	return 0.0f;
 }
 
-void HatSet(enum StateState state_state, float sampling_frequency, enum HatType type, struct HatProgram* restrict p,
-            struct HatState* restrict s)
+void HatSet(enum StateState state_state, float sampling_frequency, float velocity, enum HatType type,
+            struct HatProgram* restrict p, struct HatState* restrict s)
 {
 	HatSetProgram(sampling_frequency, type, p);
-	HatSetState(state_state, s);
+	HatSetState(state_state, velocity, s);
 }
 
 void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgram* restrict p)
@@ -752,8 +771,10 @@ void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgra
 	FilterSetProgram(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, &p->lp);
 }
 
-void HatSetState(enum StateState state_state, struct HatState* restrict s)
+void HatSetState(enum StateState state_state, float velocity, struct HatState* restrict s)
 {
+	s->velocity = velocity;
+
 	SquareX6SetState(&s->sqr);
 
 	FilterSetState(&s->bp[0]);
@@ -790,7 +811,7 @@ float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSt
 	if (sEqual(max_level, 1.0f) == 1)
 	{
 #ifndef FREESTANDING
-		printf("Normalisation of x%f required after metallic noise\n", 1.0f / max_level); // [b]
+		printf("Hat normalisation of x%f required after metallic noise\n", 1.0f / max_level); // [b]
 #endif
 
 		// Distortion depends on volume, so we want to normalise first
@@ -815,7 +836,7 @@ float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSt
 		*sample += NoiseStep(&s->noise) * EnvelopeStep(&p->env_short, &s->env_short) * p->noise_gain;
 
 		// Final filter
-		*sample = FilterStep(*sample, &p->lp, &s->lp) * p->magic_normalisation2 * amplify;
+		*sample = FilterStep(*sample, &p->lp, &s->lp) * p->magic_normalisation2 * amplify * s->velocity;
 
 		// Normalisation
 #ifndef NDEBUG
@@ -825,7 +846,7 @@ float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSt
 	if (sEqual(max_level, 1.0f) == 1)
 	{
 #ifndef FREESTANDING
-		printf("Normalisation of x%f required at the end\n", 1.0f / max_level); // [c]
+		printf("Hat normalisation of x%f required at the end\n", 1.0f / max_level); // [c]
 #endif
 
 		for (float* sample = out; sample < out_end; sample += 1)
@@ -859,7 +880,7 @@ float RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, stru
 		signal += NoiseStep(&s->noise) * EnvelopeStep(&p->env_short, &s->env_short) * p->noise_gain;
 
 		// Final filter
-		signal = FilterStep(signal, &p->lp, &s->lp) * p->magic_normalisation2 * amplify;
+		signal = FilterStep(signal, &p->lp, &s->lp) * p->magic_normalisation2 * amplify * s->velocity;
 		*sample += signal;
 	}
 	return signal;

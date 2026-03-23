@@ -81,7 +81,7 @@ enum AllocationStrategy
 
 void VoiceAllocatorSet(struct VoiceAllocator* allocator, float sampling_frequency, int max_items);
 void VoiceAllocatorPlay(struct VoiceAllocator* allocator, enum AllocationStrategy, uint32_t id,
-                        enum VoiceAllocatorVoiceType type);
+                        enum VoiceAllocatorVoiceType type, float velocity);
 void VoiceAllocatorConfigure(struct VoiceAllocator* allocator, enum VoiceAllocatorVoiceType type, float amplify);
 void VoiceAllocatorStop(struct VoiceAllocator* allocator, uint32_t id);
 void VoiceAllocatorRender(struct VoiceAllocator* allocator, uint32_t samples, float* out);
