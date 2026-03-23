@@ -68,8 +68,14 @@ static int sSave(const char* filename, uint32_t frequency, const float* in, cons
 
 
 #define FREQUENCY 44100
-#define BUFFER_LEN (FREQUENCY * 2)
+#define BUFFER_LEN (FREQUENCY * 4)
 static float s_buffer[BUFFER_LEN];
+
+
+static size_t sMillisecondsToSamples(float sampling_frequency, float milliseconds)
+{
+	return (size_t)((milliseconds * sampling_frequency) / 1000.0f);
+}
 
 
 int main(void)
@@ -78,20 +84,25 @@ int main(void)
 	{
 		struct KickProgram p;
 		struct KickState s;
+		float duration;
+		size_t samples;
 
-		KickSet(STATE_START, (float)(FREQUENCY), 0.5f, &p, &s); // Normal
-		RenderKick(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN / 4);
-		if (sSave("new-kick.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 4) != 0)
+		duration = KickSet(STATE_START, (float)(FREQUENCY), 0.5f, &p, &s); // Normal
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderKick(1.0f, &p, &s, s_buffer, s_buffer + samples);
+		if (sSave("new-kick.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		KickSetState(STATE_START, (float)(FREQUENCY), 0.75f, &s); // Mid velocity
-		RenderKick(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN / 4);
-		if (sSave("new-kick-mid.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 4) != 0)
+		duration = KickSetState(STATE_START, (float)(FREQUENCY), 0.75f, &s); // Mid velocity
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderKick(1.0f, &p, &s, s_buffer, s_buffer + samples);
+		if (sSave("new-kick-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		KickSetState(STATE_START, (float)(FREQUENCY), 1.0f, &s); // Max velocity
-		RenderKick(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN / 4);
-		if (sSave("new-kick-max.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 4) != 0)
+		duration = KickSetState(STATE_START, (float)(FREQUENCY), 1.0f, &s); // Max velocity
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderKick(1.0f, &p, &s, s_buffer, s_buffer + samples);
+		if (sSave("new-kick-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 	}
 
@@ -99,20 +110,25 @@ int main(void)
 	{
 		struct SnareProgram p;
 		struct SnareState s;
+		float duration;
+		size_t samples;
 
-		SnareSet(STATE_START, (float)(FREQUENCY), 0.5f, &p, &s); // Normal
-		RenderSnare(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN / 8);
-		if (sSave("new-snare.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 8) != 0)
+		duration = SnareSet(STATE_START, (float)(FREQUENCY), 0.5f, &p, &s); // Normal
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderSnare(1.0f, &p, &s, s_buffer, s_buffer + samples);
+		if (sSave("new-snare.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		SnareSetState(STATE_START, (float)(FREQUENCY), 0.75f, &s); // Mid velocity
-		RenderSnare(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN / 8);
-		if (sSave("new-snare-mid.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 8) != 0)
+		duration = SnareSetState(STATE_START, (float)(FREQUENCY), 0.75f, &s); // Mid velocity
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderSnare(1.0f, &p, &s, s_buffer, s_buffer + samples);
+		if (sSave("new-snare-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		SnareSetState(STATE_START, (float)(FREQUENCY), 1.0f, &s); // Max velocity
-		RenderSnare(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN / 8);
-		if (sSave("new-snare-max.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 8) != 0)
+		duration = SnareSetState(STATE_START, (float)(FREQUENCY), 1.0f, &s); // Max velocity
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderSnare(1.0f, &p, &s, s_buffer, s_buffer + samples);
+		if (sSave("new-snare-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 	}
 
@@ -120,23 +136,51 @@ int main(void)
 	{
 		struct HatProgram p;
 		struct HatState s;
+		float duration;
+		size_t samples;
 
-		HatSet(STATE_START, (float)(FREQUENCY), 0.5f, OPEN_HAT, &p, &s);
+		duration = HatSet(STATE_START, (float)(FREQUENCY), 0.5f, OPEN_HAT, &p, &s); // Normal
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + samples);
+		if (sSave("new-hat-open.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
+			return EXIT_FAILURE;
+
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), OPEN_HAT, 0.75f, &s); // Mid velocity
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + samples);
+		if (sSave("new-hat-open-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
+			return EXIT_FAILURE;
+
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), OPEN_HAT, 1.0f, &s); // Max velocity
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + samples);
+		if (sSave("new-hat-open-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
+			return EXIT_FAILURE;
+	}
+
+	if (1)
+	{
+		struct HatProgram p;
+		struct HatState s;
+		float duration;
+		size_t samples;
+
+		duration = HatSet(STATE_START, (float)(FREQUENCY), 0.5f, CLOSED_HAT, &p, &s); // Normal
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + samples);
+		if (sSave("new-hat-closed.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
+			return EXIT_FAILURE;
+
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), CLOSED_HAT, 0.75f, &s); // Mid velocity
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
-
-		if (sSave("new-hat-open.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN) != 0)
+		if (sSave("new-hat-closed-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
-	}
 
-	if (1)
-	{
-		struct HatProgram p;
-		struct HatState s;
-
-		HatSet(STATE_START, (float)(FREQUENCY), 0.5f, CLOSED_HAT, &p, &s);
-		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN / 8);
-
-		if (sSave("new-hat-closed.wav", FREQUENCY, s_buffer, s_buffer + BUFFER_LEN / 8) != 0)
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), CLOSED_HAT, 1.0f, &s); // Max velocity
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
+		if (sSave("new-hat-closed-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 	}
 

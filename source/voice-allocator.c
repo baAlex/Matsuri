@@ -126,24 +126,25 @@ void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy str
 
 	self->states[item].type = type;
 
+	float duration;
 	switch (type)
 	{
 	case TYPE_KICK:
-		KickSetState(STATE_START, self->sampling_frequency, velocity, &self->states[item].state.kick);
-		self->voices[item].remaining = (uint32_t)((KickDuration() * self->sampling_frequency) / 1000.0f);
+		duration = KickSetState(STATE_START, self->sampling_frequency, velocity, &self->states[item].state.kick);
 		break;
 	case TYPE_SNARE:
-		SnareSetState(STATE_START, self->sampling_frequency, velocity, &self->states[item].state.snare);
-		self->voices[item].remaining = (uint32_t)((SnareDuration() * self->sampling_frequency) / 1000.0f);
+		duration = SnareSetState(STATE_START, self->sampling_frequency, velocity, &self->states[item].state.snare);
 		break;
 	case TYPE_OPEN_HAT:
-		HatSetState(STATE_START, velocity, &self->states[item].state.hat);
-		self->voices[item].remaining = (uint32_t)((HatDuration(OPEN_HAT) * self->sampling_frequency) / 1000.0f);
+		duration =
+		    HatSetState(STATE_START, self->sampling_frequency, OPEN_HAT, velocity, &self->states[item].state.hat);
 		break;
 	case TYPE_CLOSED_HAT:
-		HatSetState(STATE_START, velocity, &self->states[item].state.hat);
-		self->voices[item].remaining = (uint32_t)((HatDuration(CLOSED_HAT) * self->sampling_frequency) / 1000.0f);
+		duration =
+		    HatSetState(STATE_START, self->sampling_frequency, CLOSED_HAT, velocity, &self->states[item].state.hat);
 	}
+
+	self->voices[item].remaining = (uint32_t)((duration * self->sampling_frequency) / 1000.0f);
 }
 
 
