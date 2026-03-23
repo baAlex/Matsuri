@@ -24,6 +24,7 @@ export const MIDI_ACOUSTIC_SNARE_KEY = 38;
 export const MIDI_ELECTRIC_SNARE_KEY = 40;
 export const MIDI_CLOSED_HIT_HAT_KEY = 42;
 export const MIDI_OPEN_HIT_HAT_KEY = 46;
+export const MIDI_CRASH_CYMBAL_KEY = 49;
 
 
 let s_wasm_array = null;

@@ -184,6 +184,32 @@ int main(void)
 			return EXIT_FAILURE;
 	}
 
+	if (1)
+	{
+		struct CymbalProgram p;
+		struct CymbalState s;
+		float duration;
+		size_t samples;
+
+		duration = CymbalSet(STATE_START, (float)(FREQUENCY), 0.5f, &p, &s); // Normal
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderCymbal(1.0f, &p, &s, s_buffer, s_buffer + samples);
+		if (sSave("new-cymbal-closed.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
+			return EXIT_FAILURE;
+
+		duration = CymbalSetState(STATE_START, (float)(FREQUENCY), 0.75f, &s); // Mid velocity
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderCymbal(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
+		if (sSave("new-cymbal-closed-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
+			return EXIT_FAILURE;
+
+		duration = CymbalSetState(STATE_START, (float)(FREQUENCY), 1.0f, &s); // Max velocity
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderCymbal(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
+		if (sSave("new-cymbal-closed-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
+			return EXIT_FAILURE;
+	}
+
 #ifndef NDEBUG
 	if (1)
 	{

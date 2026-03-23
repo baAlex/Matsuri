@@ -257,4 +257,48 @@ float RenderHat(float amplify, const struct HatProgram* p, struct HatState* s, f
 float RenderAdditiveHat(float amplify, const struct HatProgram* p, struct HatState* s, float* out,
                         const float* out_end);
 
+
+struct CymbalProgram
+{
+	struct SquareX6Program sqr;
+
+	struct FilterProgram bp[2];
+	struct FilterProgram hp;
+	struct FilterProgram lp;
+
+	float long_gain;
+	float short_gain;
+	float noise_gain;
+
+	float magic_normalisation2;
+};
+
+struct CymbalState
+{
+	struct SquareX6State sqr;
+	struct FilterState bp[2];
+
+	struct ShapedEnvelopeProgram env_long_p;
+	struct EnvelopeProgram env_short_p;
+	struct ShapedEnvelopeState env_long;
+	struct EnvelopeState env_short;
+
+	struct FilterState hp;
+	struct FilterState lp;
+
+	struct NoiseState noise;
+
+	float velocity;
+};
+
+float CymbalSet(enum StateState, float sampling_frequency, float velocity, struct CymbalProgram* p,
+                struct CymbalState* s);
+void CymbalSetProgram(float sampling_frequency, struct CymbalProgram* p);
+float CymbalSetState(enum StateState, float sampling_frequency, float velocity, struct CymbalState* s);
+
+float RenderCymbal(float amplify, const struct CymbalProgram* p, struct CymbalState* s, float* out,
+                   const float* out_end);
+float RenderAdditiveCymbal(float amplify, const struct CymbalProgram* p, struct CymbalState* s, float* out,
+                           const float* out_end);
+
 #endif

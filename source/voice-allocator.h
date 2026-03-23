@@ -31,7 +31,8 @@ enum VoiceAllocatorVoiceType
 	TYPE_KICK = 0,
 	TYPE_SNARE,
 	TYPE_OPEN_HAT,
-	TYPE_CLOSED_HAT
+	TYPE_CLOSED_HAT,
+	TYPE_CYMBAL
 };
 
 struct VoiceAllocatorState // Big as instruments require it, we don't access this frequently
@@ -42,6 +43,7 @@ struct VoiceAllocatorState // Big as instruments require it, we don't access thi
 		struct KickState kick;
 		struct SnareState snare;
 		struct HatState hat;
+		struct CymbalState cymbal;
 	} state;
 
 	float last_signal;
@@ -57,7 +59,7 @@ struct VoiceAllocator
 
 	struct TailProgram tail_p;
 	struct TailState tail_s;
-	float amplify[4]; // One for each VoiceAllocatorVoiceType
+	float amplify[5]; // One for each VoiceAllocatorVoiceType
 
 	struct
 	{
@@ -66,6 +68,7 @@ struct VoiceAllocator
 		struct SnareProgram snare;
 		struct HatProgram open_hat;
 		struct HatProgram closed_hat;
+		struct CymbalProgram cymbal;
 	} program;
 };
 

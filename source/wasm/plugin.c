@@ -81,6 +81,9 @@ void Midi(int byte0, int byte1, int byte2)
 				case 46: //
 					VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 3, TYPE_OPEN_HAT, vel_float);
 					break;
+				case 49: //
+					VoiceAllocatorPlay(&s_allocator, STRATEGY_STEAL, 4, TYPE_CYMBAL, vel_float);
+					break;
 				}
 			}
 		}
@@ -89,7 +92,7 @@ void Midi(int byte0, int byte1, int byte2)
 
 
 const float* Render(float amplify, float kick_amplify, float snare_amplify, float closed_hat_amplify,
-                    float open_hat_amplify, uint32_t samples)
+                    float open_hat_amplify, float cymbal_amplify, uint32_t samples)
 {
 	if (samples > BUFFER_LEN)
 		return NULL;
@@ -98,6 +101,7 @@ const float* Render(float amplify, float kick_amplify, float snare_amplify, floa
 	VoiceAllocatorConfigure(&s_allocator, TYPE_SNARE, amplify * snare_amplify);
 	VoiceAllocatorConfigure(&s_allocator, TYPE_CLOSED_HAT, amplify * closed_hat_amplify);
 	VoiceAllocatorConfigure(&s_allocator, TYPE_OPEN_HAT, amplify * open_hat_amplify);
+	VoiceAllocatorConfigure(&s_allocator, TYPE_CYMBAL, amplify * cymbal_amplify);
 
 	VoiceAllocatorRender(&s_allocator, samples, s_buffer);
 
