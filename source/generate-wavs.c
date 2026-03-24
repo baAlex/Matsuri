@@ -82,12 +82,16 @@ int main(void)
 {
 	if (1)
 	{
+		printf("Kick...\n");
+
 		struct KickProgram p;
 		struct KickState s;
 		float duration;
 		size_t samples;
 
-		duration = KickSet(STATE_START, (float)(FREQUENCY), 0.5f, &p, &s); // Normal
+		KickSetProgram((float)(FREQUENCY), &p);
+
+		duration = KickSetState(STATE_START, (float)(FREQUENCY), 0.5f, &s); // Normal
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderKick(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-kick.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
@@ -108,12 +112,16 @@ int main(void)
 
 	if (1)
 	{
+		printf("Snare...\n");
+
 		struct SnareProgram p;
 		struct SnareState s;
 		float duration;
 		size_t samples;
 
-		duration = SnareSet(STATE_START, (float)(FREQUENCY), 0.5f, &p, &s); // Normal
+		SnareSetProgram((float)(FREQUENCY), &p);
+
+		duration = SnareSetState(STATE_START, (float)(FREQUENCY), 0.5f, &s); // Normal
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderSnare(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-snare.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
@@ -134,12 +142,16 @@ int main(void)
 
 	if (1)
 	{
+		printf("Open Hat...\n");
+
 		struct HatProgram p;
 		struct HatState s;
 		float duration;
 		size_t samples;
 
-		duration = HatSet(STATE_START, (float)(FREQUENCY), 0.5f, OPEN_HAT, &p, &s); // Normal
+		HatSetProgram((float)(FREQUENCY), OPEN_HAT, &p);
+
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), OPEN_HAT, 0.5f, &s); // Normal
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-hat-open.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
@@ -160,12 +172,16 @@ int main(void)
 
 	if (1)
 	{
+		printf("Closed Hat...\n");
+
 		struct HatProgram p;
 		struct HatState s;
 		float duration;
 		size_t samples;
 
-		duration = HatSet(STATE_START, (float)(FREQUENCY), 0.5f, CLOSED_HAT, &p, &s); // Normal
+		HatSetProgram((float)(FREQUENCY), CLOSED_HAT, &p);
+
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), CLOSED_HAT, 0.5f, &s); // Normal
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-hat-closed.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
@@ -186,26 +202,30 @@ int main(void)
 
 	if (1)
 	{
-		struct CymbalProgram p;
-		struct CymbalState s;
+		printf("Cymbal...\n");
+
+		struct HatProgram p;
+		struct HatState s;
 		float duration;
 		size_t samples;
 
-		duration = CymbalSet(STATE_START, (float)(FREQUENCY), 0.5f, &p, &s); // Normal
+		HatSetProgram((float)(FREQUENCY), CYMBAL, &p);
+
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), CYMBAL, 0.5f, &s); // Normal
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
-		RenderCymbal(1.0f, &p, &s, s_buffer, s_buffer + samples);
+		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-cymbal.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = CymbalSetState(STATE_START, (float)(FREQUENCY), 0.75f, &s); // Mid velocity
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), CYMBAL, 0.75f, &s); // Mid velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
-		RenderCymbal(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
+		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
 		if (sSave("new-cymbal-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = CymbalSetState(STATE_START, (float)(FREQUENCY), 1.0f, &s); // Max velocity
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), CYMBAL, 1.0f, &s); // Max velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
-		RenderCymbal(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
+		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
 		if (sSave("new-cymbal-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 	}
@@ -218,7 +238,9 @@ int main(void)
 		struct TailProgram tail_p;
 		struct TailState tail_s;
 
-		KickSet(STATE_START, (float)(FREQUENCY), 0.5f, &p, &s);
+		KickSetProgram((float)(FREQUENCY), &p);
+
+		KickSetState(STATE_START, (float)(FREQUENCY), 0.5f, &s);
 		TailSetProgram((float)(FREQUENCY), 10.0f, &tail_p);
 		TailSetState(&tail_s);
 
@@ -245,7 +267,9 @@ int main(void)
 		struct TailProgram tail_p;
 		struct TailState tail_s;
 
-		SnareSet(STATE_START, (float)(FREQUENCY), 0.5f, &p, &s);
+		SnareSetProgram((float)(FREQUENCY), &p);
+
+		SnareSetState(STATE_START, (float)(FREQUENCY), 0.5f, &s);
 		TailSetProgram((float)(FREQUENCY), 10.0f, &tail_p);
 		TailSetState(&tail_s);
 

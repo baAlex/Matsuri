@@ -54,7 +54,7 @@ void VoiceAllocatorSet(struct VoiceAllocator* self, float sampling_frequency, in
 	SnareSetProgram(sampling_frequency, &self->program.snare);
 	HatSetProgram(sampling_frequency, OPEN_HAT, &self->program.open_hat);
 	HatSetProgram(sampling_frequency, CLOSED_HAT, &self->program.closed_hat);
-	CymbalSetProgram(sampling_frequency, &self->program.cymbal);
+	HatSetProgram(sampling_frequency, CYMBAL, &self->program.cymbal);
 }
 
 
@@ -145,7 +145,7 @@ void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy str
 		    HatSetState(STATE_START, self->sampling_frequency, CLOSED_HAT, velocity, &self->states[item].state.hat);
 		break;
 	case TYPE_CYMBAL:
-		duration = CymbalSetState(STATE_START, self->sampling_frequency, velocity, &self->states[item].state.cymbal);
+		duration = HatSetState(STATE_START, self->sampling_frequency, CYMBAL, velocity, &self->states[item].state.hat);
 	}
 
 	self->voices[item].remaining = (uint32_t)((duration * self->sampling_frequency) / 1000.0f);
@@ -215,8 +215,8 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* 
 			                                   out, out + samples_to_render);
 			break;
 		case TYPE_CYMBAL:
-			i->last_signal = RenderAdditiveCymbal(self->amplify[TYPE_CYMBAL], &self->program.cymbal, &i->state.cymbal,
-			                                      out, out + samples_to_render);
+			i->last_signal = RenderAdditiveHat(self->amplify[TYPE_CYMBAL], &self->program.cymbal, &i->state.hat, out,
+			                                   out + samples_to_render);
 		}
 
 		// Update item

@@ -171,7 +171,6 @@ struct KickState
 	float click_amplify;
 };
 
-float KickSet(enum StateState, float sampling_frequency, float velocity, struct KickProgram* p, struct KickState* s);
 void KickSetProgram(float sampling_frequency, struct KickProgram* p);
 float KickSetState(enum StateState, float sampling_frequency, float velocity, struct KickState* s);
 
@@ -197,7 +196,6 @@ struct SnareState
 	float noise_amplify;
 };
 
-float SnareSet(enum StateState, float sampling_frequency, float velocity, struct SnareProgram* p, struct SnareState* s);
 void SnareSetProgram(float sampling_frequency, struct SnareProgram* p);
 float SnareSetState(enum StateState, float sampling_frequency, float velocity, struct SnareState* s);
 
@@ -210,7 +208,7 @@ struct HatProgram
 {
 	struct SquareX6Program sqr;
 
-	struct FilterProgram bp[2]; // Bandpass is asymmetrical, 24 of highpass, 12 of lowpass,
+	struct FilterProgram bp[3]; // Bandpass is asymmetrical, 24 of highpass, 12 of lowpass,
 	                            // shared between all hats and cymbal
 
 	struct FilterProgram hp; // For noise added by distorting
@@ -220,13 +218,13 @@ struct HatProgram
 	float short_gain;
 	float noise_gain;
 
-	float magic_normalisation2;
+	float fade_out_in_c;
 };
 
 struct HatState
 {
 	struct SquareX6State sqr;
-	struct FilterState bp[2];
+	struct FilterState bp[3];
 
 	struct ShapedEnvelopeProgram env_long_p; // Envelope has a weird shape emulated here by using two of them,
 	                                         // also, while both are exponential, one is more "lineal" than
@@ -239,66 +237,22 @@ struct HatState
 
 	struct NoiseState noise;
 
-	float velocity;
+	float final_amplify;
+	float fade_out_in;
 };
 
 enum HatType
 {
 	OPEN_HAT,
-	CLOSED_HAT
+	CLOSED_HAT,
+	CYMBAL
 };
 
-float HatSet(enum StateState, float sampling_frequency, float velocity, enum HatType type, struct HatProgram* p,
-             struct HatState* s);
 void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgram* p);
 float HatSetState(enum StateState, float sampling_frequency, enum HatType type, float velocity, struct HatState* s);
 
 float RenderHat(float amplify, const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
 float RenderAdditiveHat(float amplify, const struct HatProgram* p, struct HatState* s, float* out,
                         const float* out_end);
-
-
-struct CymbalProgram
-{
-	struct SquareX6Program sqr;
-
-	struct FilterProgram bp[3];
-	struct FilterProgram hp;
-	struct FilterProgram lp;
-
-	float long_gain;
-	float short_gain;
-	float noise_gain;
-
-	float magic_normalisation2;
-};
-
-struct CymbalState
-{
-	struct SquareX6State sqr;
-	struct FilterState bp[3];
-
-	struct ShapedEnvelopeProgram env_long_p;
-	struct EnvelopeProgram env_short_p;
-	struct ShapedEnvelopeState env_long;
-	struct EnvelopeState env_short;
-
-	struct FilterState hp;
-	struct FilterState lp;
-
-	struct NoiseState noise;
-
-	float velocity;
-};
-
-float CymbalSet(enum StateState, float sampling_frequency, float velocity, struct CymbalProgram* p,
-                struct CymbalState* s);
-void CymbalSetProgram(float sampling_frequency, struct CymbalProgram* p);
-float CymbalSetState(enum StateState, float sampling_frequency, float velocity, struct CymbalState* s);
-
-float RenderCymbal(float amplify, const struct CymbalProgram* p, struct CymbalState* s, float* out,
-                   const float* out_end);
-float RenderAdditiveCymbal(float amplify, const struct CymbalProgram* p, struct CymbalState* s, float* out,
-                           const float* out_end);
 
 #endif

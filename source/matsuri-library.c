@@ -566,13 +566,6 @@ void TailAccumulate(struct TailState* restrict s, float signal)
 }
 
 
-float KickSet(enum StateState state_state, float sampling_frequency, float velocity, struct KickProgram* restrict p,
-              struct KickState* restrict s)
-{
-	KickSetProgram(sampling_frequency, p);
-	return KickSetState(state_state, sampling_frequency, velocity, s);
-}
-
 void KickSetProgram(float sampling_frequency, struct KickProgram* restrict p)
 {
 	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, 1.13f, 2.58f - 1.13f, -0.4f, 0.2f, &p->env);
@@ -634,13 +627,6 @@ float RenderAdditiveKick(float mixer_amplify, const struct KickProgram* restrict
 	return signal;
 }
 
-
-float SnareSet(enum StateState state_state, float sampling_frequency, float velocity, struct SnareProgram* restrict p,
-               struct SnareState* restrict s)
-{
-	SnareSetProgram(sampling_frequency, p);
-	return SnareSetState(state_state, sampling_frequency, velocity, s);
-}
 
 void SnareSetProgram(float sampling_frequency, struct SnareProgram* restrict p)
 {
@@ -707,66 +693,115 @@ float RenderAdditiveSnare(float mixer_amplify, const struct SnareProgram* restri
 }
 
 
-float HatSet(enum StateState state_state, float sampling_frequency, float velocity, enum HatType type,
-             struct HatProgram* restrict p, struct HatState* restrict s)
-{
-	HatSetProgram(sampling_frequency, type, p);
-	return HatSetState(state_state, sampling_frequency, type, velocity, s);
-}
-
 void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgram* restrict p)
 {
-	const float magic_normalisation1 = 12.25f; // Obtained in [b]
+	float magic_metallic_normalisation;
 
-	p->magic_normalisation2 = 1.75f; // Obtained in [c]
-	p->long_gain = 1.0f;
-	p->short_gain = 0.8f;
-	p->noise_gain = 0.04f * p->short_gain;
-
-	if (type == CLOSED_HAT)
+	switch (type)
 	{
-		p->magic_normalisation2 = 3.958813f; // Obtained in [c]
+	case OPEN_HAT:
+	{
+		magic_metallic_normalisation = 3.0f; // Obtained in [b]
+		p->long_gain = 1.0f;
+		p->short_gain = 0.8f;
+		p->noise_gain = 0.04f * p->short_gain;
+
+		p->fade_out_in_c = 1.0f;
+		break;
+	}
+	case CLOSED_HAT:
+	{
+		magic_metallic_normalisation = 3.0f; // Obtained in [b]
 		p->long_gain = 0.0f;
 		p->short_gain = 1.0f;
 		p->noise_gain = 0.0f;
+
+		p->fade_out_in_c = 1.0f;
+		break;
+	}
+	case CYMBAL:
+	{
+		magic_metallic_normalisation = 6.0f; // Obtained in [b]
+		p->long_gain = 0.2f;
+		p->short_gain = 1.0f;
+		p->noise_gain = 0.04f * p->short_gain;
+
+		const float fade_out_in_samples = (3000.0f * sampling_frequency) / 1000.0f;
+		p->fade_out_in_c = sFastNegExp((-LOG_100_PERCENT) / fade_out_in_samples);
+		break;
+	}
 	}
 
-	SquareX6SetProgram(sampling_frequency, magic_normalisation1, 684.35f, 511.97f, 305.88f, 420.2f, 271.14f, 201.23f,
-	                   &p->sqr);
+	SquareX6SetProgram(sampling_frequency, magic_metallic_normalisation, 684.35f, 511.97f, 305.88f, 420.2f, 271.14f,
+	                   201.23f, &p->sqr);
 
-	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 7100.0f, 2.5f, &p->bp[0]);
-	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.125f,
-	                 &p->bp[1]); // Resonance makes an hammer/anvil "clink" at the start
-	                             // 0.125 = a lot
-	                             // 0.5   = nothing (hat sounds more air-y)
+	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 7100.0f, 3.0f, &p->bp[0]);
+	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, &p->bp[1]);
 
-	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, &p->hp);
+	FilterSetProgram(sampling_frequency, RC_HIGHPASS_6DB, 7100.0f, 0.5f, &p->hp);
 	FilterSetProgram(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, &p->lp);
+
+	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3500.0f, 4.0f, &p->bp[2]);
 }
 
 float HatSetState(enum StateState state_state, float sampling_frequency, enum HatType type, float velocity,
                   struct HatState* restrict s)
 {
-	s->velocity = velocity * velocity;
+	float attack;
+	float short_length;
+	float long_length;
+	float long_shape;
+
+	s->final_amplify = velocity * velocity;
+
+	switch (type)
+	{
+	case OPEN_HAT:
+	{
+		s->final_amplify *= 2.3f; // Obtained in [c]
+
+		attack = sMap(0.5f, 1.0f, 1.25f, 10.0f, sMax(velocity * velocity, 0.5));
+		short_length = sMap(0.25f, 1.0f, 500.0f, 2000.0f, sMax(velocity * velocity, 0.25));
+		s->fade_out_in = 1.0f;
+
+		// Following two are allowed to be shorter at low velocities, that's why
+		// the 0.125 rather than common sense 0.25
+		long_length = sMap(0.25f, 1.0f, 1500.0f, 2000.0f, sMax(velocity * velocity, 0.125));
+		long_shape = sMap(0.25f, 1.0f, 0.4f, 0.1f, sMax(velocity * velocity, 0.125));
+		break;
+	}
+	case CLOSED_HAT:
+	{
+		s->final_amplify *= 4.8f; // Obtained in [c]
+
+		attack = sMap(0.5f, 1.0f, 2.5f, 20.0f, sMax(velocity * velocity, 0.5));
+		short_length = sMap(0.25f, 1.0f, 150.0f, 160.0f, sMax(velocity * velocity, 0.25));
+		s->fade_out_in = 1.0f;
+
+		long_length = 0.0f;
+		long_shape = 0.0f;
+		break;
+	}
+	case CYMBAL:
+	{
+		s->final_amplify *= 4.3f; // Obtained in [c]
+
+		attack = sMap(0.5f, 1.0f, 1.25f, 1.25f, sMax(velocity * velocity, 0.5));
+		short_length = sMap(0.25f, 1.0f, 150.0f, 150.0f, sMax(velocity * velocity, 0.25));
+		s->fade_out_in = 0.75f;
+
+		// Same length logic as open hat (with different values)
+		long_length = sMap(0.25f, 1.0f, 1400.0f, 1400.0f, sMax(velocity * velocity, 0.125));
+		long_shape = sMap(0.25f, 1.0f, 0.6f, 0.6f, sMax(velocity * velocity, 0.125));
+		break;
+	}
+	}
 
 	SquareX6SetState(&s->sqr);
 
 	FilterSetState(&s->bp[0]);
 	FilterSetState(&s->bp[1]);
-
-	float attack = sMap(0.5f, 1.0f, 1.25f, 10.0f, sMax(velocity * velocity, 0.5));
-	float short_length = sMap(0.25f, 1.0f, 500.0f, 2000.0f, sMax(velocity * velocity, 0.25));
-
-	// Following two, only used by open hat, are allowed to be shorter at low velocities,
-	// that's why the 0.125 rather than common sense 0.25
-	const float long_length = sMap(0.25f, 1.0f, 1500.0f, 2000.0f, sMax(velocity * velocity, 0.125));
-	const float long_shape = sMap(0.25f, 1.0f, 0.4f, 0.1f, sMax(velocity * velocity, 0.125));
-
-	if (type == CLOSED_HAT)
-	{
-		attack = sMap(0.5f, 1.0f, 2.5f, 20.0f, sMax(velocity * velocity, 0.5));
-		short_length = sMap(0.25f, 1.0f, 150.0f, 160.0f, sMax(velocity * velocity, 0.25));
-	}
+	FilterSetState(&s->bp[2]);
 
 	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, attack, long_length, 0.4f, long_shape, &s->env_long_p);
 	EnvelopeSetProgram(sampling_frequency, 0.0f, attack, 0.0f, 1.0f, short_length, 1.0f, &s->env_short_p);
@@ -782,8 +817,8 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	{
 	case OPEN_HAT: return (attack + long_length) + ((attack + long_length) * 10.0f) / 100.0f;
 	case CLOSED_HAT: return (attack + short_length) + ((attack + short_length) * 10.0f) / 100.0f;
+	case CYMBAL: return (attack + long_length) + ((attack + long_length) * 10.0f) / 100.0f;
 	}
-
 	return 0.0f;
 }
 
@@ -791,68 +826,54 @@ float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSt
                 const float* out_end)
 {
 #ifndef NDEBUG
-	float max_level = 0.0f;
+#ifndef FREESTANDING
+	float max_level_metallic = 0.0f;
+	float max_level_final = 0.0f;
+#endif
 #endif
 
+	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		// Render bandpass filtered metallic noise
-		*sample = SquareX6Step(&p->sqr, &s->sqr);
-		*sample = FilterStep(*sample, &p->bp[0], &s->bp[0]);
-		*sample = FilterStep(*sample, &p->bp[1], &s->bp[1]);
+		const float square = SquareX6Step(&p->sqr, &s->sqr);
+		const float high = FilterStep(FilterStep(square, &p->bp[0], &s->bp[0]), &p->bp[1], &s->bp[1]);
+		const float low = FilterStep(square, &p->bp[2], &s->bp[2]) * 0.125f;
 
-		// Normalisation
+		s->fade_out_in *= p->fade_out_in_c;
+		signal = low + (high - low) * s->fade_out_in;
+
 #ifndef NDEBUG
-		max_level = sMax(sAbs(*sample), max_level);
-	}
-
-#ifndef FREESTANDING
-	printf("Hat normalisation of x%f required after metallic noise\n", 1.0f / max_level); // [b]
-#endif
-
-	if (0 || max_level >= 1.0f)
-	{
-		// Distortion depends on volume, so we want to normalise first
-		for (float* sample = out; sample < out_end; sample += 1)
-			*sample *= (1.0f / max_level);
-	}
-
-	max_level = 0.0f;
-	for (float* sample = out; sample < out_end; sample += 1)
-	{
+		max_level_metallic = sMax(sAbs(signal), max_level_metallic); // [b]
 #endif
 
 		// Distort, and filter noise added by it (we want low frequencies clean)
-		*sample = CheapDistortion(*sample, -0.6f);
-		*sample = FilterStep(*sample, &p->hp, &s->hp);
+		signal = CheapDistortion(signal, -0.7f);
+		signal = FilterStep(signal, &p->hp, &s->hp);
 
 		// Envelope it
-		*sample *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * p->long_gain //
-		           + EnvelopeStep(&s->env_short_p, &s->env_short) * p->short_gain;
+		signal *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * p->long_gain //
+		          + EnvelopeStep(&s->env_short_p, &s->env_short) * p->short_gain;
 
 		// Add transient white noise
-		*sample += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * p->noise_gain;
+		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * p->noise_gain;
 
 		// Final filter
-		*sample = FilterStep(*sample, &p->lp, &s->lp) * p->magic_normalisation2 * amplify * s->velocity;
+		*sample = FilterStep(signal, &p->lp, &s->lp) * amplify * s->final_amplify;
 
-		// Normalisation
 #ifndef NDEBUG
-		max_level = sMax(sAbs(*sample), max_level);
+		max_level_final = sMax(sAbs(*sample), max_level_final); // [c]
+#endif
 	}
 
+#ifndef NDEBUG
 #ifndef FREESTANDING
-	printf("Hat normalisation of x%f required at the end\n", 1.0f / max_level); // [c]
+	printf("Normalisation of x%f required after metallic noise\n", 1.0f / max_level_metallic);
+	printf("Normalisation of x%f required at the end\n", 1.0f / max_level_final);
+#endif
 #endif
 
-	if (0 || max_level >= 1.0f)
-	{
-		for (float* sample = out; sample < out_end; sample += 1)
-			*sample *= (1.0f / max_level);
-#endif
-	}
-
-	return *(out_end - 1); // Hacky, but normalisation makes it tricky
+	return signal;
 }
 
 float RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
@@ -862,12 +883,15 @@ float RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, stru
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		// Render bandpass filtered metallic noise
-		signal = SquareX6Step(&p->sqr, &s->sqr);
-		signal = FilterStep(signal, &p->bp[0], &s->bp[0]);
-		signal = FilterStep(signal, &p->bp[1], &s->bp[1]);
+		const float square = SquareX6Step(&p->sqr, &s->sqr);
+		const float high = FilterStep(FilterStep(square, &p->bp[0], &s->bp[0]), &p->bp[1], &s->bp[1]);
+		const float low = FilterStep(square, &p->bp[2], &s->bp[2]) * 0.125f;
+
+		s->fade_out_in *= p->fade_out_in_c;
+		signal = low + (high - low) * s->fade_out_in;
 
 		// Distort, and filter noise added by it (we want low frequencies clean)
-		signal = CheapDistortion(signal, -0.6f);
+		signal = CheapDistortion(signal, -0.7f);
 		signal = FilterStep(signal, &p->hp, &s->hp);
 
 		// Envelope it
@@ -878,167 +902,9 @@ float RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, stru
 		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * p->noise_gain;
 
 		// Final filter
-		signal = FilterStep(signal, &p->lp, &s->lp) * p->magic_normalisation2 * amplify * s->velocity;
+		signal = FilterStep(signal, &p->lp, &s->lp) * amplify * s->final_amplify;
 		*sample += signal;
 	}
-	return signal;
-}
 
-
-float CymbalSet(enum StateState state_state, float sampling_frequency, float velocity, struct CymbalProgram* restrict p,
-                struct CymbalState* restrict s)
-{
-	CymbalSetProgram(sampling_frequency, p);
-	return CymbalSetState(state_state, sampling_frequency, velocity, s);
-}
-
-void CymbalSetProgram(float sampling_frequency, struct CymbalProgram* restrict p)
-{
-	const float magic_normalisation1 = 2.4f; // Obtained in [b]
-
-	p->magic_normalisation2 = 3.0f; // Obtained in [c]
-	p->long_gain = 0.2f;
-	p->short_gain = 1.0f;
-	p->noise_gain = 0.04f * p->short_gain;
-
-	SquareX6SetProgram(sampling_frequency, magic_normalisation1, 684.35f, 511.97f, 305.88f, 420.2f, 271.14f, 201.23f,
-	                   &p->sqr);
-
-	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 7100.0f, 3.0f, &p->bp[0]);
-	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, &p->bp[1]);
-
-	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3500.0f, 4.0f, &p->bp[2]);
-
-	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, &p->hp);
-	FilterSetProgram(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, &p->lp);
-}
-
-float CymbalSetState(enum StateState state_state, float sampling_frequency, float velocity,
-                     struct CymbalState* restrict s)
-{
-	s->velocity = velocity * velocity;
-
-	SquareX6SetState(&s->sqr);
-
-	FilterSetState(&s->bp[0]);
-	FilterSetState(&s->bp[1]);
-	FilterSetState(&s->bp[2]);
-
-	float attack = sMap(0.5f, 1.0f, 1.25f, 1.25f, sMax(velocity * velocity, 0.5));
-	float short_length = sMap(0.25f, 1.0f, 150.0f, 150.0f, sMax(velocity * velocity, 0.25));
-	const float long_length = sMap(0.25f, 1.0f, 1400.0f, 1400.0f, sMax(velocity * velocity, 0.125));
-	const float long_shape = sMap(0.25f, 1.0f, 0.6f, 0.6f, sMax(velocity * velocity, 0.125));
-
-	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, attack, long_length, 0.4f, long_shape, &s->env_long_p);
-	EnvelopeSetProgram(sampling_frequency, 0.0f, attack, 0.0f, 1.0f, short_length, 1.0f, &s->env_short_p);
-	ShapedEnvelopeSetState(state_state, &s->env_long);
-	EnvelopeSetState(state_state, &s->env_short);
-
-	FilterSetState(&s->hp);
-	FilterSetState(&s->lp);
-
-	NoiseSet(444, &s->noise);
-
-	return (attack + long_length) + ((attack + long_length) * 10.0f) / 100.0f;
-}
-
-float RenderCymbal(float amplify, const struct CymbalProgram* restrict p, struct CymbalState* restrict s, float* out,
-                   const float* out_end)
-{
-#ifndef NDEBUG
-	float max_level = 0.0f;
-#endif
-
-	for (float* sample = out; sample < out_end; sample += 1)
-	{
-		// Render bandpass filtered metallic noise
-		const float square = SquareX6Step(&p->sqr, &s->sqr);
-		*sample = FilterStep(square, &p->bp[0], &s->bp[0]);
-		*sample = FilterStep(*sample, &p->bp[1], &s->bp[1]);
-
-		*sample += FilterStep(square, &p->bp[2], &s->bp[2]) * 0.25f;
-
-		// Normalisation
-#ifndef NDEBUG
-		max_level = sMax(sAbs(*sample), max_level);
-	}
-
-#ifndef FREESTANDING
-	printf("Cymbal normalisation of x%f required after metallic noise\n", 1.0f / max_level); // [b]
-#endif
-
-	if (0 || max_level >= 1.0f)
-	{
-		// Distortion depends on volume, so we want to normalise first
-		for (float* sample = out; sample < out_end; sample += 1)
-			*sample *= (1.0f / max_level);
-	}
-
-	max_level = 0.0f;
-	for (float* sample = out; sample < out_end; sample += 1)
-	{
-#endif
-
-		// Distort, and filter noise added by it (we want low frequencies clean)
-		*sample = CheapDistortion(*sample, -0.8f);
-		*sample = FilterStep(*sample, &p->hp, &s->hp);
-
-		// Envelope it
-		*sample *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * p->long_gain //
-		           + EnvelopeStep(&s->env_short_p, &s->env_short) * p->short_gain;
-
-		// Add transient white noise
-		*sample += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * p->noise_gain;
-
-		// Final filter
-		*sample = FilterStep(*sample, &p->lp, &s->lp) * p->magic_normalisation2 * amplify * s->velocity;
-
-		// Normalisation
-#ifndef NDEBUG
-		max_level = sMax(sAbs(*sample), max_level);
-	}
-
-#ifndef FREESTANDING
-	printf("Cymbal normalisation of x%f required at the end\n", 1.0f / max_level); // [c]
-#endif
-
-	if (0 || max_level >= 1.0f)
-	{
-		for (float* sample = out; sample < out_end; sample += 1)
-			*sample *= (1.0f / max_level);
-#endif
-	}
-
-	return *(out_end - 1); // Hacky, but normalisation makes it tricky
-}
-
-float RenderAdditiveCymbal(float amplify, const struct CymbalProgram* restrict p, struct CymbalState* restrict s,
-                           float* out, const float* out_end)
-{
-	float signal;
-	for (float* sample = out; sample < out_end; sample += 1)
-	{
-		// Render bandpass filtered metallic noise
-		const float square = SquareX6Step(&p->sqr, &s->sqr);
-		signal = FilterStep(square, &p->bp[0], &s->bp[0]);
-		signal = FilterStep(signal, &p->bp[1], &s->bp[1]);
-
-		signal += FilterStep(square, &p->bp[2], &s->bp[2]) * 0.25f;
-
-		// Distort, and filter noise added by it (we want low frequencies clean)
-		signal = CheapDistortion(signal, -0.8f);
-		signal = FilterStep(signal, &p->hp, &s->hp);
-
-		// Envelope it
-		signal *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * p->long_gain //
-		          + EnvelopeStep(&s->env_short_p, &s->env_short) * p->short_gain;
-
-		// Add transient white noise
-		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * p->noise_gain;
-
-		// Final filter
-		signal = FilterStep(signal, &p->lp, &s->lp) * p->magic_normalisation2 * amplify * s->velocity;
-		*sample += signal;
-	}
 	return signal;
 }
