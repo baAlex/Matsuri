@@ -707,18 +707,6 @@ float RenderAdditiveSnare(float mixer_amplify, const struct SnareProgram* restri
 }
 
 
-#ifndef NDEBUG
-static int sEqual(float a, float b)
-{
-	// https://embeddeduse.com/2019/08/26/qt-compare-two-floats/
-
-	if (sAbs(a - b) > 1.0e-5f * sMax(sAbs(a), sAbs(b)))
-		return 1;
-	return 0;
-}
-#endif
-
-
 float HatSet(enum StateState state_state, float sampling_frequency, float velocity, enum HatType type,
              struct HatProgram* restrict p, struct HatState* restrict s)
 {
@@ -728,7 +716,7 @@ float HatSet(enum StateState state_state, float sampling_frequency, float veloci
 
 void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgram* restrict p)
 {
-	const float magic_normalisation1 = 13.043748f; // Obtained in [b]
+	const float magic_normalisation1 = 12.25f; // Obtained in [b]
 
 	p->magic_normalisation2 = 1.75f; // Obtained in [c]
 	p->long_gain = 1.0f;
@@ -818,12 +806,12 @@ float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSt
 		max_level = sMax(sAbs(*sample), max_level);
 	}
 
-	if (1 && sEqual(max_level, 1.0f) == 1)
-	{
 #ifndef FREESTANDING
-		printf("Hat normalisation of x%f required after metallic noise\n", 1.0f / max_level); // [b]
+	printf("Hat normalisation of x%f required after metallic noise\n", 1.0f / max_level); // [b]
 #endif
 
+	if (0 || max_level >= 1.0f)
+	{
 		// Distortion depends on volume, so we want to normalise first
 		for (float* sample = out; sample < out_end; sample += 1)
 			*sample *= (1.0f / max_level);
@@ -853,12 +841,12 @@ float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSt
 		max_level = sMax(sAbs(*sample), max_level);
 	}
 
-	if (1 && sEqual(max_level, 1.0f) == 1)
-	{
 #ifndef FREESTANDING
-		printf("Hat normalisation of x%f required at the end\n", 1.0f / max_level); // [c]
+	printf("Hat normalisation of x%f required at the end\n", 1.0f / max_level); // [c]
 #endif
 
+	if (0 || max_level >= 1.0f)
+	{
 		for (float* sample = out; sample < out_end; sample += 1)
 			*sample *= (1.0f / max_level);
 #endif
@@ -906,21 +894,20 @@ float CymbalSet(enum StateState state_state, float sampling_frequency, float vel
 
 void CymbalSetProgram(float sampling_frequency, struct CymbalProgram* restrict p)
 {
-	const float magic_normalisation1 = 13.043748f; // Obtained in [b]
+	const float magic_normalisation1 = 2.4f; // Obtained in [b]
 
-	p->magic_normalisation2 = 1.75f; // Obtained in [c]
-	p->long_gain = 1.0f;
-	p->short_gain = 0.8f;
+	p->magic_normalisation2 = 3.0f; // Obtained in [c]
+	p->long_gain = 0.2f;
+	p->short_gain = 1.0f;
 	p->noise_gain = 0.04f * p->short_gain;
 
 	SquareX6SetProgram(sampling_frequency, magic_normalisation1, 684.35f, 511.97f, 305.88f, 420.2f, 271.14f, 201.23f,
 	                   &p->sqr);
 
-	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 7100.0f, 2.5f, &p->bp[0]);
-	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.125f,
-	                 &p->bp[1]); // Resonance makes an hammer/anvil "clink" at the start
-	                             // 0.125 = a lot
-	                             // 0.5   = nothing (cymbal sounds more air-y)
+	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 7100.0f, 3.0f, &p->bp[0]);
+	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, &p->bp[1]);
+
+	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3500.0f, 4.0f, &p->bp[2]);
 
 	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, &p->hp);
 	FilterSetProgram(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, &p->lp);
@@ -935,11 +922,12 @@ float CymbalSetState(enum StateState state_state, float sampling_frequency, floa
 
 	FilterSetState(&s->bp[0]);
 	FilterSetState(&s->bp[1]);
+	FilterSetState(&s->bp[2]);
 
-	float attack = sMap(0.5f, 1.0f, 1.25f, 10.0f, sMax(velocity * velocity, 0.5));
-	float short_length = sMap(0.25f, 1.0f, 500.0f, 2000.0f, sMax(velocity * velocity, 0.25));
-	const float long_length = sMap(0.25f, 1.0f, 1500.0f, 2000.0f, sMax(velocity * velocity, 0.125));
-	const float long_shape = sMap(0.25f, 1.0f, 0.4f, 0.1f, sMax(velocity * velocity, 0.125));
+	float attack = sMap(0.5f, 1.0f, 1.25f, 1.25f, sMax(velocity * velocity, 0.5));
+	float short_length = sMap(0.25f, 1.0f, 150.0f, 150.0f, sMax(velocity * velocity, 0.25));
+	const float long_length = sMap(0.25f, 1.0f, 1400.0f, 1400.0f, sMax(velocity * velocity, 0.125));
+	const float long_shape = sMap(0.25f, 1.0f, 0.6f, 0.6f, sMax(velocity * velocity, 0.125));
 
 	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, attack, long_length, 0.4f, long_shape, &s->env_long_p);
 	EnvelopeSetProgram(sampling_frequency, 0.0f, attack, 0.0f, 1.0f, short_length, 1.0f, &s->env_short_p);
@@ -964,21 +952,23 @@ float RenderCymbal(float amplify, const struct CymbalProgram* restrict p, struct
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		// Render bandpass filtered metallic noise
-		*sample = SquareX6Step(&p->sqr, &s->sqr);
-		*sample = FilterStep(*sample, &p->bp[0], &s->bp[0]);
+		const float square = SquareX6Step(&p->sqr, &s->sqr);
+		*sample = FilterStep(square, &p->bp[0], &s->bp[0]);
 		*sample = FilterStep(*sample, &p->bp[1], &s->bp[1]);
+
+		*sample += FilterStep(square, &p->bp[2], &s->bp[2]) * 0.25f;
 
 		// Normalisation
 #ifndef NDEBUG
 		max_level = sMax(sAbs(*sample), max_level);
 	}
 
-	if (1 && sEqual(max_level, 1.0f) == 1)
-	{
 #ifndef FREESTANDING
-		printf("Cymbal normalisation of x%f required after metallic noise\n", 1.0f / max_level); // [b]
+	printf("Cymbal normalisation of x%f required after metallic noise\n", 1.0f / max_level); // [b]
 #endif
 
+	if (0 || max_level >= 1.0f)
+	{
 		// Distortion depends on volume, so we want to normalise first
 		for (float* sample = out; sample < out_end; sample += 1)
 			*sample *= (1.0f / max_level);
@@ -990,7 +980,7 @@ float RenderCymbal(float amplify, const struct CymbalProgram* restrict p, struct
 #endif
 
 		// Distort, and filter noise added by it (we want low frequencies clean)
-		*sample = CheapDistortion(*sample, -0.6f);
+		*sample = CheapDistortion(*sample, -0.8f);
 		*sample = FilterStep(*sample, &p->hp, &s->hp);
 
 		// Envelope it
@@ -1008,12 +998,12 @@ float RenderCymbal(float amplify, const struct CymbalProgram* restrict p, struct
 		max_level = sMax(sAbs(*sample), max_level);
 	}
 
-	if (1 && sEqual(max_level, 1.0f) == 1)
-	{
 #ifndef FREESTANDING
-		printf("Cymbal normalisation of x%f required at the end\n", 1.0f / max_level); // [c]
+	printf("Cymbal normalisation of x%f required at the end\n", 1.0f / max_level); // [c]
 #endif
 
+	if (0 || max_level >= 1.0f)
+	{
 		for (float* sample = out; sample < out_end; sample += 1)
 			*sample *= (1.0f / max_level);
 #endif
@@ -1029,12 +1019,14 @@ float RenderAdditiveCymbal(float amplify, const struct CymbalProgram* restrict p
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		// Render bandpass filtered metallic noise
-		signal = SquareX6Step(&p->sqr, &s->sqr);
-		signal = FilterStep(signal, &p->bp[0], &s->bp[0]);
+		const float square = SquareX6Step(&p->sqr, &s->sqr);
+		signal = FilterStep(square, &p->bp[0], &s->bp[0]);
 		signal = FilterStep(signal, &p->bp[1], &s->bp[1]);
 
+		signal += FilterStep(square, &p->bp[2], &s->bp[2]) * 0.25f;
+
 		// Distort, and filter noise added by it (we want low frequencies clean)
-		signal = CheapDistortion(signal, -0.6f);
+		signal = CheapDistortion(signal, -0.8f);
 		signal = FilterStep(signal, &p->hp, &s->hp);
 
 		// Envelope it

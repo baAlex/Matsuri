@@ -262,7 +262,7 @@ struct CymbalProgram
 {
 	struct SquareX6Program sqr;
 
-	struct FilterProgram bp[2];
+	struct FilterProgram bp[3];
 	struct FilterProgram hp;
 	struct FilterProgram lp;
 
@@ -276,7 +276,7 @@ struct CymbalProgram
 struct CymbalState
 {
 	struct SquareX6State sqr;
-	struct FilterState bp[2];
+	struct FilterState bp[3];
 
 	struct ShapedEnvelopeProgram env_long_p;
 	struct EnvelopeProgram env_short_p;
