@@ -37,6 +37,7 @@
 			ConnectSliderParameter("slider-gain-closed-hit-hat", "gain-closed-hit-hat");
 			ConnectSliderParameter("slider-gain-open-hit-hat", "gain-open-hit-hat");
 			ConnectSliderParameter("slider-gain-crash-cymbal", "gain-crash-cymbal");
+			ConnectSliderParameter("slider-velocity-gain-modulation", "velocity-gain-modulation");
 		}
 
 		async function NoteOn(key_no) {
@@ -131,7 +132,20 @@
 				<option value="0.4"></option>
 			</datalist>
 		</fieldset>
+		<fieldset>
+			<legend>Velocity:</legend>
+
+			<label>Gain modulation [1]:
+				<input type="range" id="slider-velocity-gain-modulation" min=" 0" max="1" value="1.0" step="0.01"
+					list="marker1" /></label>
+
+			<datalist id="marker1">
+				<option value="1"></option>
+			</datalist>
+		</fieldset>
 	</div>
+
+	<p>[1] With no modulation voices will have the same gain regardless of their velocity.</p>
 </body>
 
 </html>

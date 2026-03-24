@@ -91,19 +91,19 @@ int main(void)
 
 		KickSetProgram((float)(FREQUENCY), &p);
 
-		duration = KickSetState(STATE_START, (float)(FREQUENCY), 0.5f, &s); // Normal
+		duration = KickSetState(STATE_START, (float)(FREQUENCY), 0.5f, 0.0f, &s); // Normal
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderKick(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-kick.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = KickSetState(STATE_START, (float)(FREQUENCY), 0.75f, &s); // Mid velocity
+		duration = KickSetState(STATE_START, (float)(FREQUENCY), 0.75f, 0.0f, &s); // Mid velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderKick(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-kick-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = KickSetState(STATE_START, (float)(FREQUENCY), 1.0f, &s); // Max velocity
+		duration = KickSetState(STATE_START, (float)(FREQUENCY), 1.0f, 0.0f, &s); // Max velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderKick(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-kick-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
@@ -121,19 +121,19 @@ int main(void)
 
 		SnareSetProgram((float)(FREQUENCY), &p);
 
-		duration = SnareSetState(STATE_START, (float)(FREQUENCY), 0.5f, &s); // Normal
+		duration = SnareSetState(STATE_START, (float)(FREQUENCY), 666, 0.5f, 0.0f, &s); // Normal
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderSnare(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-snare.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = SnareSetState(STATE_START, (float)(FREQUENCY), 0.75f, &s); // Mid velocity
+		duration = SnareSetState(STATE_START, (float)(FREQUENCY), 666, 0.75f, 0.0f, &s); // Mid velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderSnare(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-snare-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = SnareSetState(STATE_START, (float)(FREQUENCY), 1.0f, &s); // Max velocity
+		duration = SnareSetState(STATE_START, (float)(FREQUENCY), 666, 1.0f, 0.0f, &s); // Max velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderSnare(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-snare-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
@@ -151,19 +151,19 @@ int main(void)
 
 		HatSetProgram((float)(FREQUENCY), OPEN_HAT, &p);
 
-		duration = HatSetState(STATE_START, (float)(FREQUENCY), OPEN_HAT, 0.5f, &s); // Normal
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), OPEN_HAT, 666, 0.5f, 0.0f, &s); // Normal
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-hat-open.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = HatSetState(STATE_START, (float)(FREQUENCY), OPEN_HAT, 0.75f, &s); // Mid velocity
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), OPEN_HAT, 666, 0.75f, 0.0f, &s); // Mid velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-hat-open-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = HatSetState(STATE_START, (float)(FREQUENCY), OPEN_HAT, 1.0f, &s); // Max velocity
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), OPEN_HAT, 666, 1.0f, 0.0f, &s); // Max velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-hat-open-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
@@ -181,19 +181,19 @@ int main(void)
 
 		HatSetProgram((float)(FREQUENCY), CLOSED_HAT, &p);
 
-		duration = HatSetState(STATE_START, (float)(FREQUENCY), CLOSED_HAT, 0.5f, &s); // Normal
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), CLOSED_HAT, 666, 0.5f, 0.0f, &s); // Normal
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-hat-closed.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = HatSetState(STATE_START, (float)(FREQUENCY), CLOSED_HAT, 0.75f, &s); // Mid velocity
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), CLOSED_HAT, 666, 0.75f, 0.0f, &s); // Mid velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
 		if (sSave("new-hat-closed-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = HatSetState(STATE_START, (float)(FREQUENCY), CLOSED_HAT, 1.0f, &s); // Max velocity
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), CLOSED_HAT, 666, 1.0f, 0.0f, &s); // Max velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
 		if (sSave("new-hat-closed-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
@@ -211,19 +211,19 @@ int main(void)
 
 		HatSetProgram((float)(FREQUENCY), CYMBAL, &p);
 
-		duration = HatSetState(STATE_START, (float)(FREQUENCY), CYMBAL, 0.5f, &s); // Normal
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), CYMBAL, 666, 0.5f, 0.0f, &s); // Normal
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("new-cymbal.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = HatSetState(STATE_START, (float)(FREQUENCY), CYMBAL, 0.75f, &s); // Mid velocity
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), CYMBAL, 666, 0.75f, 0.0f, &s); // Mid velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
 		if (sSave("new-cymbal-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = HatSetState(STATE_START, (float)(FREQUENCY), CYMBAL, 1.0f, &s); // Max velocity
+		duration = HatSetState(STATE_START, (float)(FREQUENCY), CYMBAL, 666, 1.0f, 0.0f, &s); // Max velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderHat(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
 		if (sSave("new-cymbal-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
@@ -231,7 +231,7 @@ int main(void)
 	}
 
 #ifndef NDEBUG
-	if (1)
+	if (0)
 	{
 		struct KickProgram p;
 		struct KickState s;
@@ -240,7 +240,7 @@ int main(void)
 
 		KickSetProgram((float)(FREQUENCY), &p);
 
-		KickSetState(STATE_START, (float)(FREQUENCY), 0.5f, &s);
+		KickSetState(STATE_START, (float)(FREQUENCY), 0.5f, 0.0f, &s);
 		TailSetProgram((float)(FREQUENCY), 10.0f, &tail_p);
 		TailSetState(&tail_s);
 
@@ -260,7 +260,7 @@ int main(void)
 			return EXIT_FAILURE;
 	}
 
-	if (1)
+	if (0)
 	{
 		struct SnareProgram p;
 		struct SnareState s;
@@ -269,7 +269,7 @@ int main(void)
 
 		SnareSetProgram((float)(FREQUENCY), &p);
 
-		SnareSetState(STATE_START, (float)(FREQUENCY), 0.5f, &s);
+		SnareSetState(STATE_START, (float)(FREQUENCY), 666, 0.5f, 0.0f, &s);
 		TailSetProgram((float)(FREQUENCY), 10.0f, &tail_p);
 		TailSetState(&tail_s);
 

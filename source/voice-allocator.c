@@ -36,6 +36,14 @@ static uint32_t sMin(uint32_t a, uint32_t b)
 	return (a < b) ? a : b;
 }
 
+static uint32_t sXorshift(uint32_t x)
+{
+	x ^= (uint32_t)((x) << 13);
+	x ^= (uint32_t)((x) >> 17);
+	x ^= (uint32_t)((x) << 5);
+	return x;
+}
+
 
 void VoiceAllocatorSet(struct VoiceAllocator* self, float sampling_frequency, int max_items)
 {
@@ -43,6 +51,12 @@ void VoiceAllocatorSet(struct VoiceAllocator* self, float sampling_frequency, in
 
 	self->sampling_frequency = sampling_frequency;
 	self->max_items = (uint32_t)(max_items);
+
+	self->rng = 666;
+	self->vel_amp_mod = 1.0f;
+
+	for (int i = 0; i < 5; i += 1)
+		self->amplify[i] = 1.0f;
 
 	sMemset(self->voices, 0, sizeof(struct VoiceAllocatorVoice) * (size_t)(max_items));
 	sMemset(self->states, 0, sizeof(struct VoiceAllocatorState) * (size_t)(max_items));
@@ -125,27 +139,31 @@ void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy str
 	if (item == MAX_MAX_ITEMS)
 		return;
 
+	self->rng = sXorshift(self->rng);
 	self->states[item].type = type;
 
 	float duration;
 	switch (type)
 	{
 	case TYPE_KICK:
-		duration = KickSetState(STATE_START, self->sampling_frequency, velocity, &self->states[item].state.kick);
+		duration = KickSetState(STATE_START, self->sampling_frequency, velocity, self->vel_amp_mod,
+		                        &self->states[item].state.kick);
 		break;
 	case TYPE_SNARE:
-		duration = SnareSetState(STATE_START, self->sampling_frequency, velocity, &self->states[item].state.snare);
+		duration = SnareSetState(STATE_START, self->sampling_frequency, self->rng, velocity, self->vel_amp_mod,
+		                         &self->states[item].state.snare);
 		break;
 	case TYPE_OPEN_HAT:
-		duration =
-		    HatSetState(STATE_START, self->sampling_frequency, OPEN_HAT, velocity, &self->states[item].state.hat);
+		duration = HatSetState(STATE_START, self->sampling_frequency, OPEN_HAT, self->rng, velocity, self->vel_amp_mod,
+		                       &self->states[item].state.hat);
 		break;
 	case TYPE_CLOSED_HAT:
-		duration =
-		    HatSetState(STATE_START, self->sampling_frequency, CLOSED_HAT, velocity, &self->states[item].state.hat);
+		duration = HatSetState(STATE_START, self->sampling_frequency, CLOSED_HAT, self->rng, velocity,
+		                       self->vel_amp_mod, &self->states[item].state.hat);
 		break;
 	case TYPE_CYMBAL:
-		duration = HatSetState(STATE_START, self->sampling_frequency, CYMBAL, velocity, &self->states[item].state.hat);
+		duration = HatSetState(STATE_START, self->sampling_frequency, CYMBAL, self->rng, velocity, self->vel_amp_mod,
+		                       &self->states[item].state.hat);
 	}
 
 	self->voices[item].remaining = (uint32_t)((duration * self->sampling_frequency) / 1000.0f);
@@ -171,9 +189,14 @@ void VoiceAllocatorStop(struct VoiceAllocator* self, uint32_t id)
 }
 
 
-void VoiceAllocatorConfigure(struct VoiceAllocator* self, enum VoiceAllocatorVoiceType type, float amplify)
+void VoiceAllocatorConfigureVoice(struct VoiceAllocator* self, enum VoiceAllocatorVoiceType type, float amplify)
 {
 	self->amplify[(int)(type)] = amplify;
+}
+
+void VoiceAllocatorConfigure(struct VoiceAllocator* self, float vel_amp_mod)
+{
+	self->vel_amp_mod = vel_amp_mod;
 }
 
 

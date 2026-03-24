@@ -133,7 +133,7 @@ struct SquareX6State
 
 void SquareX6SetProgram(float sampling_frequency, float amplitude, float frequency1, float frequency2, float frequency3,
                         float frequency4, float frequency5, float frequency6, struct SquareX6Program* p);
-void SquareX6SetState(struct SquareX6State* s);
+void SquareX6SetState(uint32_t seed, struct SquareX6State* s);
 float SquareX6Step(const struct SquareX6Program* p, struct SquareX6State* s);
 
 
@@ -172,7 +172,7 @@ struct KickState
 };
 
 void KickSetProgram(float sampling_frequency, struct KickProgram* p);
-float KickSetState(enum StateState, float sampling_frequency, float velocity, struct KickState* s);
+float KickSetState(enum StateState, float sampling_frequency, float velocity, float vel_amp_mod, struct KickState* s);
 
 float RenderKick(float amplify, const struct KickProgram* p, struct KickState* s, float* out, const float* out_end);
 float RenderAdditiveKick(float amplify, const struct KickProgram* p, struct KickState* s, float* out,
@@ -197,7 +197,8 @@ struct SnareState
 };
 
 void SnareSetProgram(float sampling_frequency, struct SnareProgram* p);
-float SnareSetState(enum StateState, float sampling_frequency, float velocity, struct SnareState* s);
+float SnareSetState(enum StateState, float sampling_frequency, uint32_t seed, float velocity, float vel_amp_mod,
+                    struct SnareState* s);
 
 float RenderSnare(float amplify, const struct SnareProgram* p, struct SnareState* s, float* out, const float* out_end);
 float RenderAdditiveSnare(float amplify, const struct SnareProgram* p, struct SnareState* s, float* out,
@@ -249,7 +250,8 @@ enum HatType
 };
 
 void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgram* p);
-float HatSetState(enum StateState, float sampling_frequency, enum HatType type, float velocity, struct HatState* s);
+float HatSetState(enum StateState, float sampling_frequency, enum HatType type, uint32_t seed, float velocity,
+                  float vel_amp_mod, struct HatState* s);
 
 float RenderHat(float amplify, const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
 float RenderAdditiveHat(float amplify, const struct HatProgram* p, struct HatState* s, float* out,

@@ -106,14 +106,18 @@ float ShapedEnvelopeStep(const struct ShapedEnvelopeProgram* restrict p, struct 
 }
 
 
-float NoiseStep(struct NoiseState* restrict s)
+static uint32_t sXorshift(uint32_t x)
 {
 	// https://en.wikipedia.org/wiki/Xorshift#Example_implementation
+	x ^= (uint32_t)((x) << 13);
+	x ^= (uint32_t)((x) >> 17);
+	x ^= (uint32_t)((x) << 5);
+	return x;
+}
 
-	s->x ^= (uint32_t)((s->x) << 13);
-	s->x ^= (uint32_t)((s->x) >> 17);
-	s->x ^= (uint32_t)((s->x) << 5);
-
+float NoiseStep(struct NoiseState* restrict s)
+{
+	s->x = sXorshift(s->x);
 	return (float)((s->x) >> 8) * NOISE_SCALE - 1.0f;
 }
 
@@ -523,29 +527,23 @@ void SquareX6SetProgram(float sampling_frequency, float amplitude, float frequen
 	p->amplitude = (1.0f / 6.0f) * amplitude;
 }
 
-void SquareX6SetState(struct SquareX6State* restrict s)
+void SquareX6SetState(uint32_t seed, struct SquareX6State* restrict s)
 {
-	if (0)
-	{
-		s->phase[0] = 7968322;
-		s->phase[1] = 14884375;
-		s->phase[2] = 10058881;
-		s->phase[3] = 13595220;
-		s->phase[4] = 1841918;
-		s->phase[5] = 3501030;
-	}
-	else
-	{
-		// Closed hat sounds more natural, less clicky, which makes sense,
-		// they are all in phase. That said real world 606 doesn't reset
-		// phase or anything, its square oscillators are always running
-		s->phase[0] = 0;
-		s->phase[1] = 0;
-		s->phase[2] = 0;
-		s->phase[3] = 0;
-		s->phase[4] = 0;
-		s->phase[5] = 0;
-	}
+	assert(seed != 0);
+
+	const uint32_t p0 = sXorshift(seed);
+	const uint32_t p1 = sXorshift(p0);
+	const uint32_t p2 = sXorshift(p1);
+	const uint32_t p3 = sXorshift(p2);
+	const uint32_t p4 = sXorshift(p3);
+	const uint32_t p5 = sXorshift(p4);
+
+	s->phase[0] = p0 & MASK;
+	s->phase[1] = p1 & MASK;
+	s->phase[2] = p2 & MASK;
+	s->phase[3] = p3 & MASK;
+	s->phase[4] = p4 & MASK;
+	s->phase[5] = p5 & MASK;
 }
 
 
@@ -578,10 +576,18 @@ static float sMap(float in_a, float in_b, float out_a, float out_b, float f)
 	return out_a + (out_b - out_a) * ((f - in_a) / (in_b - in_a));
 }
 
-float KickSetState(enum StateState state_state, float sampling_frequency, float velocity, struct KickState* restrict s)
+static float sMix(float a, float b, float f)
+{
+	return a + (b - a) * f;
+}
+
+float KickSetState(enum StateState state_state, float sampling_frequency, float velocity, float vel_amp_mod,
+                   struct KickState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
-	const float general_amplify = velocity * velocity; // TODO, based on my taste, I need to investigate further
+	assert(vel_amp_mod >= 0.0f && vel_amp_mod <= 1.0f);
+
+	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
 
 	s->distortion = sMap(0.5f, 1.0f, 0.0f, -0.25f, sMax(velocity, 0.5f)); // Distortion is linear
 	s->click_amplify = general_amplify;
@@ -606,12 +612,27 @@ static float sKickStep(const struct KickProgram* restrict p, struct KickState* r
 float RenderKick(float mixer_amplify, const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
                  const float* out_end)
 {
+#ifndef NDEBUG
+	float max_level = 0.0f;
+#endif
+
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		signal = sKickStep(p, s) * mixer_amplify;
 		*sample = signal;
+
+#ifndef NDEBUG
+		max_level = sMax(sAbs(signal), max_level);
+#endif
 	}
+
+#ifndef NDEBUG
+#ifndef FREESTANDING
+	printf("Normalisation of x%f required at the end\n", 1.0f / max_level);
+#endif
+#endif
+
 	return signal;
 }
 
@@ -631,25 +652,27 @@ float RenderAdditiveKick(float mixer_amplify, const struct KickProgram* restrict
 void SnareSetProgram(float sampling_frequency, struct SnareProgram* restrict p)
 {
 	OscillatorSetProgram(sampling_frequency, 140.0f, -12.0f, &p->osc);
-	EnvelopeSetProgram(sampling_frequency, 0.0f, 2.0f, 60.0f, 0.05f, 50.0f, 3.0f, &p->env);
+	EnvelopeSetProgram(sampling_frequency, 0.0f, 2.0f, 60.0f, 0.05f, 50.0f, 3.75f, &p->env);
 	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 3500.0f, 0.6f, &p->filter[0]);
 	FilterSetProgram(sampling_frequency, RC_LOWPASS_6DB, 500.0f, 0.0f, &p->filter[1]);
 }
 
-float SnareSetState(enum StateState state_state, float sampling_frequency, float velocity,
-                    struct SnareState* restrict s)
+float SnareSetState(enum StateState state_state, float sampling_frequency, uint32_t seed, float velocity,
+                    float vel_amp_mod, struct SnareState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
-	const float general_amplify = velocity * velocity; // Same as kick
+	assert(vel_amp_mod >= 0.0f && vel_amp_mod <= 1.0f);
+
+	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
 
 	s->distortion = sMap(0.5f, 1.0f, 0.0f, -0.3f, sMax(velocity, 0.5f)); // Distortion is linear
-	s->noise_amplify = sMap(0.25f, 1.0f, 1.0f, 1.75f, sMax(velocity * velocity, 0.25f)) * general_amplify;
+	s->noise_amplify = sMap(0.25f, 1.0f, 1.25f, 2.18f, sMax(velocity * velocity, 0.25f)) * general_amplify;
 	const float osc_amplify = sMap(0.25f, 1.0f, 1.0f, 0.6f, sMax(velocity * velocity, 0.25f)) * general_amplify;
 
 	const float detune = sSemitoneDetune(sMap(0.5f, 1.0f, 0.0f, -2.0f, sMax(velocity, 0.5f))); // Linear as well
 
 	OscillatorSetState(state_state, sampling_frequency, 310.0f * detune, 1.0f, 0.6f * osc_amplify, &s->osc);
-	NoiseSet(666, &s->noise);
+	NoiseSet(seed, &s->noise);
 	EnvelopeSetState(state_state, &s->env);
 	FilterSetState(&s->filter[0]);
 	FilterSetState(&s->filter[1]);
@@ -671,12 +694,27 @@ static float sSnareStep(const struct SnareProgram* restrict p, struct SnareState
 float RenderSnare(float mixer_amplify, const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out,
                   const float* out_end)
 {
+#ifndef NDEBUG
+	float max_level = 0.0f;
+#endif
+
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		signal = sSnareStep(p, s) * mixer_amplify;
 		*sample = signal;
+
+#ifndef NDEBUG
+		max_level = sMax(sAbs(signal), max_level);
+#endif
 	}
+
+#ifndef NDEBUG
+#ifndef FREESTANDING
+	printf("Normalisation of x%f required at the end\n", 1.0f / max_level);
+#endif
+#endif
+
 	return signal;
 }
 
@@ -721,12 +759,12 @@ void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgra
 	}
 	case CYMBAL:
 	{
-		magic_metallic_normalisation = 6.0f; // Obtained in [b]
-		p->long_gain = 0.2f;
+		magic_metallic_normalisation = 4.5f; // Obtained in [b]
+		p->long_gain = 0.15f;
 		p->short_gain = 1.0f;
-		p->noise_gain = 0.04f * p->short_gain;
+		p->noise_gain = 0.0f;
 
-		const float fade_out_in_samples = (3000.0f * sampling_frequency) / 1000.0f;
+		const float fade_out_in_samples = (4000.0f * sampling_frequency) / 1000.0f;
 		p->fade_out_in_c = sFastNegExp((-LOG_100_PERCENT) / fade_out_in_samples);
 		break;
 	}
@@ -741,18 +779,22 @@ void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgra
 	FilterSetProgram(sampling_frequency, RC_HIGHPASS_6DB, 7100.0f, 0.5f, &p->hp);
 	FilterSetProgram(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, &p->lp);
 
-	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3500.0f, 4.0f, &p->bp[2]);
+	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3400.0f, 4.0f, &p->bp[2]);
 }
 
-float HatSetState(enum StateState state_state, float sampling_frequency, enum HatType type, float velocity,
-                  struct HatState* restrict s)
+float HatSetState(enum StateState state_state, float sampling_frequency, enum HatType type, uint32_t seed,
+                  float velocity, float vel_amp_mod, struct HatState* restrict s)
 {
-	float attack;
+	assert(velocity >= 0.0f && velocity <= 1.0f);
+	assert(vel_amp_mod >= 0.0f && vel_amp_mod <= 1.0f);
+
+	float short_attack;
+	float long_attack;
 	float short_length;
 	float long_length;
 	float long_shape;
 
-	s->final_amplify = velocity * velocity;
+	s->final_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
 
 	switch (type)
 	{
@@ -760,7 +802,8 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	{
 		s->final_amplify *= 2.3f; // Obtained in [c]
 
-		attack = sMap(0.5f, 1.0f, 1.25f, 10.0f, sMax(velocity * velocity, 0.5));
+		short_attack = sMap(0.5f, 1.0f, 1.25f, 10.0f, sMax(velocity * velocity, 0.5));
+		long_attack = short_attack;
 		short_length = sMap(0.25f, 1.0f, 500.0f, 2000.0f, sMax(velocity * velocity, 0.25));
 		s->fade_out_in = 1.0f;
 
@@ -772,9 +815,10 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	}
 	case CLOSED_HAT:
 	{
-		s->final_amplify *= 4.8f; // Obtained in [c]
+		s->final_amplify *= 4.5f; // Obtained in [c]
 
-		attack = sMap(0.5f, 1.0f, 2.5f, 20.0f, sMax(velocity * velocity, 0.5));
+		short_attack = sMap(0.5f, 1.0f, 2.5f, 20.0f, sMax(velocity * velocity, 0.5));
+		long_attack = short_attack;
 		short_length = sMap(0.25f, 1.0f, 150.0f, 160.0f, sMax(velocity * velocity, 0.25));
 		s->fade_out_in = 1.0f;
 
@@ -784,9 +828,10 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	}
 	case CYMBAL:
 	{
-		s->final_amplify *= 4.3f; // Obtained in [c]
+		s->final_amplify *= 4.8f; // Obtained in [c]
 
-		attack = sMap(0.5f, 1.0f, 1.25f, 1.25f, sMax(velocity * velocity, 0.5));
+		short_attack = sMap(0.5f, 1.0f, 5.0f, 5.0f, sMax(velocity * velocity, 0.5));
+		long_attack = sMap(0.5f, 1.0f, 10.0f, 10.0f, sMax(velocity * velocity, 0.5));
 		short_length = sMap(0.25f, 1.0f, 150.0f, 150.0f, sMax(velocity * velocity, 0.25));
 		s->fade_out_in = 0.75f;
 
@@ -797,27 +842,27 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	}
 	}
 
-	SquareX6SetState(&s->sqr);
+	SquareX6SetState(seed, &s->sqr);
 
 	FilterSetState(&s->bp[0]);
 	FilterSetState(&s->bp[1]);
 	FilterSetState(&s->bp[2]);
 
-	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, attack, long_length, 0.4f, long_shape, &s->env_long_p);
-	EnvelopeSetProgram(sampling_frequency, 0.0f, attack, 0.0f, 1.0f, short_length, 1.0f, &s->env_short_p);
+	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, long_attack, long_length, 0.4f, long_shape, &s->env_long_p);
+	EnvelopeSetProgram(sampling_frequency, 0.0f, short_attack, 0.0f, 1.0f, short_length, 1.0f, &s->env_short_p);
 	ShapedEnvelopeSetState(state_state, &s->env_long);
 	EnvelopeSetState(state_state, &s->env_short);
 
 	FilterSetState(&s->hp);
 	FilterSetState(&s->lp);
 
-	NoiseSet(444, &s->noise);
+	NoiseSet(seed, &s->noise);
 
 	switch (type)
 	{
-	case OPEN_HAT: return (attack + long_length) + ((attack + long_length) * 10.0f) / 100.0f;
-	case CLOSED_HAT: return (attack + short_length) + ((attack + short_length) * 10.0f) / 100.0f;
-	case CYMBAL: return (attack + long_length) + ((attack + long_length) * 10.0f) / 100.0f;
+	case OPEN_HAT: return (short_attack + long_length) + ((short_attack + long_length) * 10.0f) / 100.0f;
+	case CLOSED_HAT: return (short_attack + short_length) + ((short_attack + short_length) * 10.0f) / 100.0f;
+	case CYMBAL: return (long_attack + long_length) + ((long_attack + long_length) * 10.0f) / 100.0f;
 	}
 	return 0.0f;
 }
@@ -826,10 +871,8 @@ float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSt
                 const float* out_end)
 {
 #ifndef NDEBUG
-#ifndef FREESTANDING
 	float max_level_metallic = 0.0f;
 	float max_level_final = 0.0f;
-#endif
 #endif
 
 	float signal;
@@ -838,6 +881,9 @@ float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSt
 		// Render bandpass filtered metallic noise
 		const float square = SquareX6Step(&p->sqr, &s->sqr);
 		const float high = FilterStep(FilterStep(square, &p->bp[0], &s->bp[0]), &p->bp[1], &s->bp[1]);
+
+		// const float low = FilterStep(square, &p->bp[2], &s->bp[2]) * 0.25f; // Up to here cymbal is tolerable
+		// const float low = FilterStep(square, &p->bp[2], &s->bp[2]) * 0.1875f;
 		const float low = FilterStep(square, &p->bp[2], &s->bp[2]) * 0.125f;
 
 		s->fade_out_in *= p->fade_out_in_c;

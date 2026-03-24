@@ -92,16 +92,18 @@ void Midi(int byte0, int byte1, int byte2)
 
 
 const float* Render(float amplify, float kick_amplify, float snare_amplify, float closed_hat_amplify,
-                    float open_hat_amplify, float cymbal_amplify, uint32_t samples)
+                    float open_hat_amplify, float cymbal_amplify, float vel_amp_mod, uint32_t samples)
 {
 	if (samples > BUFFER_LEN)
 		return NULL;
 
-	VoiceAllocatorConfigure(&s_allocator, TYPE_KICK, amplify * kick_amplify);
-	VoiceAllocatorConfigure(&s_allocator, TYPE_SNARE, amplify * snare_amplify);
-	VoiceAllocatorConfigure(&s_allocator, TYPE_CLOSED_HAT, amplify * closed_hat_amplify);
-	VoiceAllocatorConfigure(&s_allocator, TYPE_OPEN_HAT, amplify * open_hat_amplify);
-	VoiceAllocatorConfigure(&s_allocator, TYPE_CYMBAL, amplify * cymbal_amplify);
+	VoiceAllocatorConfigure(&s_allocator, vel_amp_mod);
+
+	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_KICK, amplify * kick_amplify);
+	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_SNARE, amplify * snare_amplify);
+	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_CLOSED_HAT, amplify * closed_hat_amplify);
+	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_OPEN_HAT, amplify * open_hat_amplify);
+	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_CYMBAL, amplify * cymbal_amplify);
 
 	VoiceAllocatorRender(&s_allocator, samples, s_buffer);
 

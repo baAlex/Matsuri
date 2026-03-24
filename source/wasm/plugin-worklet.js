@@ -31,6 +31,7 @@ class MatsuriProcessor extends AudioWorkletProcessor {
 			{ name: "gain-closed-hit-hat", defaultValue: 0.2, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "gain-open-hit-hat", defaultValue: 0.2, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "gain-crash-cymbal", defaultValue: 0.4, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "velocity-gain-modulation", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 		];
 	}
 
@@ -85,6 +86,7 @@ class MatsuriProcessor extends AudioWorkletProcessor {
 			parameters["gain-closed-hit-hat"][0],
 			parameters["gain-open-hit-hat"][0],
 			parameters["gain-crash-cymbal"][0],
+			parameters["velocity-gain-modulation"][0],
 			this.m_view.length);
 
 		const out = outputs[0];
