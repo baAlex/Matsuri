@@ -27,10 +27,12 @@ class MatsuriProcessor extends AudioWorkletProcessor {
 		return [
 			{ name: "gain", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "gain-bass-drum", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "gain-snare", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "gain-snare-drum", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "gain-closed-hit-hat", defaultValue: 0.2, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "gain-open-hit-hat", defaultValue: 0.2, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "gain-crash-cymbal", defaultValue: 0.4, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "gain-cymbal", defaultValue: 0.5, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "gain-low-tom", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "gain-high-tom", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "velocity-gain-modulation", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 		];
 	}
@@ -82,10 +84,12 @@ class MatsuriProcessor extends AudioWorkletProcessor {
 		this.m_wasm.Render(
 			parameters["gain"][0],
 			parameters["gain-bass-drum"][0],
-			parameters["gain-snare"][0],
+			parameters["gain-snare-drum"][0],
 			parameters["gain-closed-hit-hat"][0],
 			parameters["gain-open-hit-hat"][0],
-			parameters["gain-crash-cymbal"][0],
+			parameters["gain-cymbal"][0],
+			parameters["gain-low-tom"][0],
+			parameters["gain-high-tom"][0],
 			parameters["velocity-gain-modulation"][0],
 			this.m_view.length);
 

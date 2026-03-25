@@ -12,6 +12,7 @@
 
 		let ctx = null;
 		let node = null;
+		let reference_vel;
 
 		async function InitialiseStuff() {
 			function ConnectSliderParameter(slider_id, parameter_name) {
@@ -33,17 +34,21 @@
 
 			ConnectSliderParameter("slider-gain", "gain");
 			ConnectSliderParameter("slider-gain-bass-drum", "gain-bass-drum");
-			ConnectSliderParameter("slider-gain-snare", "gain-snare");
+			ConnectSliderParameter("slider-gain-snare-drum", "gain-snare-drum");
 			ConnectSliderParameter("slider-gain-closed-hit-hat", "gain-closed-hit-hat");
 			ConnectSliderParameter("slider-gain-open-hit-hat", "gain-open-hit-hat");
-			ConnectSliderParameter("slider-gain-crash-cymbal", "gain-crash-cymbal");
+			ConnectSliderParameter("slider-gain-cymbal", "gain-cymbal");
+			ConnectSliderParameter("slider-gain-low-tom", "gain-low-tom");
+			ConnectSliderParameter("slider-gain-high-tom", "gain-high-tom");
 			ConnectSliderParameter("slider-velocity-gain-modulation", "velocity-gain-modulation");
+
+			reference_vel = document.getElementById("slider-reference-velocity");
 		}
 
-		async function NoteOn(key_no) {
+		async function KeyOn(key_no) {
 			if (ctx == null || node == null)
 				await InitialiseStuff();
-			node.noteOn(key_no);
+			node.noteOn(key_no, parseFloat(reference_vel.value));
 		}
 
 		async function Midi(byte0, byte1, byte2) {
@@ -54,22 +59,46 @@
 
 		document.addEventListener("keydown", (event) => {
 			if (event.repeat == false) {
-				if (event.key == "z")
-					NoteOn(matsuri.MIDI_ACOUSTIC_BASS_DRUM_KEY);
-				if (event.key == "x")
-					NoteOn(matsuri.MIDI_BASS_DRUM_KEY);
-				if (event.key == "c")
-					NoteOn(matsuri.MIDI_ACOUSTIC_SNARE_KEY);
-				if (event.key == "v")
-					NoteOn(matsuri.MIDI_ELECTRIC_SNARE_KEY);
-				if (event.key == "g")
-					NoteOn(matsuri.MIDI_CLOSED_HIT_HAT_KEY);
-				if (event.key == "j")
-					NoteOn(matsuri.MIDI_OPEN_HIT_HAT_KEY);
-				if (event.key == "l")
-					NoteOn(matsuri.MIDI_CRASH_CYMBAL_KEY);
+				if (event.code == "KeyZ")
+					KeyOn(matsuri.MIDI_BASS_DRUM_KEY);
+				if (event.code == "KeyX" || event.code == "KeyC")
+					KeyOn(matsuri.MIDI_ACOUSTIC_SNARE_KEY);
+
+				if (event.code == "KeyG")
+					KeyOn(matsuri.MIDI_CLOSED_HIT_HAT_KEY);
+				if (event.code == "KeyJ")
+					KeyOn(matsuri.MIDI_OPEN_HIT_HAT_KEY);
+				if (event.code == "KeyL")
+					KeyOn(matsuri.MIDI_CRASH_CYMBAL_KEY);
+
+				if (event.code == "KeyV" || event.code == "KeyB" || event.code == "KeyN")
+					KeyOn(matsuri.MIDI_LOW_TOM_KEY);
+				if (event.code == "KeyM" || event.code == "Comma" || event.code == "Period")
+					KeyOn(matsuri.MIDI_HIGH_TOM_KEY);
 			}
 		})
+
+		document.querySelector("#button-bass-drum").addEventListener("mousedown", (e) => {
+			KeyOn(matsuri.MIDI_BASS_DRUM_KEY);
+		});
+		document.querySelector("#button-snare-drum").addEventListener("mousedown", (e) => {
+			KeyOn(matsuri.MIDI_ACOUSTIC_SNARE_KEY);
+		});
+		document.querySelector("#button-closed-hit-hat").addEventListener("mousedown", (e) => {
+			KeyOn(matsuri.MIDI_CLOSED_HIT_HAT_KEY);
+		});
+		document.querySelector("#button-open-hit-hat").addEventListener("mousedown", (e) => {
+			KeyOn(matsuri.MIDI_OPEN_HIT_HAT_KEY);
+		});
+		document.querySelector("#button-low-tom").addEventListener("mousedown", (e) => {
+			KeyOn(matsuri.MIDI_LOW_TOM_KEY);
+		});
+		document.querySelector("#button-high-tom").addEventListener("mousedown", (e) => {
+			KeyOn(matsuri.MIDI_HIGH_TOM_KEY);
+		});
+		document.querySelector("#button-cymbal").addEventListener("mousedown", (e) => {
+			KeyOn(matsuri.MIDI_CRASH_CYMBAL_KEY);
+		});
 
 		navigator.requestMIDIAccess().then(access => {
 			for (const input of access.inputs.values()) {
@@ -93,34 +122,57 @@
 			display: block;
 		}
 
+		button {
+			display: block;
+			margin: 1em;
+		}
+
 		.flex {
-			display: flex;
+			display: inline-flex;
 		}
 	</style>
 </head>
 
 <body>
-	<div class="flex">
+	<fieldset class="flex">
+		<legend>Matsuri</legend>
+
+		<fieldset>
+			<button id="button-bass-drum">BD</button>
+			<button id="button-snare-drum">SD</button>
+			<button id="button-closed-hit-hat">CH</button>
+			<button id="button-open-hit-hat">OH</button>
+			<button id="button-cymbal">CY</button>
+			<button id="button-low-tom">LT</button>
+			<button id="button-high-tom">HT</button>
+		</fieldset>
+
 		<fieldset>
 			<legend>Gain:</legend>
 
 			<label>Master:
-				<input type="range" id="slider-gain" min=" 0" max="1" value="1.0" step="0.01" list="marker1" /></label>
+				<input type="range" id="slider-gain" min="0" max="1" value="1.0" step="0.01" list="marker1" /></label>
 			<label>Bass Drum:
-				<input type="range" id="slider-gain-bass-drum" min=" 0" max="1" value="1.0" step="0.01"
+				<input type="range" id="slider-gain-bass-drum" min="0" max="1" value="1" step="0.01"
 					list="marker1" /></label>
-			<label>Snare:
-				<input type="range" id="slider-gain-snare" min=" 0" max="1" value="1.0" step="0.01"
+			<label>Snare Drum:
+				<input type="range" id="slider-gain-snare-drum" min="0" max="1" value="1" step="0.01"
 					list="marker1" /></label>
 			<label>Closed Hit-Hat:
-				<input type="range" id="slider-gain-closed-hit-hat" min=" 0" max="1" value="0.2" step="0.01"
+				<input type="range" id="slider-gain-closed-hit-hat" min="0" max="1" value="0.2" step="0.01"
 					list="marker.2" /></label>
 			<label>Open Hit-Hat:
-				<input type="range" id="slider-gain-open-hit-hat" min=" 0" max="1" value="0.2" step="0.01"
+				<input type="range" id="slider-gain-open-hit-hat" min="0" max="1" value="0.2" step="0.01"
 					list="marker.2" /></label>
-			<label>Crash cymbal:
-				<input type="range" id="slider-gain-crash-cymbal" min=" 0" max="1" value="0.4" step="0.01"
-					list="marker.4" /></label>
+			<label>Cymbal:
+				<input type="range" id="slider-gain-cymbal" min="0" max="1" value="0.5" step="0.01"
+					list="marker.5" /></label>
+			<label>Low Tom:
+				<input type="range" id="slider-gain-low-tom" min="0" max="1" value="1" step="0.01"
+					list="marker1" /></label>
+			<label>High Tom:
+				<input type="range" id="slider-gain-high-tom" min="0" max="1" value="1" step="0.01"
+					list="marker1" /></label>
 
 			<datalist id="marker1">
 				<option value="1"></option>
@@ -128,24 +180,35 @@
 			<datalist id="marker.2">
 				<option value="0.2"></option>
 			</datalist>
-			<datalist id="marker.4">
-				<option value="0.4"></option>
+			<datalist id="marker.5">
+				<option value="0.5"></option>
 			</datalist>
 		</fieldset>
+
 		<fieldset>
 			<legend>Velocity:</legend>
 
 			<label>Gain modulation [1]:
-				<input type="range" id="slider-velocity-gain-modulation" min=" 0" max="1" value="1.0" step="0.01"
+				<input type="range" id="slider-velocity-gain-modulation" min="0" max="1" value="1" step="0.01"
 					list="marker1" /></label>
+			<label>Tone modulation [2]:
+				<input type="range" id="slider-velocity-tone-modulation" min="0" max="1" value="1" step="0.01"
+					list="marker1" /></label>
+			<label>Reference velocity:
+				<input type="range" id="slider-reference-velocity" min="0" max="1" value="0.5" step="0.01"
+					list="marker.5" /></label>
 
 			<datalist id="marker1">
 				<option value="1"></option>
 			</datalist>
+			<datalist id="marker.5">
+				<option value="0.5"></option>
+			</datalist>
 		</fieldset>
-	</div>
+	</fieldset>
 
-	<p>[1] With no modulation voices will have the same gain regardless of their velocity.</p>
+	<p>[1] With no modulation voices will have the same gain regardless of velocity.</p>
+	<p>[2] Same as above, but for tone. Towards zero converges to use "Reference velocity".</p>
 </body>
 
 </html>

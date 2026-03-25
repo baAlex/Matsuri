@@ -22,6 +22,15 @@ export const MIDI_ACOUSTIC_BASS_DRUM_KEY = 35;
 export const MIDI_BASS_DRUM_KEY = 36;
 export const MIDI_ACOUSTIC_SNARE_KEY = 38;
 export const MIDI_ELECTRIC_SNARE_KEY = 40;
+
+export const MIDI_LOW_FLOOR_TOM_KEY = 41;
+export const MIDI_HIGH_FLOOR_TOM_KEY = 43;
+export const MIDI_LOW_TOM_KEY = 45;
+
+export const MIDI_LOW_MID_TOM_KEY = 47;
+export const MIDI_HIGH_MID_TOM_KEY = 48;
+export const MIDI_HIGH_TOM_KEY = 50;
+
 export const MIDI_CLOSED_HIT_HAT_KEY = 42;
 export const MIDI_OPEN_HIT_HAT_KEY = 46;
 export const MIDI_CRASH_CYMBAL_KEY = 49;

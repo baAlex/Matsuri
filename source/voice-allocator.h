@@ -32,7 +32,9 @@ enum VoiceAllocatorVoiceType
 	TYPE_SNARE,
 	TYPE_OPEN_HAT,
 	TYPE_CLOSED_HAT,
-	TYPE_CYMBAL
+	TYPE_CYMBAL,
+	TYPE_LOW_TOM,
+	TYPE_HIGH_TOM,
 };
 
 struct VoiceAllocatorState // Big as instruments require it, we don't access this frequently
@@ -55,7 +57,7 @@ struct VoiceAllocator
 
 	uint32_t rng;
 	float vel_amp_mod;
-	float amplify[5]; // One for each VoiceAllocatorVoiceType
+	float amplify[7]; // One for each VoiceAllocatorVoiceType
 
 	struct VoiceAllocatorVoice voices[MAX_MAX_ITEMS];
 	struct VoiceAllocatorState states[MAX_MAX_ITEMS];

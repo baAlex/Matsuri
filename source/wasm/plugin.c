@@ -84,6 +84,16 @@ void Midi(int byte0, int byte1, int byte2)
 				case 49: //
 					VoiceAllocatorPlay(&s_allocator, STRATEGY_STEAL, 4, TYPE_CYMBAL, vel_float);
 					break;
+				case 41: // fallthrough
+				case 43: // fallthrough
+				case 45: //
+					VoiceAllocatorPlay(&s_allocator, STRATEGY_STEAL, 4, TYPE_LOW_TOM, vel_float);
+					break;
+				case 47: // fallthrough
+				case 48: // fallthrough
+				case 50: //
+					VoiceAllocatorPlay(&s_allocator, STRATEGY_STEAL, 4, TYPE_HIGH_TOM, vel_float);
+					break;
 				}
 			}
 		}
@@ -92,7 +102,8 @@ void Midi(int byte0, int byte1, int byte2)
 
 
 const float* Render(float amplify, float kick_amplify, float snare_amplify, float closed_hat_amplify,
-                    float open_hat_amplify, float cymbal_amplify, float vel_amp_mod, uint32_t samples)
+                    float open_hat_amplify, float cymbal_amplify, float low_tom_amplify, float high_tom_amplify,
+                    float vel_amp_mod, uint32_t samples)
 {
 	if (samples > BUFFER_LEN)
 		return NULL;
@@ -104,6 +115,8 @@ const float* Render(float amplify, float kick_amplify, float snare_amplify, floa
 	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_CLOSED_HAT, amplify * closed_hat_amplify);
 	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_OPEN_HAT, amplify * open_hat_amplify);
 	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_CYMBAL, amplify * cymbal_amplify);
+	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_LOW_TOM, amplify * low_tom_amplify);
+	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_HIGH_TOM, amplify * high_tom_amplify);
 
 	VoiceAllocatorRender(&s_allocator, samples, s_buffer);
 
