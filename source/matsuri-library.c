@@ -740,28 +740,19 @@ void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgra
 	case OPEN_HAT:
 	{
 		magic_metallic_normalisation = 3.0f; // Obtained in [b]
-		p->long_gain = 1.2f;
-		p->noise_gain = 0.038f;
-
 		p->fade_out_in_c = 1.0f;
 		break;
 	}
 	case CLOSED_HAT:
 	{
 		magic_metallic_normalisation = 3.0f; // Obtained in [b]
-		p->long_gain = 0.0f;
-		p->noise_gain = 0.0f;
-
 		p->fade_out_in_c = 1.0f;
 		break;
 	}
 	case CYMBAL:
 	{
 		magic_metallic_normalisation = 4.5f; // Obtained in [b]
-		p->long_gain = 0.15f;
-		p->noise_gain = 0.0f;
-
-		const float fade_out_in_samples = (4000.0f * sampling_frequency) / 1000.0f;
+		const float fade_out_in_samples = (3000.0f * sampling_frequency) / 1000.0f;
 		p->fade_out_in_c = sFastNegExp((-LOG_100_PERCENT) / fade_out_in_samples);
 		break;
 	}
@@ -794,13 +785,16 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	float long_length;
 	float long_shape;
 
-	s->final_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
+	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
 
 	switch (type)
 	{
 	case OPEN_HAT:
 	{
-		s->final_amplify *= 1.9f; // Obtained in [c]
+		s->final_amplify =
+		    sMap(0.5f, 1.0f, 2.1f, 1.9f, sMax(velocity * velocity, 0.5)) * general_amplify; // Obtained in [c]
+		s->long_gain = 1.2f;
+		s->noise_gain = 0.038f;
 
 		short_attack = sMap(0.5f, 1.0f, 1.25f, 10.0f, sMax(velocity * velocity, 0.5));
 		long_attack = short_attack;
@@ -815,7 +809,10 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	}
 	case CLOSED_HAT:
 	{
-		s->final_amplify *= 4.5f; // Obtained in [c]
+		s->final_amplify =
+		    sMap(0.5f, 1.0f, 5.5f, 4.5f, sMax(velocity * velocity, 0.5)) * general_amplify; // Obtained in [c]
+		s->long_gain = 0.0f;
+		s->noise_gain = 0.0f;
 
 		short_attack = sMap(0.5f, 1.0f, 2.5f, 20.0f, sMax(velocity * velocity, 0.5));
 		long_attack = short_attack;
@@ -828,15 +825,18 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	}
 	case CYMBAL:
 	{
-		s->final_amplify *= 4.8f; // Obtained in [c]
+		s->final_amplify =
+		    sMap(0.5f, 1.0f, 5.0f, 2.6f, sMax(velocity * velocity, 0.5)) * general_amplify; // Obtained in [c]
+		s->long_gain = sMap(0.5f, 1.0f, 0.18f, 0.8f, sMax(velocity * velocity, 0.5));
+		s->noise_gain = sMap(0.5f, 1.0f, 0.0f, 0.2f, sMax(velocity * velocity, 0.5));
 
 		short_attack = sMap(0.5f, 1.0f, 5.0f, 5.0f, sMax(velocity * velocity, 0.5));
 		long_attack = sMap(0.5f, 1.0f, 10.0f, 10.0f, sMax(velocity * velocity, 0.5));
 		short_length = sMap(0.25f, 1.0f, 150.0f, 150.0f, sMax(velocity * velocity, 0.25));
-		s->fade_out_in = 0.75f;
+		s->fade_out_in = sMap(0.25f, 1.0f, 0.75f, 0.75f, sMax(velocity * velocity, 0.25));
 
 		// Same length logic as open hat (with different values)
-		long_length = sMap(0.25f, 1.0f, 1400.0f, 1400.0f, sMax(velocity * velocity, 0.125));
+		long_length = sMap(0.25f, 1.0f, 1400.0f, 2500.0f, sMax(velocity * velocity, 0.125));
 		long_shape = sMap(0.25f, 1.0f, 0.6f, 0.6f, sMax(velocity * velocity, 0.125));
 		break;
 	}
@@ -891,15 +891,15 @@ float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSt
 #endif
 
 		// Distort, and filter noise added by it (we want low frequencies clean)
-		signal = CheapDistortion(signal, -0.7f);
+		signal = CheapDistortion(signal, -0.6f);
 		signal = FilterStep(signal, &p->hp, &s->hp);
 
 		// Envelope it
-		signal *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * p->long_gain //
+		signal *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * s->long_gain //
 		          + EnvelopeStep(&s->env_short_p, &s->env_short);
 
 		// Add transient white noise
-		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * p->noise_gain;
+		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * s->noise_gain;
 
 		// Final filter
 		*sample = FilterStep(signal, &p->lp, &s->lp) * amplify * s->final_amplify;
@@ -934,15 +934,15 @@ float RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, stru
 		signal = low + (high - low) * s->fade_out_in;
 
 		// Distort, and filter noise added by it (we want low frequencies clean)
-		signal = CheapDistortion(signal, -0.7f);
+		signal = CheapDistortion(signal, -0.6f);
 		signal = FilterStep(signal, &p->hp, &s->hp);
 
 		// Envelope it
-		signal *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * p->long_gain //
+		signal *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * s->long_gain //
 		          + EnvelopeStep(&s->env_short_p, &s->env_short);
 
 		// Add transient white noise
-		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * p->noise_gain;
+		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * s->noise_gain;
 
 		// Final filter
 		signal = FilterStep(signal, &p->lp, &s->lp) * amplify * s->final_amplify;
