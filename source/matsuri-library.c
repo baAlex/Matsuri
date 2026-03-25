@@ -400,7 +400,7 @@ static float sCos(float x)
 }
 
 
-void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance,
+void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance, float amplify,
                       struct FilterProgram* restrict p)
 {
 	assert(sampling_frequency >= 0.0f);
@@ -494,9 +494,9 @@ void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float 
 	}
 
 	// Optimization, division used to be in loop body [a]
-	p->c_b0 /= a0;
-	p->c[B1] /= a0;
-	p->c[B2] /= a0;
+	p->c_b0 = (p->c_b0 / a0) * amplify;
+	p->c[B1] = (p->c[B1] / a0) * amplify;
+	p->c[B2] = (p->c[B2] / a0) * amplify;
 	p->c[A1] /= a0;
 	p->c[A2] /= a0;
 
@@ -653,8 +653,8 @@ void SnareSetProgram(float sampling_frequency, struct SnareProgram* restrict p)
 {
 	OscillatorSetProgram(sampling_frequency, 140.0f, -12.0f, &p->osc);
 	EnvelopeSetProgram(sampling_frequency, 0.0f, 2.0f, 60.0f, 0.05f, 50.0f, 3.75f, &p->env);
-	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 3500.0f, 0.6f, &p->filter[0]);
-	FilterSetProgram(sampling_frequency, RC_LOWPASS_6DB, 500.0f, 0.0f, &p->filter[1]);
+	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 3500.0f, 0.6f, 1.0f, &p->filter[0]);
+	FilterSetProgram(sampling_frequency, RC_LOWPASS_6DB, 500.0f, 0.0f, 1.0f, &p->filter[1]);
 }
 
 float SnareSetState(enum StateState state_state, float sampling_frequency, uint32_t seed, float velocity,
@@ -666,12 +666,12 @@ float SnareSetState(enum StateState state_state, float sampling_frequency, uint3
 	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
 
 	s->distortion = sMap(0.5f, 1.0f, 0.0f, -0.3f, sMax(velocity, 0.5f)); // Distortion is linear
-	s->noise_amplify = sMap(0.25f, 1.0f, 1.25f, 2.18f, sMax(velocity * velocity, 0.25f)) * general_amplify;
+	s->noise_amplify = sMap(0.25f, 1.0f, 1.0f, 1.75f, sMax(velocity * velocity, 0.25f)) * general_amplify;
 	const float osc_amplify = sMap(0.25f, 1.0f, 1.0f, 0.6f, sMax(velocity * velocity, 0.25f)) * general_amplify;
 
 	const float detune = sSemitoneDetune(sMap(0.5f, 1.0f, 0.0f, -2.0f, sMax(velocity, 0.5f))); // Linear as well
 
-	OscillatorSetState(state_state, sampling_frequency, 310.0f * detune, 1.0f, 0.6f * osc_amplify, &s->osc);
+	OscillatorSetState(state_state, sampling_frequency, 310.0f * detune, 1.0f, 0.75f * osc_amplify, &s->osc);
 	NoiseSet(seed, &s->noise);
 	EnvelopeSetState(state_state, &s->env);
 	FilterSetState(&s->filter[0]);
@@ -740,9 +740,8 @@ void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgra
 	case OPEN_HAT:
 	{
 		magic_metallic_normalisation = 3.0f; // Obtained in [b]
-		p->long_gain = 1.0f;
-		p->short_gain = 0.8f;
-		p->noise_gain = 0.04f * p->short_gain;
+		p->long_gain = 1.2f;
+		p->noise_gain = 0.038f;
 
 		p->fade_out_in_c = 1.0f;
 		break;
@@ -751,7 +750,6 @@ void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgra
 	{
 		magic_metallic_normalisation = 3.0f; // Obtained in [b]
 		p->long_gain = 0.0f;
-		p->short_gain = 1.0f;
 		p->noise_gain = 0.0f;
 
 		p->fade_out_in_c = 1.0f;
@@ -761,7 +759,6 @@ void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgra
 	{
 		magic_metallic_normalisation = 4.5f; // Obtained in [b]
 		p->long_gain = 0.15f;
-		p->short_gain = 1.0f;
 		p->noise_gain = 0.0f;
 
 		const float fade_out_in_samples = (4000.0f * sampling_frequency) / 1000.0f;
@@ -773,13 +770,16 @@ void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgra
 	SquareX6SetProgram(sampling_frequency, magic_metallic_normalisation, 684.35f, 511.97f, 305.88f, 420.2f, 271.14f,
 	                   201.23f, &p->sqr);
 
-	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 7100.0f, 3.0f, &p->bp[0]);
-	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, &p->bp[1]);
+	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 7100.0f, 3.0f, 1.0, &p->bp[0]);
+	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, 1.0, &p->bp[1]);
 
-	FilterSetProgram(sampling_frequency, RC_HIGHPASS_6DB, 7100.0f, 0.5f, &p->hp);
-	FilterSetProgram(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, &p->lp);
+	FilterSetProgram(sampling_frequency, RC_HIGHPASS_6DB, 7100.0f, 0.5f, 1.0f, &p->hp);
+	FilterSetProgram(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, 1.0f, &p->lp);
 
-	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3400.0f, 4.0f, &p->bp[2]);
+	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3400.0f, 4.0f, 0.125f, &p->bp[2]);
+	// FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3400.0f, 4.0f, 0.1875f, &p->bp[2]);
+	// FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3400.0f, 4.0f, 0.25f, &p->bp[2]); // Up to here cymbal is
+	// tolerable
 }
 
 float HatSetState(enum StateState state_state, float sampling_frequency, enum HatType type, uint32_t seed,
@@ -800,7 +800,7 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	{
 	case OPEN_HAT:
 	{
-		s->final_amplify *= 2.3f; // Obtained in [c]
+		s->final_amplify *= 1.9f; // Obtained in [c]
 
 		short_attack = sMap(0.5f, 1.0f, 1.25f, 10.0f, sMax(velocity * velocity, 0.5));
 		long_attack = short_attack;
@@ -881,10 +881,7 @@ float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSt
 		// Render bandpass filtered metallic noise
 		const float square = SquareX6Step(&p->sqr, &s->sqr);
 		const float high = FilterStep(FilterStep(square, &p->bp[0], &s->bp[0]), &p->bp[1], &s->bp[1]);
-
-		// const float low = FilterStep(square, &p->bp[2], &s->bp[2]) * 0.25f; // Up to here cymbal is tolerable
-		// const float low = FilterStep(square, &p->bp[2], &s->bp[2]) * 0.1875f;
-		const float low = FilterStep(square, &p->bp[2], &s->bp[2]) * 0.125f;
+		const float low = FilterStep(square, &p->bp[2], &s->bp[2]);
 
 		s->fade_out_in *= p->fade_out_in_c;
 		signal = low + (high - low) * s->fade_out_in;
@@ -899,7 +896,7 @@ float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSt
 
 		// Envelope it
 		signal *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * p->long_gain //
-		          + EnvelopeStep(&s->env_short_p, &s->env_short) * p->short_gain;
+		          + EnvelopeStep(&s->env_short_p, &s->env_short);
 
 		// Add transient white noise
 		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * p->noise_gain;
@@ -931,7 +928,7 @@ float RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, stru
 		// Render bandpass filtered metallic noise
 		const float square = SquareX6Step(&p->sqr, &s->sqr);
 		const float high = FilterStep(FilterStep(square, &p->bp[0], &s->bp[0]), &p->bp[1], &s->bp[1]);
-		const float low = FilterStep(square, &p->bp[2], &s->bp[2]) * 0.125f;
+		const float low = FilterStep(square, &p->bp[2], &s->bp[2]);
 
 		s->fade_out_in *= p->fade_out_in_c;
 		signal = low + (high - low) * s->fade_out_in;
@@ -942,7 +939,7 @@ float RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, stru
 
 		// Envelope it
 		signal *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * p->long_gain //
-		          + EnvelopeStep(&s->env_short_p, &s->env_short) * p->short_gain;
+		          + EnvelopeStep(&s->env_short_p, &s->env_short);
 
 		// Add transient white noise
 		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * p->noise_gain;

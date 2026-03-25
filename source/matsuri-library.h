@@ -114,7 +114,7 @@ enum Filter12dbType
 	RC_LOWPASS_12DB
 };
 
-void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance,
+void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance, float amplify,
                       struct FilterProgram* p);
 void FilterSetState(struct FilterState* s);
 float FilterStep(float x, const struct FilterProgram* p, struct FilterState* s);
@@ -216,7 +216,6 @@ struct HatProgram
 	struct FilterProgram lp; // Final filter, mostly shapes white noise
 
 	float long_gain;
-	float short_gain;
 	float noise_gain;
 
 	float fade_out_in_c;
