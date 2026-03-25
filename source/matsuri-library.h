@@ -255,4 +255,38 @@ float RenderHat(float amplify, const struct HatProgram* p, struct HatState* s, f
 float RenderAdditiveHat(float amplify, const struct HatProgram* p, struct HatState* s, float* out,
                         const float* out_end);
 
+
+struct TomProgram
+{
+	struct ShapedEnvelopeProgram env;
+	struct OscillatorProgram osc;
+
+	struct FilterProgram lp;
+	struct EnvelopeProgram env2;
+};
+
+struct TomState
+{
+	float click_amplify;
+	struct ShapedEnvelopeState env;
+	struct OscillatorState osc;
+
+	struct NoiseState noise;
+	struct FilterState lp;
+	struct EnvelopeState env2;
+};
+
+enum TomType
+{
+	LOW_TOM,
+	HIGH_TOM
+};
+
+void TomSetProgram(float sampling_frequency, enum TomType type, struct TomProgram* p);
+float TomSetState(enum StateState, float sampling_frequency, enum TomType type, uint32_t seed, float velocity,
+                  float vel_amp_mod, struct TomState* s);
+
+float RenderTom(float amplify, const struct TomProgram* p, struct TomState* s, float* out, const float* out_end);
+float RenderAdditiveTom(float amplify, const struct TomProgram* p, struct TomState* s, float* out,
+                        const float* out_end);
 #endif

@@ -45,6 +45,7 @@ struct VoiceAllocatorState // Big as instruments require it, we don't access thi
 		struct KickState kick;
 		struct SnareState snare;
 		struct HatState hat;
+		struct TomState tom;
 	} state;
 
 	float last_signal;
@@ -73,6 +74,8 @@ struct VoiceAllocator
 		struct HatProgram open_hat;
 		struct HatProgram closed_hat;
 		struct HatProgram cymbal;
+		struct TomProgram low_tom;
+		struct TomProgram high_tom;
 	} program;
 };
 

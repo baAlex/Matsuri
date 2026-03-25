@@ -233,6 +233,66 @@ int main(void)
 			return EXIT_FAILURE;
 	}
 
+	if (1)
+	{
+		printf("Low Tom...\n");
+
+		struct TomProgram p;
+		struct TomState s;
+		float duration;
+		size_t samples;
+
+		TomSetProgram((float)(FREQUENCY), LOW_TOM, &p);
+
+		duration = TomSetState(STATE_START, (float)(FREQUENCY), LOW_TOM, 666, 0.5f, VEL_AMP_MOD, &s); // Normal
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderTom(1.0f, &p, &s, s_buffer, s_buffer + samples);
+		if (sSave("new-low-tom.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
+			return EXIT_FAILURE;
+
+		duration = TomSetState(STATE_START, (float)(FREQUENCY), LOW_TOM, 666, 0.75f, VEL_AMP_MOD, &s); // Mid velocity
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderTom(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
+		if (sSave("new-low-tom-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
+			return EXIT_FAILURE;
+
+		duration = TomSetState(STATE_START, (float)(FREQUENCY), LOW_TOM, 666, 1.0f, VEL_AMP_MOD, &s); // Max velocity
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderTom(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
+		if (sSave("new-low-tom-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
+			return EXIT_FAILURE;
+	}
+
+	if (1)
+	{
+		printf("High Tom...\n");
+
+		struct TomProgram p;
+		struct TomState s;
+		float duration;
+		size_t samples;
+
+		TomSetProgram((float)(FREQUENCY), HIGH_TOM, &p);
+
+		duration = TomSetState(STATE_START, (float)(FREQUENCY), HIGH_TOM, 666, 0.5f, VEL_AMP_MOD, &s); // Normal
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderTom(1.0f, &p, &s, s_buffer, s_buffer + samples);
+		if (sSave("new-high-tom.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
+			return EXIT_FAILURE;
+
+		duration = TomSetState(STATE_START, (float)(FREQUENCY), HIGH_TOM, 666, 0.75f, VEL_AMP_MOD, &s); // Mid velocity
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderTom(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
+		if (sSave("new-high-tom-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
+			return EXIT_FAILURE;
+
+		duration = TomSetState(STATE_START, (float)(FREQUENCY), HIGH_TOM, 666, 1.0f, VEL_AMP_MOD, &s); // Max velocity
+		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
+		RenderTom(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
+		if (sSave("new-high-tom-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
+			return EXIT_FAILURE;
+	}
+
 #ifndef NDEBUG
 	if (0)
 	{

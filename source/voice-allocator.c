@@ -69,6 +69,8 @@ void VoiceAllocatorSet(struct VoiceAllocator* self, float sampling_frequency, in
 	HatSetProgram(sampling_frequency, OPEN_HAT, &self->program.open_hat);
 	HatSetProgram(sampling_frequency, CLOSED_HAT, &self->program.closed_hat);
 	HatSetProgram(sampling_frequency, CYMBAL, &self->program.cymbal);
+	TomSetProgram(sampling_frequency, LOW_TOM, &self->program.low_tom);
+	TomSetProgram(sampling_frequency, HIGH_TOM, &self->program.high_tom);
 }
 
 
@@ -165,12 +167,12 @@ void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy str
 		duration = HatSetState(STATE_START, self->sampling_frequency, CYMBAL, self->rng, velocity, self->vel_amp_mod,
 		                       &self->states[item].state.hat);
 	case TYPE_LOW_TOM:
-		duration = HatSetState(STATE_START, self->sampling_frequency, CYMBAL, self->rng, velocity, self->vel_amp_mod,
-		                       &self->states[item].state.hat);
+		duration = TomSetState(STATE_START, self->sampling_frequency, LOW_TOM, self->rng, velocity, self->vel_amp_mod,
+		                       &self->states[item].state.tom);
 		break;
 	case TYPE_HIGH_TOM:
-		duration = HatSetState(STATE_START, self->sampling_frequency, CYMBAL, self->rng, velocity, self->vel_amp_mod,
-		                       &self->states[item].state.hat);
+		duration = TomSetState(STATE_START, self->sampling_frequency, HIGH_TOM, self->rng, velocity, self->vel_amp_mod,
+		                       &self->states[item].state.tom);
 	}
 
 	self->voices[item].remaining = (uint32_t)((duration * self->sampling_frequency) / 1000.0f);
@@ -249,12 +251,12 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* 
 			                                   out + samples_to_render);
 			break;
 		case TYPE_LOW_TOM:
-			i->last_signal = RenderAdditiveHat(self->amplify[TYPE_CYMBAL], &self->program.cymbal, &i->state.hat, out,
+			i->last_signal = RenderAdditiveTom(self->amplify[TYPE_LOW_TOM], &self->program.low_tom, &i->state.tom, out,
 			                                   out + samples_to_render);
 			break;
 		case TYPE_HIGH_TOM:
-			i->last_signal = RenderAdditiveHat(self->amplify[TYPE_CYMBAL], &self->program.cymbal, &i->state.hat, out,
-			                                   out + samples_to_render);
+			i->last_signal = RenderAdditiveTom(self->amplify[TYPE_HIGH_TOM], &self->program.high_tom, &i->state.tom,
+			                                   out, out + samples_to_render);
 		}
 
 		// Update item

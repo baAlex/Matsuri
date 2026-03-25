@@ -31,8 +31,8 @@ class MatsuriProcessor extends AudioWorkletProcessor {
 			{ name: "gain-closed-hit-hat", defaultValue: 0.2, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "gain-open-hit-hat", defaultValue: 0.2, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "gain-cymbal", defaultValue: 0.5, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "gain-low-tom", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "gain-high-tom", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "gain-low-tom", defaultValue: 0.75, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "gain-high-tom", defaultValue: 0.75, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "velocity-gain-modulation", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 		];
 	}

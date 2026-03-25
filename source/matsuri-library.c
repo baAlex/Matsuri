@@ -951,3 +951,103 @@ float RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, stru
 
 	return signal;
 }
+
+
+void TomSetProgram(float sampling_frequency, enum TomType type, struct TomProgram* restrict p)
+{
+	float length;
+
+	switch (type)
+	{
+	case LOW_TOM: length = 390.0f; break;
+	case HIGH_TOM: length = 250.0f; break;
+	}
+
+	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, 0.5f, 1.5f - 0.5f, 0.8f, -0.2f, &p->env);
+	OscillatorSetProgram(sampling_frequency, length, -1.0f, &p->osc);
+
+	FilterSetProgram(sampling_frequency, LOWPASS_12DB, 150.0f, 4.0f, 1.0f, &p->lp);
+	EnvelopeSetProgram(sampling_frequency, 0.0f, 10.0f, 0.0f, 1.0f, length - 10.0f, 0.5f, &p->env2);
+}
+
+float TomSetState(enum StateState state_state, float sampling_frequency, enum TomType type, uint32_t seed,
+                  float velocity, float vel_amp_mod, struct TomState* restrict s)
+{
+	assert(velocity >= 0.0f && velocity <= 1.0f);
+	assert(vel_amp_mod >= 0.0f && vel_amp_mod <= 1.0f);
+
+	// TODO, I cannot hear velocity affecting tone. I can see more transient on the spectrum, but
+	// it feels more like artifacts in the samples, which are normalised, than anything else.
+	// Also, I'm also old :,(
+	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
+
+	float frequency;
+	switch (type)
+	{
+	case LOW_TOM: frequency = 150.0f; break;
+	case HIGH_TOM: frequency = 210.0f; break;
+	}
+
+	s->click_amplify = general_amplify;
+	ShapedEnvelopeSetState(state_state, &s->env);
+	OscillatorSetState(state_state, sampling_frequency, frequency, 1.5f, 1.0f * general_amplify, &s->osc);
+
+	NoiseSet(seed, &s->noise);
+	FilterSetState(&s->lp);
+	EnvelopeSetState(STATE_START, &s->env2);
+
+	switch (type)
+	{
+	case LOW_TOM: return (1.5f + 390.0f) + ((1.5f + 390.0f) * 10.0f) / 100.0f; break;
+	case HIGH_TOM: return (1.5f + 250.0f) + ((1.5f + 250.0f) * 10.0f) / 100.0f; break;
+	}
+
+	return 0.0f;
+}
+
+static float sTomStep(const struct TomProgram* restrict p, struct TomState* restrict s)
+{
+	float signal = -ShapedEnvelopeStep(&p->env, &s->env) * s->click_amplify;
+	signal += OscillatorStep(&p->osc, &s->osc);
+	signal += FilterStep(NoiseStep(&s->noise), &p->lp, &s->lp) * EnvelopeStep(&p->env2, &s->env2);
+	return signal;
+}
+
+float RenderTom(float mixer_amplify, const struct TomProgram* restrict p, struct TomState* restrict s, float* out,
+                const float* out_end)
+{
+#ifndef NDEBUG
+	float max_level = 0.0f;
+#endif
+
+	float signal;
+	for (float* sample = out; sample < out_end; sample += 1)
+	{
+		signal = sTomStep(p, s) * mixer_amplify;
+		*sample = signal;
+
+#ifndef NDEBUG
+		max_level = sMax(sAbs(signal), max_level);
+#endif
+	}
+
+#ifndef NDEBUG
+#ifndef FREESTANDING
+	printf("Normalisation of x%f required at the end\n", 1.0f / max_level);
+#endif
+#endif
+
+	return signal;
+}
+
+float RenderAdditiveTom(float mixer_amplify, const struct TomProgram* restrict p, struct TomState* restrict s,
+                        float* out, const float* out_end)
+{
+	float signal;
+	for (float* sample = out; sample < out_end; sample += 1)
+	{
+		signal = sTomStep(p, s) * mixer_amplify;
+		*sample += signal;
+	}
+	return signal;
+}
