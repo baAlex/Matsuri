@@ -295,7 +295,7 @@ void OscillatorSetState(enum StateState state_state, float sampling_frequency, f
 		s->omega = s->omega * s->omega;
 		s->v = 0.0f;
 		s->x = 0.0f;
-		s->sweep = 0.0;
+		s->sweep = 0.0f;
 	}
 }
 
@@ -674,9 +674,11 @@ float SnareSetState(enum StateState state_state, float sampling_frequency, uint3
 	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
 	velocity = sMix(reference_vel, velocity, vel_tone_mod); // After general amplify
 
+	const float tone_vel = velocity * velocity;
+
 	s->distortion = sMap(0.5f, 1.0f, 0.0f, -0.3f, sMax(velocity, 0.5f)); // Distortion is linear
-	s->noise_amplify = sMap(0.25f, 1.0f, 1.0f, 1.75f, sMax(velocity * velocity, 0.25f)) * general_amplify;
-	const float osc_amplify = sMap(0.25f, 1.0f, 1.0f, 0.6f, sMax(velocity * velocity, 0.25f)) * general_amplify;
+	s->noise_amplify = sMap(0.25f, 1.0f, 1.0f, 1.75f, sMax(tone_vel, 0.25f)) * general_amplify;
+	const float osc_amplify = sMap(0.25f, 1.0f, 1.0f, 0.6f, sMax(tone_vel, 0.25f)) * general_amplify;
 
 	const float detune = sSemitoneDetune(sMap(0.5f, 1.0f, 0.0f, -2.0f, sMax(velocity, 0.5f))); // Linear as well
 
@@ -748,21 +750,17 @@ void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgra
 	{
 	case OPEN_HAT:
 	{
-		magic_metallic_normalisation = 3.0f; // Obtained in [b]
-		p->fade_out_in_c = 1.0f;
+		magic_metallic_normalisation = 3.5f; // Obtained in [b]
 		break;
 	}
 	case CLOSED_HAT:
 	{
 		magic_metallic_normalisation = 3.0f; // Obtained in [b]
-		p->fade_out_in_c = 1.0f;
 		break;
 	}
 	case CYMBAL:
 	{
-		magic_metallic_normalisation = 4.5f; // Obtained in [b]
-		const float fade_out_in_samples = (3000.0f * sampling_frequency) / 1000.0f;
-		p->fade_out_in_c = sFastNegExp((-LOG_100_PERCENT) / fade_out_in_samples);
+		magic_metallic_normalisation = 3.5f; // Obtained in [b]
 		break;
 	}
 	}
@@ -770,15 +768,13 @@ void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgra
 	SquareX6SetProgram(sampling_frequency, magic_metallic_normalisation, 684.35f, 511.97f, 305.88f, 420.2f, 271.14f,
 	                   201.23f, &p->sqr);
 
-	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 7100.0f, 3.0f, 1.0, &p->bp[0]);
-	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, 1.0, &p->bp[1]);
+	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 7100.0f, 3.0f, 1.0f, &p->bp[0]);
+	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, 1.0f, &p->bp[1]);
 
-	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3400.0f, 4.0f, 0.125f, &p->bp[2]);
-	// FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3400.0f, 4.0f, 0.1875f, &p->bp[2]);
-	// FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3400.0f, 4.0f, 0.25f, &p->bp[2]); // Up to here cymbal is
-	// tolerable
+	// This filter, used by cymbal, seems to be asymmetrical on the real thing, 6Db-ish on highpass
+	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3000.0f, 4.0f, 0.125f, &p->bp[2]);
 
-	FilterSetProgram(sampling_frequency, RC_HIGHPASS_6DB, 7100.0f, 0.5f, 1.0f, &p->hp);
+	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 4000.0f, 0.5f, 1.0f, &p->hp);
 	FilterSetProgram(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, 1.0f, &p->lp);
 }
 
@@ -798,37 +794,39 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
 	velocity = sMix(reference_vel, velocity, vel_tone_mod); // After general amplify
 
+	const float tone_vel = velocity * velocity;
+
 	switch (type)
 	{
 	case OPEN_HAT:
 	{
-		s->final_amplify =
-		    sMap(0.5f, 1.0f, 2.1f, 1.9f, sMax(velocity * velocity, 0.5)) * general_amplify; // Obtained in [c]
+		s->final_amplify = sMap(0.25f, 1.0f, 1.1f, 1.0f, sMax(tone_vel, 0.25f)) * general_amplify; // Obtained in [c]
 		s->long_gain = 1.2f;
-		s->noise_gain = 0.038f;
+		s->noise_gain = sMap(0.25f, 1.0f, 0.038f, 0.1f, sMax(tone_vel, 0.25f));
 
-		short_attack = sMap(0.5f, 1.0f, 1.25f, 10.0f, sMax(velocity * velocity, 0.5));
+		short_attack = sMap(0.25f, 1.0f, 1.25f, 10.0f, sMax(tone_vel, 0.25f));
 		long_attack = short_attack;
-		short_length = sMap(0.25f, 1.0f, 500.0f, 2000.0f, sMax(velocity * velocity, 0.25));
-		s->fade_out_in = 1.0f;
+		short_length = sMap(0.25f, 1.0f, 500.0f, 2000.0f, sMax(tone_vel, 0.125f));
+		s->fade_out_in = sMap(0.25f, 1.0f, 0.9f, 0.75f, sMax(tone_vel, 0.25f));
+		s->fade_out_in_c = 1.0f;
 
 		// Following two are allowed to be shorter at low velocities, that's why
 		// the 0.125 rather than common sense 0.25
-		long_length = sMap(0.25f, 1.0f, 1500.0f, 2000.0f, sMax(velocity * velocity, 0.125));
-		long_shape = sMap(0.25f, 1.0f, 0.4f, 0.1f, sMax(velocity * velocity, 0.125));
+		long_length = sMap(0.25f, 1.0f, 1500.0f, 2000.0f, sMax(tone_vel, 0.125f));
+		long_shape = sMap(0.25f, 1.0f, 0.4f, 0.1f, sMax(tone_vel, 0.125f));
 		break;
 	}
 	case CLOSED_HAT:
 	{
-		s->final_amplify =
-		    sMap(0.5f, 1.0f, 5.5f, 4.5f, sMax(velocity * velocity, 0.5)) * general_amplify; // Obtained in [c]
+		s->final_amplify = sMap(0.25f, 1.0f, 2.7f, 2.4f, sMax(tone_vel, 0.25f)) * general_amplify; // Obtained in [c]
 		s->long_gain = 0.0f;
-		s->noise_gain = 0.0f;
+		s->noise_gain = sMap(0.25f, 1.0f, 0.0f, 0.04f, sMax(tone_vel, 0.25f));
 
-		short_attack = sMap(0.5f, 1.0f, 2.5f, 20.0f, sMax(velocity * velocity, 0.5));
+		short_attack = sMap(0.25f, 1.0f, 2.5f, 20.0f, sMax(tone_vel, 0.25f));
 		long_attack = short_attack;
-		short_length = sMap(0.25f, 1.0f, 150.0f, 160.0f, sMax(velocity * velocity, 0.25));
+		short_length = sMap(0.25f, 1.0f, 150.0f, 170.0f, sMax(tone_vel, 0.25f));
 		s->fade_out_in = 1.0f;
+		s->fade_out_in_c = 1.0f;
 
 		long_length = 0.0f;
 		long_shape = 0.0f;
@@ -836,19 +834,25 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	}
 	case CYMBAL:
 	{
+		// Easing because, reasons (mid cymbal was too loud, were low and max were fine)
 		s->final_amplify =
-		    sMap(0.5f, 1.0f, 5.0f, 2.6f, sMax(velocity * velocity, 0.5)) * general_amplify; // Obtained in [c]
-		s->long_gain = sMap(0.5f, 1.0f, 0.18f, 0.8f, sMax(velocity * velocity, 0.5));
-		s->noise_gain = sMap(0.5f, 1.0f, 0.0f, 0.2f, sMax(velocity * velocity, 0.5));
+		    sMap(0.25f, 1.0f, 2.4f, 1.3f, sEasing(sMax(tone_vel, 0.25f), -0.1f)) * general_amplify; // Obtained in [c]
 
-		short_attack = sMap(0.5f, 1.0f, 5.0f, 5.0f, sMax(velocity * velocity, 0.5));
-		long_attack = sMap(0.5f, 1.0f, 10.0f, 10.0f, sMax(velocity * velocity, 0.5));
-		short_length = sMap(0.25f, 1.0f, 150.0f, 150.0f, sMax(velocity * velocity, 0.25));
-		s->fade_out_in = sMap(0.25f, 1.0f, 0.75f, 0.75f, sMax(velocity * velocity, 0.25));
+		s->long_gain = sMap(0.25f, 1.0f, 0.25f, 0.9f, sMax(tone_vel, 0.25f));
+		s->noise_gain = sMap(0.25f, 1.0f, 0.0f, 0.2f, sMax(tone_vel, 0.25f));
+
+		short_attack = 5.0f;
+		long_attack = 10.0f;
+		short_length = sMap(0.25f, 1.0f, 150.0f, 200.0f, sMax(tone_vel, 0.25f));
+		s->fade_out_in = 1.0f;
+
+		const float fade_out_in_samples =
+		    (sMap(0.25f, 1.0f, 2000.0f, 3000.0f, sMax(tone_vel, 0.25f)) * sampling_frequency) / 1000.0f;
+		s->fade_out_in_c = sFastNegExp((-LOG_100_PERCENT) / fade_out_in_samples);
 
 		// Same length logic as open hat (with different values)
-		long_length = sMap(0.25f, 1.0f, 1400.0f, 2500.0f, sMax(velocity * velocity, 0.125));
-		long_shape = sMap(0.25f, 1.0f, 0.6f, 0.6f, sMax(velocity * velocity, 0.125));
+		long_length = sMap(0.25f, 1.0f, 1400.0f, 2500.0f, sMax(tone_vel, 0.125f));
+		long_shape = 0.6f;
 		break;
 	}
 	}
@@ -894,7 +898,7 @@ float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSt
 		const float high = FilterStep(FilterStep(square, &p->bp[0], &s->bp[0]), &p->bp[1], &s->bp[1]);
 		const float low = FilterStep(square, &p->bp[2], &s->bp[2]);
 
-		s->fade_out_in *= p->fade_out_in_c;
+		s->fade_out_in *= s->fade_out_in_c;
 		signal = low + (high - low) * s->fade_out_in;
 
 #ifndef NDEBUG
@@ -941,7 +945,7 @@ float RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, stru
 		const float high = FilterStep(FilterStep(square, &p->bp[0], &s->bp[0]), &p->bp[1], &s->bp[1]);
 		const float low = FilterStep(square, &p->bp[2], &s->bp[2]);
 
-		s->fade_out_in *= p->fade_out_in_c;
+		s->fade_out_in *= s->fade_out_in_c;
 		signal = low + (high - low) * s->fade_out_in;
 
 		// Distort, and filter noise added by it (we want low frequencies clean)

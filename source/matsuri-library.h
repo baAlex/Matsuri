@@ -215,8 +215,6 @@ struct HatProgram
 
 	struct FilterProgram hp; // For noise added by distorting
 	struct FilterProgram lp; // Final filter, mostly shapes white noise
-
-	float fade_out_in_c;
 };
 
 struct HatState
@@ -239,6 +237,7 @@ struct HatState
 	float long_gain;
 	float final_amplify;
 	float fade_out_in;
+	float fade_out_in_c;
 };
 
 enum HatType
