@@ -34,6 +34,13 @@ defined by the Mozilla Public License, v. 2.0.
 #define NOISE_SCALE 1.1920929e-7f       // 1 / ((2 ^ 24) / 2)
 
 
+#if 0
+#define FORCED_INLINE __attribute__((always_inline))
+#else
+#define FORCED_INLINE // Empty, not needed, "-O3" and "-flto" are doing their job
+#endif
+
+
 float OscillatorStep(const struct OscillatorProgram* restrict p, struct OscillatorState* restrict s)
 {
 	const int go = (s->delay < 0) ? 1 : 0;
@@ -78,12 +85,12 @@ float EnvelopeStep(const struct EnvelopeProgram* restrict p, struct EnvelopeStat
 }
 
 
-static float sAbs(float x)
+static FORCED_INLINE float sAbs(float x)
 {
 	return (x < 0.0f) ? -x : x;
 }
 
-static float sEasing(float x, float f)
+static FORCED_INLINE float sEasing(float x, float f)
 {
 	assert(f > -0.999f && f < 0.999f);
 	return (x - f * x) / (f - 2.0f * f * sAbs(x) + 1.0f);
@@ -106,7 +113,7 @@ float ShapedEnvelopeStep(const struct ShapedEnvelopeProgram* restrict p, struct 
 }
 
 
-static uint32_t sXorshift(uint32_t x)
+static FORCED_INLINE uint32_t sXorshift(uint32_t x)
 {
 	// https://en.wikipedia.org/wiki/Xorshift#Example_implementation
 	x ^= (uint32_t)((x) << 13);
@@ -176,7 +183,7 @@ float CheapDistortion(float x, float f)
 	return sEasing(x, f);
 }
 
-static float sFastNegExp(float x)
+static FORCED_INLINE float sFastNegExp(float x)
 {
 	assert(x >= 0.0f);
 
@@ -234,17 +241,17 @@ float TailStep(struct TailProgram* p, struct TailState* s)
 //
 
 
-static float sMax(float a, float b)
+static FORCED_INLINE float sMax(float a, float b)
 {
 	return (a > b) ? a : b;
 }
 
-static float sRound(float x)
+static FORCED_INLINE float sRound(float x)
 {
 	return (x >= 0.0f) ? (float)((int)(x + 0.5f)) : (float)((int)(x - 0.5f));
 }
 
-static float sSemitoneDetune(float x)
+static FORCED_INLINE float sSemitoneDetune(float x)
 {
 	const float a = sFastNegExp(LOG_2_SEMITONE * sAbs(x));
 	return (x < 0.0f) ? a : 1.0f / a;
@@ -380,7 +387,7 @@ void NoiseSet(uint32_t seed, struct NoiseState* s)
 #define C3 0.00831189980138987918776159520367912155f
 #define C4 0.000184881402886071911033139680005197992f
 
-static float sSin(float x)
+static FORCED_INLINE float sSin(float x)
 {
 	// Lasse Schlör. Fast MiniMax Polynomial Approximations of Sine and Cosine.
 	// https://gist.github.com/publik-void/067f7f2fef32dbe5c27d6e215f824c91#sin-rel-error-minimized-degree-7
@@ -394,7 +401,7 @@ static float sSin(float x)
 	return x * (C1 + xx * (C2 + xx * (C3 - C4 * xx)));
 }
 
-static float sCos(float x)
+static FORCED_INLINE float sCos(float x)
 {
 	return sSin(x + HALF_PI);
 }
@@ -571,23 +578,24 @@ void KickSetProgram(float sampling_frequency, struct KickProgram* restrict p)
 	OscillatorSetProgram(sampling_frequency, 65.0f, 0.0f, &p->osc[1]);
 }
 
-static float sMap(float in_a, float in_b, float out_a, float out_b, float f)
+static FORCED_INLINE float sMap(float in_a, float in_b, float out_a, float out_b, float f)
 {
 	return out_a + (out_b - out_a) * ((f - in_a) / (in_b - in_a));
 }
 
-static float sMix(float a, float b, float f)
+static FORCED_INLINE float sMix(float a, float b, float f)
 {
 	return a + (b - a) * f;
 }
 
 float KickSetState(enum StateState state_state, float sampling_frequency, float velocity, float vel_amp_mod,
-                   struct KickState* restrict s)
+                   float vel_tone_mod, float reference_vel, struct KickState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
 	assert(vel_amp_mod >= 0.0f && vel_amp_mod <= 1.0f);
 
 	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
+	velocity = sMix(reference_vel, velocity, vel_tone_mod); // After general amplify
 
 	s->distortion = sMap(0.5f, 1.0f, 0.0f, -0.25f, sMax(velocity, 0.5f)); // Distortion is linear
 	s->click_amplify = general_amplify;
@@ -601,7 +609,7 @@ float KickSetState(enum StateState state_state, float sampling_frequency, float 
 	return (2.58f + 270.0f) + ((2.58f + 270.0f) * 10.0f) / 100.0f;
 }
 
-static float sKickStep(const struct KickProgram* restrict p, struct KickState* restrict s)
+static FORCED_INLINE float sKickStep(const struct KickProgram* restrict p, struct KickState* restrict s)
 {
 	float signal = -ShapedEnvelopeStep(&p->env, &s->env) * s->click_amplify; // Initial click
 	signal += OscillatorStep(&p->osc[0], &s->osc[0]);
@@ -658,12 +666,13 @@ void SnareSetProgram(float sampling_frequency, struct SnareProgram* restrict p)
 }
 
 float SnareSetState(enum StateState state_state, float sampling_frequency, uint32_t seed, float velocity,
-                    float vel_amp_mod, struct SnareState* restrict s)
+                    float vel_amp_mod, float vel_tone_mod, float reference_vel, struct SnareState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
 	assert(vel_amp_mod >= 0.0f && vel_amp_mod <= 1.0f);
 
 	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
+	velocity = sMix(reference_vel, velocity, vel_tone_mod); // After general amplify
 
 	s->distortion = sMap(0.5f, 1.0f, 0.0f, -0.3f, sMax(velocity, 0.5f)); // Distortion is linear
 	s->noise_amplify = sMap(0.25f, 1.0f, 1.0f, 1.75f, sMax(velocity * velocity, 0.25f)) * general_amplify;
@@ -680,7 +689,7 @@ float SnareSetState(enum StateState state_state, float sampling_frequency, uint3
 	return 140.0f + (140.0f * 10.0f) / 100.0f;
 }
 
-static float sSnareStep(const struct SnareProgram* restrict p, struct SnareState* restrict s)
+static FORCED_INLINE float sSnareStep(const struct SnareProgram* restrict p, struct SnareState* restrict s)
 {
 	float signal = OscillatorStep(&p->osc, &s->osc);
 
@@ -764,17 +773,18 @@ void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgra
 	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 7100.0f, 3.0f, 1.0, &p->bp[0]);
 	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, 1.0, &p->bp[1]);
 
-	FilterSetProgram(sampling_frequency, RC_HIGHPASS_6DB, 7100.0f, 0.5f, 1.0f, &p->hp);
-	FilterSetProgram(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, 1.0f, &p->lp);
-
 	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3400.0f, 4.0f, 0.125f, &p->bp[2]);
 	// FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3400.0f, 4.0f, 0.1875f, &p->bp[2]);
 	// FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3400.0f, 4.0f, 0.25f, &p->bp[2]); // Up to here cymbal is
 	// tolerable
+
+	FilterSetProgram(sampling_frequency, RC_HIGHPASS_6DB, 7100.0f, 0.5f, 1.0f, &p->hp);
+	FilterSetProgram(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, 1.0f, &p->lp);
 }
 
 float HatSetState(enum StateState state_state, float sampling_frequency, enum HatType type, uint32_t seed,
-                  float velocity, float vel_amp_mod, struct HatState* restrict s)
+                  float velocity, float vel_amp_mod, float vel_tone_mod, float reference_vel,
+                  struct HatState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
 	assert(vel_amp_mod >= 0.0f && vel_amp_mod <= 1.0f);
@@ -786,6 +796,7 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	float long_shape;
 
 	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
+	velocity = sMix(reference_vel, velocity, vel_tone_mod); // After general amplify
 
 	switch (type)
 	{
@@ -971,7 +982,8 @@ void TomSetProgram(float sampling_frequency, enum TomType type, struct TomProgra
 }
 
 float TomSetState(enum StateState state_state, float sampling_frequency, enum TomType type, uint32_t seed,
-                  float velocity, float vel_amp_mod, struct TomState* restrict s)
+                  float velocity, float vel_amp_mod, float vel_tone_mod, float reference_vel,
+                  struct TomState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
 	assert(vel_amp_mod >= 0.0f && vel_amp_mod <= 1.0f);
@@ -980,6 +992,7 @@ float TomSetState(enum StateState state_state, float sampling_frequency, enum To
 	// it feels more like artifacts in the samples, which are normalised, than anything else.
 	// Also, I'm also old :,(
 	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
+	velocity = sMix(reference_vel, velocity, vel_tone_mod); // After general amplify
 
 	float frequency;
 	switch (type)
@@ -1005,7 +1018,7 @@ float TomSetState(enum StateState state_state, float sampling_frequency, enum To
 	return 0.0f;
 }
 
-static float sTomStep(const struct TomProgram* restrict p, struct TomState* restrict s)
+static FORCED_INLINE float sTomStep(const struct TomProgram* restrict p, struct TomState* restrict s)
 {
 	float signal = -ShapedEnvelopeStep(&p->env, &s->env) * s->click_amplify;
 	signal += OscillatorStep(&p->osc, &s->osc);

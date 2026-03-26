@@ -172,7 +172,8 @@ struct KickState
 };
 
 void KickSetProgram(float sampling_frequency, struct KickProgram* p);
-float KickSetState(enum StateState, float sampling_frequency, float velocity, float vel_amp_mod, struct KickState* s);
+float KickSetState(enum StateState, float sampling_frequency, float velocity, float vel_amp_mod, float vel_tone_mod,
+                   float reference_vel, struct KickState* s);
 
 float RenderKick(float amplify, const struct KickProgram* p, struct KickState* s, float* out, const float* out_end);
 float RenderAdditiveKick(float amplify, const struct KickProgram* p, struct KickState* s, float* out,
@@ -198,7 +199,7 @@ struct SnareState
 
 void SnareSetProgram(float sampling_frequency, struct SnareProgram* p);
 float SnareSetState(enum StateState, float sampling_frequency, uint32_t seed, float velocity, float vel_amp_mod,
-                    struct SnareState* s);
+                    float vel_tone_mod, float reference_vel, struct SnareState* s);
 
 float RenderSnare(float amplify, const struct SnareProgram* p, struct SnareState* s, float* out, const float* out_end);
 float RenderAdditiveSnare(float amplify, const struct SnareProgram* p, struct SnareState* s, float* out,
@@ -249,7 +250,7 @@ enum HatType
 
 void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgram* p);
 float HatSetState(enum StateState, float sampling_frequency, enum HatType type, uint32_t seed, float velocity,
-                  float vel_amp_mod, struct HatState* s);
+                  float vel_amp_mod, float vel_tone_mod, float reference_vel, struct HatState* s);
 
 float RenderHat(float amplify, const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
 float RenderAdditiveHat(float amplify, const struct HatProgram* p, struct HatState* s, float* out,
@@ -284,7 +285,7 @@ enum TomType
 
 void TomSetProgram(float sampling_frequency, enum TomType type, struct TomProgram* p);
 float TomSetState(enum StateState, float sampling_frequency, enum TomType type, uint32_t seed, float velocity,
-                  float vel_amp_mod, struct TomState* s);
+                  float vel_amp_mod, float vel_tone_mod, float reference_vel, struct TomState* s);
 
 float RenderTom(float amplify, const struct TomProgram* p, struct TomState* s, float* out, const float* out_end);
 float RenderAdditiveTom(float amplify, const struct TomProgram* p, struct TomState* s, float* out,

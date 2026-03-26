@@ -34,6 +34,8 @@ class MatsuriProcessor extends AudioWorkletProcessor {
 			{ name: "gain-low-tom", defaultValue: 0.75, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "gain-high-tom", defaultValue: 0.75, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "velocity-gain-modulation", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "velocity-tone-modulation", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "reference-velocity", defaultValue: 0.5, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 		];
 	}
 
@@ -91,6 +93,8 @@ class MatsuriProcessor extends AudioWorkletProcessor {
 			parameters["gain-low-tom"][0],
 			parameters["gain-high-tom"][0],
 			parameters["velocity-gain-modulation"][0],
+			parameters["velocity-tone-modulation"][0],
+			parameters["reference-velocity"][0],
 			this.m_view.length);
 
 		const out = outputs[0];

@@ -41,6 +41,8 @@
 			ConnectSliderParameter("slider-gain-low-tom", "gain-low-tom");
 			ConnectSliderParameter("slider-gain-high-tom", "gain-high-tom");
 			ConnectSliderParameter("slider-velocity-gain-modulation", "velocity-gain-modulation");
+			ConnectSliderParameter("slider-velocity-tone-modulation", "velocity-tone-modulation");
+			ConnectSliderParameter("slider-reference-velocity", "reference-velocity");
 
 			reference_vel = document.getElementById("slider-reference-velocity");
 		}
@@ -76,7 +78,28 @@
 				if (event.code == "KeyM" || event.code == "Comma" || event.code == "Period")
 					KeyOn(matsuri.MIDI_HIGH_TOM_KEY);
 			}
-		})
+		});
+
+		let midi = false;
+		document.querySelector("#enable-midi").addEventListener("change", (e) => {
+			midi = e.target.checked;
+			// [a] Firefox is sending a burst of old messages, those from before MIDI
+			// access being requested. The fix is to ignore those under a timestamp.
+			// (Chrome don't do it)
+
+			if (midi == true) {
+				navigator.requestMIDIAccess().then(access => {
+					const access_granted = performance.now(); // [a]
+
+					for (const input of access.inputs.values()) {
+						input.onmidimessage = msg => {
+							if (midi == true && msg.timeStamp > (access_granted + 50))
+								Midi(msg.data[0], msg.data[1], msg.data[2])
+						}
+					}
+				});
+			}
+		});
 
 		document.querySelector("#button-bass-drum").addEventListener("mousedown", (e) => {
 			KeyOn(matsuri.MIDI_BASS_DRUM_KEY);
@@ -99,14 +122,6 @@
 		document.querySelector("#button-cymbal").addEventListener("mousedown", (e) => {
 			KeyOn(matsuri.MIDI_CRASH_CYMBAL_KEY);
 		});
-
-		navigator.requestMIDIAccess().then(access => {
-			for (const input of access.inputs.values()) {
-				input.onmidimessage = msg => {
-					Midi(msg.data[0], msg.data[1], msg.data[2])
-				};
-			}
-		});
 	</script>
 
 	<style>
@@ -118,7 +133,11 @@
 			display: block;
 		}
 
-		input {
+		label.inline {
+			display: inline;
+		}
+
+		input[type="range"] {
 			display: block;
 		}
 
@@ -208,10 +227,19 @@
 				<option value="0.5"></option>
 			</datalist>
 		</fieldset>
+
+		<fieldset>
+			<legend>Settings [3]:</legend>
+			<div>
+				<input type="checkbox" id="enable-midi" name="enable-midi" />
+				<label class="inline" for="enable-midi">Enable MIDI input</label>
+			</div>
+		</fieldset>
 	</fieldset>
 
 	<p>[1] With no modulation voices will have the same gain regardless of velocity.</p>
 	<p>[2] Same as above, but for tone. Towards zero converges to use "Reference velocity".</p>
+	<p>[2] Settings of this page, not the synthesizer.</p>
 </body>
 
 </html>

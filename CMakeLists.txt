@@ -55,7 +55,7 @@ if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
 	set(WASM_JS_WORKLET_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm/matsuri-worklet.js")
 
 	if (CMAKE_BUILD_TYPE STREQUAL "Release")
-		set(MATSURI_WASM_CFLAGS -O3 -DNDEBUG)
+		set(MATSURI_WASM_CFLAGS -O3 -flto -DNDEBUG)
 	endif ()
 
 	add_custom_command(

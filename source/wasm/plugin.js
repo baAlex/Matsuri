@@ -62,7 +62,7 @@ export class MatsuriNode extends AudioWorkletNode {
 
 	noteOn(note_no, velocity = 0.5) {
 		// 144 = Note On, Channel 0
-		const v = Math.min(Math.max(velocity, 0), 1) * 127;
+		const v = Math.max(Math.min(velocity, 1) * 127, 1);
 		this.port.postMessage({ type: "Midi", byte0: 144, byte1: note_no, byte2: v });
 	}
 

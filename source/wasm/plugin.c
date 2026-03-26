@@ -87,12 +87,12 @@ void Midi(int byte0, int byte1, int byte2)
 				case 41: // fallthrough
 				case 43: // fallthrough
 				case 45: //
-					VoiceAllocatorPlay(&s_allocator, STRATEGY_STEAL, 4, TYPE_LOW_TOM, vel_float);
+					VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 5, TYPE_LOW_TOM, vel_float);
 					break;
 				case 47: // fallthrough
 				case 48: // fallthrough
 				case 50: //
-					VoiceAllocatorPlay(&s_allocator, STRATEGY_STEAL, 4, TYPE_HIGH_TOM, vel_float);
+					VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 6, TYPE_HIGH_TOM, vel_float);
 					break;
 				}
 			}
@@ -103,12 +103,12 @@ void Midi(int byte0, int byte1, int byte2)
 
 const float* Render(float amplify, float kick_amplify, float snare_amplify, float closed_hat_amplify,
                     float open_hat_amplify, float cymbal_amplify, float low_tom_amplify, float high_tom_amplify,
-                    float vel_amp_mod, uint32_t samples)
+                    float vel_amp_mod, float vel_tone_mod, float reference_velocity, uint32_t samples)
 {
 	if (samples > BUFFER_LEN)
 		return NULL;
 
-	VoiceAllocatorConfigure(&s_allocator, vel_amp_mod);
+	VoiceAllocatorConfigure(&s_allocator, vel_amp_mod, vel_tone_mod, reference_velocity);
 
 	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_KICK, amplify * kick_amplify);
 	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_SNARE, amplify * snare_amplify);
