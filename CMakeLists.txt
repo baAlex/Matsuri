@@ -45,6 +45,8 @@ if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
 	                 "${CMAKE_SOURCE_DIR}/source/matsuri-library.c"
 	                 "${CMAKE_SOURCE_DIR}/source/voice-allocator.c")
 
+	set(WASM_DIR "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm")
+
 	set(WASM_TEST_PAGE_SRC "${CMAKE_SOURCE_DIR}/source/wasm/test-page.html")
 	set(WASM_TEST_PAGE_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm/test-page.html")
 
@@ -57,6 +59,11 @@ if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
 	if (CMAKE_BUILD_TYPE STREQUAL "Release")
 		set(MATSURI_WASM_CFLAGS -O3 -flto -DNDEBUG)
 	endif ()
+
+	add_custom_command(
+		OUTPUT ${WASM_DIR}
+		COMMAND ${CMAKE_COMMAND} -E make_directory ${WASM_DIR}
+	)
 
 	add_custom_command(
 		OUTPUT ${WASM_OUTPUT}
@@ -86,11 +93,10 @@ if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
 		DEPENDS ${WASM_JS_WORKLET_SRC}
 	)
 
-	add_custom_target("wasm" ALL DEPENDS
-		${WASM_OUTPUT} ${WASM_TEST_PAGE_DEST} ${WASM_JS_DEST} ${WASM_JS_WORKLET_DEST})
-	add_custom_target("wasm-test-page" ALL DEPENDS ${WASM_TEST_PAGE_DEST})
-	add_custom_target("wasm-js-node" ALL DEPENDS ${WASM_JS_DEST})
-	add_custom_target("wasm-js-worklet" ALL DEPENDS ${WASM_JS_WORKLET_DEST})
+	add_custom_target("wasm" ALL DEPENDS ${WASM_DIR} ${WASM_OUTPUT})
+	add_custom_target("wasm-test-page" ALL DEPENDS ${WASM_DIR} ${WASM_TEST_PAGE_DEST})
+	add_custom_target("wasm-js-node" ALL DEPENDS ${WASM_DIR} ${WASM_JS_DEST})
+	add_custom_target("wasm-js-worklet" ALL DEPENDS ${WASM_DIR} ${WASM_JS_WORKLET_DEST})
 endif()
 
 
