@@ -1,63 +1,101 @@
 
 cmake_minimum_required(VERSION 3.16)
-project("Matsuri" CXX)
+project("Matsuri" C)
+
+
+set(CMAKE_C_STANDARD 99)
 
 
 ####
-set(CMAKE_CXX_STANDARD 14)
 if (MSVC)
 	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 	set(MATSURI_CFLAGS /W4)
 endif ()
-if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-	set(MATSURI_CFLAGS -Wall -Wextra -pedantic -Wconversion -Wold-style-cast)
+
+if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
+	set(MATSURI_CFLAGS -Wall -Wextra -Wconversion -pedantic)
 endif ()
-if (NOT CMAKE_BUILD_TYPE STREQUAL "Release" AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=undefined")
+
+if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" AND NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
 endif ()
 ####
 
 
-add_subdirectory("source/thirdparty/lodepng_cmake/")
-add_subdirectory("source/thirdparty/pffft_cmake/")
+# Matsuri library
+add_library("matsuri-library"     OBJECT "./source/matsuri-library.c")
+add_library("matsuri-library-pic" OBJECT "./source/matsuri-library.c")
+
+target_compile_options("matsuri-library"     PRIVATE ${MATSURI_CFLAGS})
+target_compile_options("matsuri-library-pic" PRIVATE ${MATSURI_CFLAGS})
+
+set_target_properties("matsuri-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 
-add_library("matsuri" STATIC "source/matsuri.cpp")
-target_compile_options("matsuri" PRIVATE ${MATSURI_CFLAGS})
-target_link_libraries("matsuri" PRIVATE "pffft")
+# Executable "generate-wavs"
+add_executable("generate-wavs" "./source/generate-wavs.c")
+target_compile_options("generate-wavs" PRIVATE ${MATSURI_CFLAGS})
+target_link_libraries("generate-wavs" PRIVATE "matsuri-library")
 
 
-add_executable("606-kick" "source/606-kick.cpp")
-target_compile_options("606-kick" PRIVATE ${MATSURI_CFLAGS})
-target_link_libraries("606-kick" PRIVATE "matsuri")
+# Plugin, WASM
+if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
+	set(WASM_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm/matsuri.wasm")
+	set(WASM_SOURCES "${CMAKE_SOURCE_DIR}/source/wasm/plugin.c"
+	                 "${CMAKE_SOURCE_DIR}/source/matsuri-library.c"
+	                 "${CMAKE_SOURCE_DIR}/source/voice-allocator.c")
 
-add_executable("606-snare" "source/606-snare.cpp")
-target_compile_options("606-snare" PRIVATE ${MATSURI_CFLAGS})
-target_link_libraries("606-snare" PRIVATE "matsuri")
+	set(WASM_TEST_PAGE_SRC "${CMAKE_SOURCE_DIR}/source/wasm/test-page.html")
+	set(WASM_TEST_PAGE_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm/test-page.html")
 
-add_executable("606-hats" "source/606-hats.cpp")
-target_compile_options("606-hats" PRIVATE ${MATSURI_CFLAGS})
-target_link_libraries("606-hats" PRIVATE "matsuri")
+	set(WASM_JS_SRC "${CMAKE_SOURCE_DIR}/source/wasm/plugin.js")
+	set(WASM_JS_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm/matsuri.js")
 
-add_executable("606-toms" "source/606-toms.cpp")
-target_compile_options("606-toms" PRIVATE ${MATSURI_CFLAGS})
-target_link_libraries("606-toms" PRIVATE "matsuri")
+	set(WASM_JS_WORKLET_SRC "${CMAKE_SOURCE_DIR}/source/wasm/plugin-worklet.js")
+	set(WASM_JS_WORKLET_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm/matsuri-worklet.js")
+
+	if (CMAKE_BUILD_TYPE STREQUAL "Release")
+		set(MATSURI_WASM_CFLAGS -O3 -flto -DNDEBUG)
+	endif ()
+
+	add_custom_command(
+		OUTPUT ${WASM_OUTPUT}
+		COMMAND clang --target=wasm32 -DFREESTANDING -ffreestanding --no-standard-libraries
+		        ${MATSURI_CFLAGS} ${MATSURI_WASM_CFLAGS} -fuse-ld=lld
+		        -Wl,--entry=Initialise -Wl,--export=Initialise -Wl,--export=Midi -Wl,--export=Render
+		        -Wl,--strip-all -Wl,--merge-data-segments -z stack-size=1000000
+		        ${WASM_SOURCES} -o ${WASM_OUTPUT}
+		DEPENDS ${WASM_SOURCES}
+	)
+
+	add_custom_command(
+		OUTPUT ${WASM_TEST_PAGE_DEST}
+		COMMAND ${CMAKE_COMMAND} -E copy ${WASM_TEST_PAGE_SRC} ${WASM_TEST_PAGE_DEST}
+		DEPENDS ${WASM_TEST_PAGE_SRC}
+	)
+
+	add_custom_command(
+		OUTPUT ${WASM_JS_DEST}
+		COMMAND ${CMAKE_COMMAND} -E copy ${WASM_JS_SRC} ${WASM_JS_DEST}
+		DEPENDS ${WASM_JS_SRC}
+	)
+
+	add_custom_command(
+		OUTPUT ${WASM_JS_WORKLET_DEST}
+		COMMAND ${CMAKE_COMMAND} -E copy ${WASM_JS_WORKLET_SRC} ${WASM_JS_WORKLET_DEST}
+		DEPENDS ${WASM_JS_WORKLET_SRC}
+	)
+
+	add_custom_target("wasm" ALL DEPENDS ${WASM_OUTPUT})
+	add_custom_target("wasm-test-page" ALL DEPENDS ${WASM_TEST_PAGE_DEST})
+	add_custom_target("wasm-js-node" ALL DEPENDS ${WASM_JS_DEST})
+	add_custom_target("wasm-js-worklet" ALL DEPENDS ${WASM_JS_WORKLET_DEST})
+endif()
 
 
-add_executable("analyser" "source/analyser.cpp")
-target_compile_options("analyser" PRIVATE ${MATSURI_CFLAGS})
-target_link_libraries("analyser" PRIVATE "matsuri")
-target_link_libraries("analyser" PRIVATE "lodepng")
-
-
+#
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
-	set_target_properties("matsuri" PROPERTIES INTERPROCEDURAL_OPTIMIZATION True)
-
-	set_target_properties("606-kick"  PROPERTIES INTERPROCEDURAL_OPTIMIZATION True)
-	set_target_properties("606-snare" PROPERTIES INTERPROCEDURAL_OPTIMIZATION True)
-	set_target_properties("606-hats"  PROPERTIES INTERPROCEDURAL_OPTIMIZATION True)
-	set_target_properties("606-toms"  PROPERTIES INTERPROCEDURAL_OPTIMIZATION True)
-
-	set_target_properties("analyser" PROPERTIES INTERPROCEDURAL_OPTIMIZATION True)
+	set_target_properties("matsuri-library"     PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+	set_target_properties("matsuri-library-pic" PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+	set_target_properties("generate-wavs"       PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif ()

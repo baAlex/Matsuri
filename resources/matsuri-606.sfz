@@ -1,41 +1,76 @@
 
 <control>
-label_cc100=Kick Vol
+label_cc100=Bass Drum Vol
 set_cc100=100
 
-label_cc101=Snare Vol
-set_cc101=90
+label_cc101=Snare Drum Vol
+set_cc101=100
 
 label_cc102=Hat Closed Vol
 set_cc102=20
 
 label_cc103=Hat Open Vol
-set_cc103=30
+set_cc103=20
 
-label_cc104=Tom Low Vol
-set_cc104=75
+label_cc104=Cymbal Vol
+set_cc104=50
 
-label_cc105=Tom High Vol
+label_cc105=Toms Vol
 set_cc105=75
 
-label_cc106=Cymbal Vol
-set_cc106=60
+<group> group=1 off_by=1 loop_mode=one_shot
+	<region> sample=606-bass-drum.flac     key=B0 lovel=0 hivel=80 amplitude_oncc100=100
+	<region> sample=606-bass-drum-mid.flac key=B0 lovel=80 hivel=104 amplitude_oncc100=100
+	<region> sample=606-bass-drum-max.flac key=B0 lovel=104 hivel=127 amplitude_oncc100=100
+
+	<region> sample=606-bass-drum.flac     key=C1 lovel=0 hivel=80 amplitude_oncc100=100
+	<region> sample=606-bass-drum-mid.flac key=C1 lovel=80 hivel=104 amplitude_oncc100=100
+	<region> sample=606-bass-drum-max.flac key=C1 lovel=104 hivel=127 amplitude_oncc100=100
+
+<group> group=2 off_by=2 loop_mode=one_shot
+	<region> sample=606-snare-drum.flac     key=D1 lovel=0 hivel=80 amplitude_oncc101=100
+	<region> sample=606-snare-drum-mid.flac key=D1 lovel=80 hivel=104 amplitude_oncc101=100
+	<region> sample=606-snare-drum-max.flac key=D1 lovel=104 hivel=127 amplitude_oncc101=100
+
+	<region> sample=606-snare-drum.flac     key=E1 lovel=0 hivel=80 amplitude_oncc101=100
+	<region> sample=606-snare-drum-mid.flac key=E1 lovel=80 hivel=104 amplitude_oncc101=100
+	<region> sample=606-snare-drum-max.flac key=E1 lovel=104 hivel=127 amplitude_oncc101=100
+
+<group> group=3 off_by=3 loop_mode=one_shot
+	<region> sample=606-hat-closed.flac     key=Gb1 lovel=0 hivel=80 amplitude_oncc102=100
+	<region> sample=606-hat-closed-mid.flac key=Gb1 lovel=80 hivel=104 amplitude_oncc102=100
+	<region> sample=606-hat-closed-max.flac key=Gb1 lovel=104 hivel=127 amplitude_oncc102=100
+
+	<region> sample=606-hat-open.flac     key=Bb1 lovel=0 hivel=80 amplitude_oncc103=100
+	<region> sample=606-hat-open-mid.flac key=Bb1 lovel=80 hivel=104 amplitude_oncc103=100
+	<region> sample=606-hat-open-max.flac key=Bb1 lovel=104 hivel=127 amplitude_oncc103=100
 
 <group> loop_mode=one_shot
-<region> sample=606-kick.flac     key=B0 amplitude_oncc100=100
-<region> sample=606-kick.flac     key=C1 amplitude_oncc100=100
-<region> sample=606-snare.flac    key=D1 amplitude_oncc101=100
-<region> sample=606-snare.flac    key=E1 amplitude_oncc101=100
-<region> sample=606-tom-low.flac  key=F1 amplitude_oncc104=100
-<region> sample=606-tom-low.flac  key=G1 amplitude_oncc104=100
-<region> sample=606-tom-low.flac  key=A1 amplitude_oncc104=100
-<region> sample=606-tom-high.flac key=B1 amplitude_oncc105=100
-<region> sample=606-tom-high.flac key=C2 amplitude_oncc105=100
-<region> sample=606-tom-high.flac key=D2 amplitude_oncc105=100
-<region> sample=606-cymbal.flac   key=Db2 amplitude_oncc106=100
-<region> sample=606-cymbal.flac   key=Eb2 amplitude_oncc106=100
+	<region> sample=606-cymbal.flac     key=Db2 lovel=0 hivel=80 amplitude_oncc104=100
+	<region> sample=606-cymbal-mid.flac key=Db2 lovel=80 hivel=104 amplitude_oncc104=100
+	<region> sample=606-cymbal-max.flac key=Db2 lovel=104 hivel=127 amplitude_oncc104=100
 
-<group> polyphony=1 loop_mode=one_shot
-<region> sample=606-hat-closed.flac key=Gb1 amplitude_oncc102=100
-<region> sample=606-hat-closed.flac key=Ab1 amplitude_oncc102=100
-<region> sample=606-hat-open.flac   key=Bb1 amplitude_oncc103=100
+<group> loop_mode=one_shot
+	<region> sample=606-tom-low.flac     key=F1 lovel=0 hivel=80 amplitude_oncc105=100
+	<region> sample=606-tom-low-mid.flac key=F1 lovel=80 hivel=104 amplitude_oncc105=100
+	<region> sample=606-tom-low-max.flac key=F1 lovel=104 hivel=127 amplitude_oncc105=100
+
+	<region> sample=606-tom-low.flac     key=G1 lovel=0 hivel=80 amplitude_oncc105=100
+	<region> sample=606-tom-low-mid.flac key=G1 lovel=80 hivel=104 amplitude_oncc105=100
+	<region> sample=606-tom-low-max.flac key=G1 lovel=104 hivel=127 amplitude_oncc105=100
+
+	<region> sample=606-tom-low.flac     key=A1 lovel=0 hivel=80 amplitude_oncc105=100
+	<region> sample=606-tom-low-mid.flac key=A1 lovel=80 hivel=104 amplitude_oncc105=100
+	<region> sample=606-tom-low-max.flac key=A1 lovel=104 hivel=127 amplitude_oncc105=100
+
+	<region> sample=606-tom-high.flac     key=B1 lovel=0 hivel=80 amplitude_oncc105=100
+	<region> sample=606-tom-high-mid.flac key=B1 lovel=80 hivel=104 amplitude_oncc105=100
+	<region> sample=606-tom-high-max.flac key=B1 lovel=104 hivel=127 amplitude_oncc105=100
+
+	<region> sample=606-tom-high.flac     key=C2 lovel=0 hivel=80 amplitude_oncc105=100
+	<region> sample=606-tom-high-mid.flac key=C2 lovel=80 hivel=104 amplitude_oncc105=100
+	<region> sample=606-tom-high-max.flac key=C2 lovel=104 hivel=127 amplitude_oncc105=100
+
+	<region> sample=606-tom-high.flac     key=D2 lovel=0 hivel=80 amplitude_oncc105=100
+	<region> sample=606-tom-high-mid.flac key=D2 lovel=80 hivel=104 amplitude_oncc105=100
+	<region> sample=606-tom-high-max.flac key=D2 lovel=104 hivel=127 amplitude_oncc105=100
