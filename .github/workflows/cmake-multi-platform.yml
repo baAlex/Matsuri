@@ -75,7 +75,7 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: artifacts-${{ matrix.os }}
+        name: artifacts-${{ matrix.os }}-${{ matrix.c_compiler }}
         path: |
           ${{ steps.strings.outputs.build-output-dir }}/generate-wavs
-          ${{ steps.strings.outputs.build-output-dir }}/*.exe
+          ${{ steps.strings.outputs.build-output-dir }}/**/*.exe
