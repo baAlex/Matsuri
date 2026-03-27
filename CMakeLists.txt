@@ -86,7 +86,8 @@ if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
 		DEPENDS ${WASM_JS_WORKLET_SRC}
 	)
 
-	add_custom_target("wasm" ALL DEPENDS ${WASM_OUTPUT})
+	add_custom_target("wasm" ALL DEPENDS
+		${WASM_OUTPUT} ${WASM_TEST_PAGE_DEST} ${WASM_JS_DEST} ${WASM_JS_WORKLET_DEST})
 	add_custom_target("wasm-test-page" ALL DEPENDS ${WASM_TEST_PAGE_DEST})
 	add_custom_target("wasm-js-node" ALL DEPENDS ${WASM_JS_DEST})
 	add_custom_target("wasm-js-worklet" ALL DEPENDS ${WASM_JS_WORKLET_DEST})
