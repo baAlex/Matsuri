@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 project("Matsuri" C)
 
 
-set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD 11)
 
 
 ####
@@ -17,7 +17,7 @@ if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES
 endif ()
 
 if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" AND NOT CMAKE_BUILD_TYPE STREQUAL "Release")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
+	# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
 endif ()
 ####
 
@@ -29,6 +29,8 @@ add_library("matsuri-library-pic" OBJECT "./source/matsuri-library.c")
 target_compile_options("matsuri-library"     PRIVATE ${MATSURI_CFLAGS})
 target_compile_options("matsuri-library-pic" PRIVATE ${MATSURI_CFLAGS})
 
+set_target_properties("matsuri-library" PROPERTIES C_VISIBILITY_PRESET hidden)
+# set_target_properties("matsuri-library-pic" PROPERTIES C_VISIBILITY_PRESET hidden)
 set_target_properties("matsuri-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 
@@ -36,6 +38,18 @@ set_target_properties("matsuri-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE
 add_executable("generate-wavs" "./source/generate-wavs.c")
 target_compile_options("generate-wavs" PRIVATE ${MATSURI_CFLAGS})
 target_link_libraries("generate-wavs" PRIVATE "matsuri-library")
+
+
+# Plugin, CLAP
+add_library("matsuri-clap" MODULE "./source/clap/plugin.c" "./source/voice-allocator.c")
+target_compile_options("matsuri-clap" PRIVATE ${MATSURI_CFLAGS})
+target_link_libraries("matsuri-clap" PRIVATE "matsuri-library-pic")
+
+set_target_properties("matsuri-clap" PROPERTIES PREFIX "")
+set_target_properties("matsuri-clap" PROPERTIES OUTPUT_NAME "matsuri")
+set_target_properties("matsuri-clap" PROPERTIES SUFFIX ".clap")
+set_target_properties("matsuri-clap" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+# set_target_properties("matsuri-clap" PROPERTIES C_VISIBILITY_PRESET hidden)
 
 
 # Plugin, WASM
@@ -105,4 +119,5 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
 	set_target_properties("matsuri-library"     PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("matsuri-library-pic" PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("generate-wavs"       PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+	set_target_properties("matsuri-clap"        PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif ()
