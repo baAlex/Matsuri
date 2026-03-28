@@ -303,8 +303,8 @@ static void sOnMainThread(const struct clap_plugin* _plugin)
 
 static const clap_plugin_descriptor_t s_descriptor = {
     .clap_version = CLAP_VERSION_INIT,
-    .id = "baAlex.Matsuri",
-    .name = "Matsuri",
+    .id = "baAlex.Matsuri.v2",
+    .name = "Matsuri V2",
     .vendor = "Alexander Brandt",
     .url = "https://github.com/baAlex/Matsuri/",
     .manual_url = "https://github.com/baAlex/Matsuri/",
