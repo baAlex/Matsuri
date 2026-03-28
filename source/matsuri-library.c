@@ -231,7 +231,7 @@ float FancyDistortion(float x, float f)
 }
 
 
-float TailStep(struct TailProgram* p, struct TailState* s)
+float TailStep(struct TailProgram* restrict p, struct TailState* restrict s)
 {
 	s->x *= p->c;
 	return s->x;

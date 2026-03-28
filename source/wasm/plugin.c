@@ -87,12 +87,12 @@ void Midi(int byte0, int byte1, int byte2)
 				case 41: // fallthrough
 				case 43: // fallthrough
 				case 45: //
-					VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 5, TYPE_LOW_TOM, vel_float);
+					VoiceAllocatorPlay(&s_allocator, STRATEGY_STEAL, 5, TYPE_LOW_TOM, vel_float);
 					break;
 				case 47: // fallthrough
 				case 48: // fallthrough
 				case 50: //
-					VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 6, TYPE_HIGH_TOM, vel_float);
+					VoiceAllocatorPlay(&s_allocator, STRATEGY_STEAL, 6, TYPE_HIGH_TOM, vel_float);
 					break;
 				}
 			}

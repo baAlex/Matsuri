@@ -2,21 +2,14 @@
 Matsuri
 =======
 
-Synthesized TR-606 samples. Done so far:
+Synthesizer recreating Roland's TR-606 drum machine¹. Fast, tiny (~10 kB), and quite close to original sounds (considering it doesn't emulate circuitry). The project includes, samples with a [SFZ definition](https://sfzformat.com/software/players/), and a Web Audio + WebAssembly [AudioNode](https://developer.mozilla.org/en-US/docs/Web/API/AudioNode). CLAP plugin in the works.
 
-- [x] Kick
-- [x] Snare
-- [x] Closed hat
-- [x] Open hat
-- [x] Low tom
-- [x] High tom
-- [x] Cymbal
-- [ ] Accentuated versions
+[1] This project has no relation with Roland, all trademarks and copyrights are theirs.
 
 
 Clone and compile code
 ----------------------
-With `git`, `cmake` and a C++14 compiler, cloning and compilation should be:
+With `git`, `cmake`, and a C99 compiler installed, cloning and compilation should be:
 
 ```
 git clone --recurse-submodules https://github.com/baAlex/Matsuri
@@ -27,13 +20,9 @@ cmake ..
 make
 ```
 
-Dependencies [dr_libs](https://github.com/mackron/dr_libs), [pffft](https://bitbucket.org/jpommier/pffft),
-[argh](https://github.com/adishavit/argh) and [lodepng](https://github.com/lvandeve/lodepng),
-cloned and statically compiled as part of above process.
-
 
 License
 -------
-Code under MPL-2.0 license. Every file includes its respective notice.
+Code under the MPL-2.0 license. Every file includes its respective notice.
 
-Files created from code/programs here under no license, those are yours.
+Files created from code/programs here are under no license, those are yours.

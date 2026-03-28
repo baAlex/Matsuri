@@ -79,3 +79,4 @@ jobs:
         path: |
           ${{ steps.strings.outputs.build-output-dir }}/generate-wavs
           ${{ steps.strings.outputs.build-output-dir }}/**/*.exe
+          ${{ steps.strings.outputs.build-output-dir }}/**/*.wasm
