@@ -80,6 +80,7 @@ jobs:
       with:
         name: artifacts-${{ matrix.os }}-${{ matrix.c_compiler }}
         path: |
-          ${{ steps.strings.outputs.build-output-dir }}/generate-wavs
+          ${{ steps.strings.outputs.build-output-dir }}/matsuri-wavs-v2
           ${{ steps.strings.outputs.build-output-dir }}/**/*.exe
           ${{ steps.strings.outputs.build-output-dir }}/**/*.wasm
+          ${{ steps.strings.outputs.build-output-dir }}/**/*.clap

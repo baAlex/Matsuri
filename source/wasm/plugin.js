@@ -42,19 +42,19 @@ let s_wasm_array = null;
 export async function FetchAndRegister(audio_context) {
 
 	// Fetch worklet code, register it on the context
-	await audio_context.audioWorklet.addModule("./matsuri-worklet.js");
+	await audio_context.audioWorklet.addModule("./matsuri-v2-worklet.js");
 
 	// Fetch WASM blob, make it an array
 	if (s_wasm_array == null) {
-		const response = await fetch("./matsuri.wasm");
+		const response = await fetch("./matsuri-v2.wasm");
 		s_wasm_array = await response.arrayBuffer();
 	}
 }
 
-export class MatsuriNode extends AudioWorkletNode {
+export class MatsuriV2Node extends AudioWorkletNode {
 
 	constructor(audio_context) {
-		super(audio_context, "matsuri-processor");
+		super(audio_context, "matsuri-v2-processor");
 
 		// Send WASM to worklet so it can finish its initialisation there
 		this.port.postMessage({ type: "Initialise", array: s_wasm_array });
