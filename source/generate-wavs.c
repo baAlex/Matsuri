@@ -260,22 +260,22 @@ int main(void)
 
 		TomSetProgram((float)(FREQUENCY), LOW_TOM, &p);
 
-		duration = TomSetState(STATE_START, (float)(FREQUENCY), LOW_TOM, 666, 0.5f, VEL_AMP_MOD, VEL_TONE_MOD,
-		                       REFERENCE_VEL, &s); // Normal
+		duration = TomSetState(STATE_START, (float)(FREQUENCY), LOW_TOM, 0.5f, VEL_AMP_MOD, VEL_TONE_MOD, REFERENCE_VEL,
+		                       &s); // Normal
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderTom(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("606-tom-low.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = TomSetState(STATE_START, (float)(FREQUENCY), LOW_TOM, 666, 0.75f, VEL_AMP_MOD, VEL_TONE_MOD,
+		duration = TomSetState(STATE_START, (float)(FREQUENCY), LOW_TOM, 0.75f, VEL_AMP_MOD, VEL_TONE_MOD,
 		                       REFERENCE_VEL, &s); // Mid velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderTom(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
 		if (sSave("606-tom-low-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = TomSetState(STATE_START, (float)(FREQUENCY), LOW_TOM, 666, 1.0f, VEL_AMP_MOD, VEL_TONE_MOD,
-		                       REFERENCE_VEL, &s); // Max velocity
+		duration = TomSetState(STATE_START, (float)(FREQUENCY), LOW_TOM, 1.0f, VEL_AMP_MOD, VEL_TONE_MOD, REFERENCE_VEL,
+		                       &s); // Max velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderTom(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
 		if (sSave("606-tom-low-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
@@ -293,21 +293,21 @@ int main(void)
 
 		TomSetProgram((float)(FREQUENCY), HIGH_TOM, &p);
 
-		duration = TomSetState(STATE_START, (float)(FREQUENCY), HIGH_TOM, 666, 0.5f, VEL_AMP_MOD, VEL_TONE_MOD,
+		duration = TomSetState(STATE_START, (float)(FREQUENCY), HIGH_TOM, 0.5f, VEL_AMP_MOD, VEL_TONE_MOD,
 		                       REFERENCE_VEL, &s); // Normal
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderTom(1.0f, &p, &s, s_buffer, s_buffer + samples);
 		if (sSave("606-tom-high.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = TomSetState(STATE_START, (float)(FREQUENCY), HIGH_TOM, 666, 0.75f, VEL_AMP_MOD, VEL_TONE_MOD,
+		duration = TomSetState(STATE_START, (float)(FREQUENCY), HIGH_TOM, 0.75f, VEL_AMP_MOD, VEL_TONE_MOD,
 		                       REFERENCE_VEL, &s); // Mid velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderTom(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
 		if (sSave("606-tom-high-mid.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
 
-		duration = TomSetState(STATE_START, (float)(FREQUENCY), HIGH_TOM, 666, 1.0f, VEL_AMP_MOD, VEL_TONE_MOD,
+		duration = TomSetState(STATE_START, (float)(FREQUENCY), HIGH_TOM, 1.0f, VEL_AMP_MOD, VEL_TONE_MOD,
 		                       REFERENCE_VEL, &s); // Max velocity
 		samples = sMillisecondsToSamples((float)(FREQUENCY), duration);
 		RenderTom(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);

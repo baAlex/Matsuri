@@ -13,17 +13,7 @@ Synthesizer recreating the sound of Roland's TR-606 drum machine. Fast, tiny, an
 
 Download
 --------
-**Soon**. But in the meantime you can [compile the code](https://github.com/baAlex/Matsuri?tab=readme-ov-file#clone-and-compile-code).
-
-
-Tested platforms and DAWs
--------------------------
-- CLAP plugin
-	- [Zrythm](https://www.zrythm.org/en/index.html), on Linux
-	- [Bass Studio](https://bass-studio.com/), in Wine on Linux
-- Web Audio / WebAssembly AudioNode
-	- Firefox 148
-	- Chrome 145
+**Soon**. But in the meantime you can [compile the code](#clone-and-compile-code).
 
 
 Clone and compile code

@@ -213,6 +213,11 @@ static FORCED_INLINE float sFastNegExp(float x)
 	5. It's often tempting to just write exp(-x) in code, but these approximations (in 3 or 4
 	above) are so simple, accurate and well behaved, it's worth dropping them in when you
 	know you're in an exponential decay situation.
+
+	6. Calculations were done by writing a simple program to output the (text) equation for the
+	difference between the approximation and exp(-x), evaluated over the range of interest.
+	Then paste that into https://comnuan.com/cmnn03/cmnn03008/cmnn03008.php Not elegant but it
+	works!
 	*/
 
 	return 1.0f / (1.0f + x * (1.119186f + x * (0.097090f + x * 0.489114f)));
@@ -980,14 +985,10 @@ void TomSetProgram(float sampling_frequency, enum TomType type, struct TomProgra
 
 	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, 0.5f, 1.5f - 0.5f, 0.8f, -0.2f, &p->env);
 	OscillatorSetProgram(sampling_frequency, length, -1.0f, &p->osc);
-
-	FilterSetProgram(sampling_frequency, LOWPASS_12DB, 150.0f, 4.0f, 1.0f, &p->lp);
-	EnvelopeSetProgram(sampling_frequency, 0.0f, 10.0f, 0.0f, 1.0f, length - 10.0f, 0.5f, &p->env2);
 }
 
-float TomSetState(enum StateState state_state, float sampling_frequency, enum TomType type, uint32_t seed,
-                  float velocity, float vel_amp_mod, float vel_tone_mod, float reference_vel,
-                  struct TomState* restrict s)
+float TomSetState(enum StateState state_state, float sampling_frequency, enum TomType type, float velocity,
+                  float vel_amp_mod, float vel_tone_mod, float reference_vel, struct TomState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
 	assert(vel_amp_mod >= 0.0f && vel_amp_mod <= 1.0f);
@@ -1009,10 +1010,6 @@ float TomSetState(enum StateState state_state, float sampling_frequency, enum To
 	ShapedEnvelopeSetState(state_state, &s->env);
 	OscillatorSetState(state_state, sampling_frequency, frequency, 1.5f, 1.0f * general_amplify, &s->osc);
 
-	NoiseSet(seed, &s->noise);
-	FilterSetState(&s->lp);
-	EnvelopeSetState(STATE_START, &s->env2);
-
 	switch (type)
 	{
 	case LOW_TOM: return (1.5f + 390.0f) + ((1.5f + 390.0f) * 10.0f) / 100.0f; break;
@@ -1026,7 +1023,6 @@ static FORCED_INLINE float sTomStep(const struct TomProgram* restrict p, struct 
 {
 	float signal = -ShapedEnvelopeStep(&p->env, &s->env) * s->click_amplify;
 	signal += OscillatorStep(&p->osc, &s->osc);
-	signal += FilterStep(NoiseStep(&s->noise), &p->lp, &s->lp) * EnvelopeStep(&p->env2, &s->env2);
 	return signal;
 }
 

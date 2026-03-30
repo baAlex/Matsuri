@@ -180,11 +180,11 @@ void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy str
 		                       self->vel_tone_mod, self->reference_vel, &self->states[item].state.hat);
 		break;
 	case TYPE_LOW_TOM:
-		duration = TomSetState(STATE_START, self->sampling_frequency, LOW_TOM, self->rng, velocity, self->vel_amp_mod,
+		duration = TomSetState(STATE_START, self->sampling_frequency, LOW_TOM, velocity, self->vel_amp_mod,
 		                       self->vel_tone_mod, self->reference_vel, &self->states[item].state.tom);
 		break;
 	case TYPE_HIGH_TOM:
-		duration = TomSetState(STATE_START, self->sampling_frequency, HIGH_TOM, self->rng, velocity, self->vel_amp_mod,
+		duration = TomSetState(STATE_START, self->sampling_frequency, HIGH_TOM, velocity, self->vel_amp_mod,
 		                       self->vel_tone_mod, self->reference_vel, &self->states[item].state.tom);
 	}
 
