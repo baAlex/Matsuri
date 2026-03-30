@@ -19,11 +19,6 @@ defined by the Mozilla Public License, v. 2.0.
 static float s_buffer[BUFFER_LEN];
 static struct VoiceAllocator s_allocator;
 
-static int sMin(int a, int b)
-{
-	return (a < b) ? a : b;
-}
-
 
 const float* Initialise(float sampling_frequency)
 {
@@ -34,70 +29,7 @@ const float* Initialise(float sampling_frequency)
 
 void Midi(int byte0, int byte1, int byte2)
 {
-	// Per MIDI protocol, any error is silently ignored
-
-	byte0 &= 0xFF; // We accept integers because is friendly with WASM,
-	byte1 &= 0xFF; // but we don't want any higher bit
-	byte2 &= 0xFF;
-
-	// "Note Off" message
-	if ((byte0 >> 4) == 8)
-	{
-		// Ignoring these
-	}
-
-	// "Note On" message
-	else if ((byte0 >> 4) == 9) // Ignoring channel
-	{
-		if (byte1 < 128) // Valid note range
-		{
-			if (byte2 == 0)
-			{
-				// Velocity = 0 = Implicit "Note Off" -> Ignoring it
-			}
-			else
-			{
-				// Finally "Note On":
-
-				// General MIDI mappings
-				// https://upload.wikimedia.org/wikipedia/commons/c/c2/GM_Standard_Drum_Map_on_the_keyboard.svg
-
-				const float vel_float = (float)(sMin(byte2, 127)) / 127.0f;
-
-				switch (byte1)
-				{
-				default: break;
-				case 35: // fallthrough
-				case 36: //
-					VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 1, TYPE_KICK, vel_float);
-					break;
-				case 38: // fallthrough
-				case 40: //
-					VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 2, TYPE_SNARE, vel_float);
-					break;
-				case 42: //
-					VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 3, TYPE_CLOSED_HAT, vel_float);
-					break;
-				case 46: //
-					VoiceAllocatorPlay(&s_allocator, STRATEGY_CHOKE, 3, TYPE_OPEN_HAT, vel_float);
-					break;
-				case 49: //
-					VoiceAllocatorPlay(&s_allocator, STRATEGY_STEAL, 4, TYPE_CYMBAL, vel_float);
-					break;
-				case 41: // fallthrough
-				case 43: // fallthrough
-				case 45: //
-					VoiceAllocatorPlay(&s_allocator, STRATEGY_STEAL, 5, TYPE_LOW_TOM, vel_float);
-					break;
-				case 47: // fallthrough
-				case 48: // fallthrough
-				case 50: //
-					VoiceAllocatorPlay(&s_allocator, STRATEGY_STEAL, 6, TYPE_HIGH_TOM, vel_float);
-					break;
-				}
-			}
-		}
-	}
+	VoiceAllocatorMidi(&s_allocator, byte0, byte1, byte2);
 }
 
 

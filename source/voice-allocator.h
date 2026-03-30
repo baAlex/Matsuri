@@ -101,4 +101,6 @@ void VoiceAllocatorConfigure(struct VoiceAllocator* allocator, float vel_amp_mod
 void VoiceAllocatorStop(struct VoiceAllocator* allocator, uint32_t id);
 void VoiceAllocatorRender(struct VoiceAllocator* allocator, uint32_t samples, float* out);
 
+void VoiceAllocatorMidi(struct VoiceAllocator* allocator, int byte0, int byte1, int byte2);
+
 #endif

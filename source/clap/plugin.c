@@ -20,6 +20,10 @@ defined by the Mozilla Public License, v. 2.0.
 #include "../voice-allocator.h"
 
 
+// PROTIP: On Zrythm is a good idea to remove "cached_plugin_descriptors.yaml" and "plugin-settings.yaml" after updating
+// this plugin.
+
+
 // https://nakst.gitlab.io/tutorial/clap-part-1.html
 
 
@@ -80,11 +84,6 @@ static void sResetPlugin(const struct clap_plugin* _plugin)
 }
 
 
-static int sMin(int a, int b)
-{
-	return (a < b) ? a : b;
-}
-
 static float sMinF(float a, float b)
 {
 	return (a < b) ? a : b;
@@ -95,73 +94,6 @@ static float sMaxF(float a, float b)
 	return (a > b) ? a : b;
 }
 
-static void sMidi(struct VoiceAllocator* allocator, int byte0, int byte1, int byte2)
-{
-	// Per MIDI protocol, any error is silently ignored
-
-	byte0 &= 0xFF; // We accept integers because is friendly with WASM,
-	byte1 &= 0xFF; // but we don't want any higher bit
-	byte2 &= 0xFF;
-
-	// "Note Off" message
-	if ((byte0 >> 4) == 8)
-	{
-		// Ignoring these
-	}
-
-	// "Note On" message
-	else if ((byte0 >> 4) == 9) // Ignoring channel
-	{
-		if (byte1 < 128) // Valid note range
-		{
-			if (byte2 == 0)
-			{
-				// Velocity = 0 = Implicit "Note Off" -> Ignoring it
-			}
-			else
-			{
-				// Finally "Note On":
-
-				// General MIDI mappings
-				// https://upload.wikimedia.org/wikipedia/commons/c/c2/GM_Standard_Drum_Map_on_the_keyboard.svg
-
-				const float vel_float = (float)(sMin(byte2, 127)) / 127.0f;
-
-				switch (byte1)
-				{
-				default: break;
-				case 35: // fallthrough
-				case 36: //
-					VoiceAllocatorPlay(allocator, STRATEGY_CHOKE, 1, TYPE_KICK, vel_float);
-					break;
-				case 38: // fallthrough
-				case 40: //
-					VoiceAllocatorPlay(allocator, STRATEGY_CHOKE, 2, TYPE_SNARE, vel_float);
-					break;
-				case 42: //
-					VoiceAllocatorPlay(allocator, STRATEGY_CHOKE, 3, TYPE_CLOSED_HAT, vel_float);
-					break;
-				case 46: //
-					VoiceAllocatorPlay(allocator, STRATEGY_CHOKE, 3, TYPE_OPEN_HAT, vel_float);
-					break;
-				case 49: //
-					VoiceAllocatorPlay(allocator, STRATEGY_STEAL, 4, TYPE_CYMBAL, vel_float);
-					break;
-				case 41: // fallthrough
-				case 43: // fallthrough
-				case 45: //
-					VoiceAllocatorPlay(allocator, STRATEGY_STEAL, 5, TYPE_LOW_TOM, vel_float);
-					break;
-				case 47: // fallthrough
-				case 48: // fallthrough
-				case 50: //
-					VoiceAllocatorPlay(allocator, STRATEGY_STEAL, 6, TYPE_HIGH_TOM, vel_float);
-					break;
-				}
-			}
-		}
-	}
-}
 
 static clap_process_status sProcessPlugin(const struct clap_plugin* _plugin, const clap_process_t* process)
 {
@@ -191,12 +123,14 @@ static clap_process_status sProcessPlugin(const struct clap_plugin* _plugin, con
 			{
 				if (event->type == CLAP_EVENT_NOTE_ON)
 				{
-					const clap_event_note_t* noteEvent = (const clap_event_note_t*)(event);
+					// TODO, code path not tested yet
+					const clap_event_note_t* note_event = (const clap_event_note_t*)(event);
 
-					const int byte0 = noteEvent->channel | (9 << 4); // 'channel' is the same as MIDI
-					const int byte1 = noteEvent->key;                // 'key' is the same as MIDI
-					const int byte2 = (int)(sMaxF(sMinF((float)(noteEvent->velocity), 1.0f) * 127.0f, 1.0f));
-					sMidi(&plugin->allocator, byte0, byte1, byte2);
+					const int byte0 = note_event->channel | (9 << 4); // 'channel' is the same as MIDI
+					const int byte1 = note_event->key;                // 'key' same as MIDI
+					const int byte2 = (int)(sMaxF(sMinF((float)(note_event->velocity), 1.0f) * 127.0f, 1.0f));
+
+					VoiceAllocatorMidi(&plugin->allocator, byte0, byte1, byte2);
 				}
 				else if (event->type == CLAP_EVENT_MIDI)
 				{
@@ -206,7 +140,7 @@ static clap_process_status sProcessPlugin(const struct clap_plugin* _plugin, con
 					const int byte1 = midi->data[1];
 					const int byte2 = midi->data[2];
 
-					sMidi(&plugin->allocator, byte0, byte1, byte2);
+					VoiceAllocatorMidi(&plugin->allocator, byte0, byte1, byte2);
 				}
 			}
 
@@ -222,6 +156,7 @@ static clap_process_status sProcessPlugin(const struct clap_plugin* _plugin, con
 		const uint32_t start = f;
 		const uint32_t end = next_event_frame;
 		VoiceAllocatorRender(&plugin->allocator, end - start, process->audio_outputs[0].data32[0] + start);
+		memcpy(process->audio_outputs[0].data32[1], process->audio_outputs[0].data32[0], (end - start) * sizeof(float));
 
 		f = next_event_frame;
 	}
@@ -245,7 +180,8 @@ static bool sNotePortsGet(const clap_plugin_t* plugin, uint32_t index, bool is_i
 
 	info->id = 0;
 	info->supported_dialects = CLAP_NOTE_DIALECT_MIDI | CLAP_NOTE_DIALECT_CLAP;
-	info->preferred_dialect = CLAP_NOTE_DIALECT_MIDI;
+	info->preferred_dialect = CLAP_NOTE_DIALECT_MIDI; // Zrythm seems to only talk in MIDI, plugin is not
+	                                                  // detected by just supporting the CLAP dialect
 
 	snprintf(info->name, sizeof(info->name), "%s", "Note Port");
 	return true;
@@ -265,9 +201,11 @@ static bool sAudioPortsGet(const clap_plugin_t* plugin, uint32_t index, bool is_
 		return false;
 
 	info->id = 0;
-	info->channel_count = 1;
 	info->flags = CLAP_AUDIO_PORT_IS_MAIN;
-	info->port_type = CLAP_PORT_MONO;
+	info->port_type = CLAP_PORT_STEREO; // Zrythm is really bad at dealing with mono, it can do it, but at
+	                                    // global level, affecting the whole project
+	info->channel_count = 2;            // Same
+
 	info->in_place_pair = CLAP_INVALID_ID;
 	snprintf(info->name, sizeof(info->name), "%s", "Audio Output");
 	return true;
@@ -315,8 +253,8 @@ static const clap_plugin_descriptor_t s_descriptor = {
     .features =
         (const char*[]){
             CLAP_PLUGIN_FEATURE_INSTRUMENT,
-            CLAP_PLUGIN_FEATURE_SYNTHESIZER,
-            CLAP_PLUGIN_FEATURE_MONO,
+            CLAP_PLUGIN_FEATURE_DRUM_MACHINE,
+            CLAP_PLUGIN_FEATURE_STEREO,
             NULL,
         },
 };

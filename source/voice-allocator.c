@@ -31,7 +31,12 @@ static void* sMemset(void* output, int c, size_t len)
 	return output;
 }
 
-static uint32_t sMin(uint32_t a, uint32_t b)
+static int sMinI(int a, int b)
+{
+	return (a < b) ? a : b;
+}
+
+static uint32_t sMinU(uint32_t a, uint32_t b)
 {
 	return (a < b) ? a : b;
 }
@@ -224,7 +229,7 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* 
 	// Render tails (and clean)
 	{
 		float* sample = out;
-		for (; sample < out + sMin(self->tail_samples, samples); sample += 1)
+		for (; sample < out + sMinU(self->tail_samples, samples); sample += 1)
 			*sample = TailStep(&self->tail_p, &self->tail_s);
 		for (; sample < out + samples; sample += 1)
 			*sample = 0.0f;
@@ -241,7 +246,7 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* 
 			continue;
 
 		// Render
-		const uint32_t samples_to_render = sMin(q->remaining, samples);
+		const uint32_t samples_to_render = sMinU(q->remaining, samples);
 
 		switch (i->type)
 		{
@@ -276,5 +281,74 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* 
 
 		// Update item
 		q->remaining -= samples_to_render;
+	}
+}
+
+
+void VoiceAllocatorMidi(struct VoiceAllocator* self, int byte0, int byte1, int byte2)
+{
+	// Per MIDI protocol, any error is silently ignored
+
+	byte0 &= 0xFF; // We accept integers because is friendly with WASM,
+	byte1 &= 0xFF; // but we don't want any higher bit
+	byte2 &= 0xFF;
+
+	// "Note Off" message
+	if ((byte0 >> 4) == 8)
+	{
+		// Ignoring these
+	}
+
+	// "Note On" message
+	else if ((byte0 >> 4) == 9) // Ignoring channel
+	{
+		if (byte1 < 128) // Valid note range
+		{
+			if (byte2 == 0)
+			{
+				// Velocity = 0 = Implicit "Note Off" -> Ignoring it
+			}
+			else
+			{
+				// Finally "Note On":
+
+				// General MIDI mappings
+				// https://upload.wikimedia.org/wikipedia/commons/c/c2/GM_Standard_Drum_Map_on_the_keyboard.svg
+
+				const float vel_float = (float)(sMinI(byte2, 127)) / 127.0f;
+
+				switch (byte1)
+				{
+				default: break;
+				case 35: // fallthrough
+				case 36: //
+					VoiceAllocatorPlay(self, STRATEGY_CHOKE, 1, TYPE_KICK, vel_float);
+					break;
+				case 38: // fallthrough
+				case 40: //
+					VoiceAllocatorPlay(self, STRATEGY_CHOKE, 2, TYPE_SNARE, vel_float);
+					break;
+				case 42: //
+					VoiceAllocatorPlay(self, STRATEGY_CHOKE, 3, TYPE_CLOSED_HAT, vel_float);
+					break;
+				case 46: //
+					VoiceAllocatorPlay(self, STRATEGY_CHOKE, 3, TYPE_OPEN_HAT, vel_float);
+					break;
+				case 49: //
+					VoiceAllocatorPlay(self, STRATEGY_STEAL, 4, TYPE_CYMBAL, vel_float);
+					break;
+				case 41: // fallthrough
+				case 43: // fallthrough
+				case 45: //
+					VoiceAllocatorPlay(self, STRATEGY_STEAL, 5, TYPE_LOW_TOM, vel_float);
+					break;
+				case 47: // fallthrough
+				case 48: // fallthrough
+				case 50: //
+					VoiceAllocatorPlay(self, STRATEGY_STEAL, 6, TYPE_HIGH_TOM, vel_float);
+					break;
+				}
+			}
+		}
 	}
 }
