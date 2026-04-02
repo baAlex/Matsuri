@@ -11,6 +11,7 @@ defined by the Mozilla Public License, v. 2.0.
 */
 
 #include <assert.h>
+#include <stdatomic.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,7 +27,20 @@ defined by the Mozilla Public License, v. 2.0.
 
 
 // https://nakst.gitlab.io/tutorial/clap-part-1.html
+// https://nakst.gitlab.io/tutorial/clap-part-2.html
 
+
+#define PARAMETERS_NO 7
+enum Parameter
+{
+	PARAMETER_KICK_AMPLIFY = 0,
+	PARAMETER_SNARE_AMPLIFY,
+	PARAMETER_CLOSED_HAT_AMPLIFY,
+	PARAMETER_OPEN_HAT_AMPLIFY,
+	PARAMETER_CYMBAL_AMPLIFY,
+	PARAMETER_LOW_TOM_AMPLIFY,
+	PARAMETER_HIGH_TOM_AMPLIFY,
+};
 
 struct MatsuriPlugin
 {
@@ -35,12 +49,26 @@ struct MatsuriPlugin
 
 	float sampling_frequency;
 	struct VoiceAllocator allocator;
+
+	atomic_int parameters_changed_offline;
+	atomic_int parameter[PARAMETERS_NO];
 };
 
 
 static bool sInitialisePlugin(const struct clap_plugin* _plugin)
 {
-	(void)_plugin;
+	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(_plugin->plugin_data);
+
+	atomic_init(&plugin->parameters_changed_offline, 1); // Force an initial update
+
+	atomic_init(&plugin->parameter[(int)(PARAMETER_KICK_AMPLIFY)], (int)(1.0 * 4096.0));
+	atomic_init(&plugin->parameter[(int)(PARAMETER_SNARE_AMPLIFY)], (int)(1.0 * 4096.0));
+	atomic_init(&plugin->parameter[(int)(PARAMETER_CLOSED_HAT_AMPLIFY)], (int)(1.0 * 4096.0));
+	atomic_init(&plugin->parameter[(int)(PARAMETER_OPEN_HAT_AMPLIFY)], (int)(1.0 * 4096.0));
+	atomic_init(&plugin->parameter[(int)(PARAMETER_CYMBAL_AMPLIFY)], (int)(1.0 * 4096.0));
+	atomic_init(&plugin->parameter[(int)(PARAMETER_LOW_TOM_AMPLIFY)], (int)(1.0 * 4096.0));
+	atomic_init(&plugin->parameter[(int)(PARAMETER_HIGH_TOM_AMPLIFY)], (int)(1.0 * 4096.0));
+
 	return true;
 }
 
@@ -97,6 +125,26 @@ static clap_process_status sProcessPlugin(const struct clap_plugin* _plugin, con
 	uint32_t event_index = 0;
 	uint32_t next_event_frame = input_events ? 0 : frames;
 
+	if (plugin->parameters_changed_offline != 0) // Outside code changed our guys (changed them not using events)
+	{
+		plugin->parameters_changed_offline = 0;
+
+		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_KICK,
+		                             (float)(plugin->parameter[(int)(PARAMETER_KICK_AMPLIFY)]) / 4096.0f);
+		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_SNARE,
+		                             (float)(plugin->parameter[(int)(PARAMETER_SNARE_AMPLIFY)]) / 4096.0f);
+		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CLOSED_HAT,
+		                             (float)(plugin->parameter[(int)(PARAMETER_CLOSED_HAT_AMPLIFY)]) / 4096.0f);
+		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_OPEN_HAT,
+		                             (float)(plugin->parameter[(int)(PARAMETER_OPEN_HAT_AMPLIFY)]) / 4096.0f);
+		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CYMBAL,
+		                             (float)(plugin->parameter[(int)(PARAMETER_CYMBAL_AMPLIFY)]) / 4096.0f);
+		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_LOW_TOM,
+		                             (float)(plugin->parameter[(int)(PARAMETER_LOW_TOM_AMPLIFY)]) / 4096.0f);
+		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_HIGH_TOM,
+		                             (float)(plugin->parameter[(int)(PARAMETER_HIGH_TOM_AMPLIFY)]) / 4096.0f);
+	}
+
 	for (uint32_t f = 0; f < frames;)
 	{
 		while (event_index < input_events && next_event_frame == f)
@@ -114,28 +162,63 @@ static clap_process_status sProcessPlugin(const struct clap_plugin* _plugin, con
 				if (event->type == CLAP_EVENT_NOTE_ON)
 				{
 					// TODO, code path not tested yet
-					const clap_event_note_t* note_event = (const clap_event_note_t*)(event);
+					const clap_event_note_t* note_on_event = (const clap_event_note_t*)(event);
 
-					const int byte0 = note_event->channel | (9 << 4); // 'channel' is the same as MIDI
-					const int byte1 = note_event->key;                // 'key' same as MIDI
-					const int byte2 = (int)(MaxF(MinF((float)(note_event->velocity), 1.0f) * 127.0f, 1.0f));
+					const int byte0 = note_on_event->channel | (9 << 4); // 'channel' is the same as MIDI
+					const int byte1 = note_on_event->key;                // 'key' same as MIDI
+					const int byte2 = (int)(MaxF(MinF((float)(note_on_event->velocity), 1.0f) * 127.0f, 1.0f));
 
 					VoiceAllocatorMidi(&plugin->allocator, byte0, byte1, byte2);
 				}
 				else if (event->type == CLAP_EVENT_MIDI)
 				{
-					const clap_event_midi_t* midi = (const clap_event_midi_t*)(event);
+					const clap_event_midi_t* midi_event = (const clap_event_midi_t*)(event);
 
-					const int byte0 = midi->data[0];
-					const int byte1 = midi->data[1];
-					const int byte2 = midi->data[2];
+					const int byte0 = midi_event->data[0];
+					const int byte1 = midi_event->data[1];
+					const int byte2 = midi_event->data[2];
 
 					VoiceAllocatorMidi(&plugin->allocator, byte0, byte1, byte2);
+				}
+				else if (event->type == CLAP_EVENT_PARAM_VALUE)
+				{
+					const clap_event_param_value_t* param_event = (const clap_event_param_value_t*)(event);
+					const uint32_t index = (uint32_t)param_event->param_id;
+
+					if (index >= 0 && index < PARAMETERS_NO)
+					{
+						plugin->parameter[index] = (int)(param_event->value * 4096.0);
+					}
+
+					switch (index)
+					{
+					case PARAMETER_KICK_AMPLIFY:
+						VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_KICK, (float)(param_event->value));
+						break;
+					case PARAMETER_SNARE_AMPLIFY:
+						VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_SNARE, (float)(param_event->value));
+						break;
+					case PARAMETER_CLOSED_HAT_AMPLIFY:
+						VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CLOSED_HAT, (float)(param_event->value));
+						break;
+					case PARAMETER_OPEN_HAT_AMPLIFY:
+						VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_OPEN_HAT, (float)(param_event->value));
+						break;
+					case PARAMETER_CYMBAL_AMPLIFY:
+						VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CYMBAL, (float)(param_event->value));
+						break;
+					case PARAMETER_LOW_TOM_AMPLIFY:
+						VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_LOW_TOM, (float)(param_event->value));
+						break;
+					case PARAMETER_HIGH_TOM_AMPLIFY:
+						VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_HIGH_TOM, (float)(param_event->value));
+						break;
+					default: break;
+					}
 				}
 			}
 
 			event_index += 1;
-
 			if (event_index == input_events)
 			{
 				next_event_frame = frames;
@@ -178,6 +261,7 @@ static bool sNotePortsGet(const clap_plugin_t* plugin, uint32_t index, bool is_i
 	return true;
 }
 
+
 static uint32_t sAudioPortsCount(const clap_plugin_t* plugin, bool is_input)
 {
 	(void)plugin;
@@ -203,6 +287,105 @@ static bool sAudioPortsGet(const clap_plugin_t* plugin, uint32_t index, bool is_
 }
 
 
+static uint32_t sParametersCount(const clap_plugin_t* plugin)
+{
+	(void)plugin;
+	return PARAMETERS_NO;
+}
+
+static void sVolumeParameter(const char* label, uint32_t index, clap_param_info_t* out)
+{
+	memset(out, 0, sizeof(clap_param_info_t));
+	out->id = index;
+
+	out->flags = CLAP_PARAM_IS_AUTOMATABLE;
+	out->min_value = 0.0f;
+	out->max_value = 1.0f;
+	out->default_value = 1.0f;
+	strcpy(out->name, label);
+}
+
+static bool sParametersInfo(const clap_plugin_t* plugin, uint32_t index, clap_param_info_t* out)
+{
+	(void)plugin;
+
+	switch (index)
+	{
+	case PARAMETER_KICK_AMPLIFY: sVolumeParameter("Kick Gain", index, out); return true;
+	case PARAMETER_SNARE_AMPLIFY: sVolumeParameter("Snare Gain", index, out); return true;
+	case PARAMETER_CLOSED_HAT_AMPLIFY: sVolumeParameter("Closed Hat Gain", index, out); return true;
+	case PARAMETER_OPEN_HAT_AMPLIFY: sVolumeParameter("Open Hat Gain", index, out); return true;
+	case PARAMETER_CYMBAL_AMPLIFY: sVolumeParameter("Cymbal Gain", index, out); return true;
+	case PARAMETER_LOW_TOM_AMPLIFY: sVolumeParameter("Low Tom Gain", index, out); return true;
+	case PARAMETER_HIGH_TOM_AMPLIFY: sVolumeParameter("High Tom Gain", index, out); return true;
+	default: break;
+	}
+
+	return false;
+}
+
+static bool sParametersValue(const clap_plugin_t* _plugin, clap_id id, double* value)
+{
+	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(_plugin->plugin_data);
+	const uint32_t index = (uint32_t)id;
+
+	if (index >= 0 && index < PARAMETERS_NO)
+	{
+		*value = (double)(plugin->parameter[index]) / 4096.0;
+		return true;
+	}
+
+	return false;
+}
+
+static bool sParametersValueToText(const clap_plugin_t* plugin, clap_id id, double value, char* display, uint32_t size)
+{
+	(void)plugin;
+	const uint32_t index = (uint32_t)id;
+
+	if (index >= 0 && index < PARAMETERS_NO)
+	{
+		snprintf(display, size, "%f", value);
+		return true;
+	}
+
+	return false;
+}
+
+static bool sParametersTextToValue(const clap_plugin_t* plugin, clap_id id, const char* display, double* value)
+{
+	(void)plugin;
+	(void)id;
+	(void)display;
+	(void)value;
+	// TODO, it's important, user may enter values using the keyboard
+	return false;
+}
+
+static void sParametersFlush(const clap_plugin_t* _plugin, const clap_input_events_t* in,
+                             const clap_output_events_t* out)
+{
+	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(_plugin->plugin_data);
+	(void)out;
+
+	for (uint32_t event_index = 0; event_index < in->size(in); event_index += 1)
+	{
+		const clap_event_header_t* event = in->get(in, event_index);
+		if (event->space_id != CLAP_CORE_EVENT_SPACE_ID || event->type != CLAP_EVENT_PARAM_VALUE)
+			continue;
+
+		const clap_event_param_value_t* param_event = (const clap_event_param_value_t*)(in->get(in, event_index));
+		const uint32_t index = (uint32_t)param_event->param_id;
+
+		if (index >= 0 && index < PARAMETERS_NO)
+		{
+			plugin->parameter[index] = (int)(param_event->value * 4096.0);
+			plugin->parameters_changed_offline = 1;
+		}
+	}
+}
+
+
 static const clap_plugin_note_ports_t s_extension_note_ports = {
     .count = sNotePortsCount,
     .get = sNotePortsGet,
@@ -213,6 +396,14 @@ static const clap_plugin_audio_ports_t s_extension_audio_ports = {
     .get = sAudioPortsGet,
 };
 
+static const clap_plugin_params_t s_extension_parameters = {
+    .count = sParametersCount,
+    .get_info = sParametersInfo,
+    .get_value = sParametersValue,
+    .value_to_text = sParametersValueToText,
+    .text_to_value = sParametersTextToValue,
+    .flush = sParametersFlush,
+};
 
 static const void* sGetExtension(const struct clap_plugin* plugin, const char* id)
 {
@@ -221,6 +412,8 @@ static const void* sGetExtension(const struct clap_plugin* plugin, const char* i
 		return &s_extension_note_ports;
 	if (strcmp(id, CLAP_EXT_AUDIO_PORTS) == 0)
 		return &s_extension_audio_ports;
+	if (strcmp(id, CLAP_EXT_PARAMS) == 0)
+		return &s_extension_parameters;
 	return NULL;
 }
 
