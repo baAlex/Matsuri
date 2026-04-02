@@ -16,6 +16,7 @@ defined by the Mozilla Public License, v. 2.0.
 #include <stdlib.h>
 #include <string.h>
 
+#include "../misc.h"
 #include "../thirdparty/clap/include/clap/clap.h" // IWYU pragma: keep
 #include "../voice-allocator.h"
 
@@ -84,17 +85,6 @@ static void sResetPlugin(const struct clap_plugin* _plugin)
 }
 
 
-static float sMinF(float a, float b)
-{
-	return (a < b) ? a : b;
-}
-
-static float sMaxF(float a, float b)
-{
-	return (a > b) ? a : b;
-}
-
-
 static clap_process_status sProcessPlugin(const struct clap_plugin* _plugin, const clap_process_t* process)
 {
 	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(_plugin->plugin_data);
@@ -128,7 +118,7 @@ static clap_process_status sProcessPlugin(const struct clap_plugin* _plugin, con
 
 					const int byte0 = note_event->channel | (9 << 4); // 'channel' is the same as MIDI
 					const int byte1 = note_event->key;                // 'key' same as MIDI
-					const int byte2 = (int)(sMaxF(sMinF((float)(note_event->velocity), 1.0f) * 127.0f, 1.0f));
+					const int byte2 = (int)(MaxF(MinF((float)(note_event->velocity), 1.0f) * 127.0f, 1.0f));
 
 					VoiceAllocatorMidi(&plugin->allocator, byte0, byte1, byte2);
 				}
@@ -156,7 +146,8 @@ static clap_process_status sProcessPlugin(const struct clap_plugin* _plugin, con
 		const uint32_t start = f;
 		const uint32_t end = next_event_frame;
 		VoiceAllocatorRender(&plugin->allocator, end - start, process->audio_outputs[0].data32[0] + start);
-		memcpy(process->audio_outputs[0].data32[1], process->audio_outputs[0].data32[0], (end - start) * sizeof(float));
+		memcpy(process->audio_outputs[0].data32[1] + start, process->audio_outputs[0].data32[0] + start,
+		       (end - start) * sizeof(float));
 
 		f = next_event_frame;
 	}
@@ -327,7 +318,7 @@ static const void* sGetFactory(const char* factory_id)
 }
 
 
-const clap_plugin_entry_t clap_entry = {
+EXPORT const clap_plugin_entry_t clap_entry = {
     .clap_version = CLAP_VERSION_INIT,
     .init = sInitialiseClap,
     .deinit = sDeinitialiseClap,

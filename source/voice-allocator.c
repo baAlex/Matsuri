@@ -12,6 +12,7 @@ defined by the Mozilla Public License, v. 2.0.
 
 #include <stddef.h>
 
+#include "misc.h"
 #include "voice-allocator.h"
 
 #ifndef FREESTANDING
@@ -19,35 +20,6 @@ defined by the Mozilla Public License, v. 2.0.
 #else
 #define assert(e) // Nothing
 #endif
-
-
-static void* sMemset(void* output, int c, size_t len)
-{
-	uint8_t* out = (uint8_t*)(output);
-
-	for (; len != 0; len -= 1, out += 1)
-		*out = (uint8_t)(c);
-
-	return output;
-}
-
-static int sMinI(int a, int b)
-{
-	return (a < b) ? a : b;
-}
-
-static uint32_t sMinU(uint32_t a, uint32_t b)
-{
-	return (a < b) ? a : b;
-}
-
-static uint32_t sXorshift(uint32_t x)
-{
-	x ^= (uint32_t)((x) << 13);
-	x ^= (uint32_t)((x) >> 17);
-	x ^= (uint32_t)((x) << 5);
-	return x;
-}
 
 
 void VoiceAllocatorSet(struct VoiceAllocator* self, float sampling_frequency, int max_items)
@@ -68,8 +40,8 @@ void VoiceAllocatorSet(struct VoiceAllocator* self, float sampling_frequency, in
 	self->amplify[(int)(TYPE_LOW_TOM)] = 1.0f;
 	self->amplify[(int)(TYPE_HIGH_TOM)] = 1.0f;
 
-	sMemset(self->voices, 0, sizeof(struct VoiceAllocatorVoice) * (size_t)(max_items));
-	sMemset(self->states, 0, sizeof(struct VoiceAllocatorState) * (size_t)(max_items));
+	Memset(self->voices, 0, sizeof(struct VoiceAllocatorVoice) * (size_t)(max_items));
+	Memset(self->states, 0, sizeof(struct VoiceAllocatorState) * (size_t)(max_items));
 
 	TailSetProgram(sampling_frequency, 10.0f, &self->tail_p);
 	TailSetState(&self->tail_s);
@@ -152,7 +124,7 @@ void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy str
 	if (item == MAX_MAX_ITEMS)
 		return;
 
-	self->rng = sXorshift(self->rng);
+	self->rng = Xorshift(self->rng);
 	self->states[item].type = type;
 
 	float duration;
@@ -229,7 +201,7 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* 
 	// Render tails (and clean)
 	{
 		float* sample = out;
-		for (; sample < out + sMinU(self->tail_samples, samples); sample += 1)
+		for (; sample < out + MinU(self->tail_samples, samples); sample += 1)
 			*sample = TailStep(&self->tail_p, &self->tail_s);
 		for (; sample < out + samples; sample += 1)
 			*sample = 0.0f;
@@ -246,7 +218,7 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* 
 			continue;
 
 		// Render
-		const uint32_t samples_to_render = sMinU(q->remaining, samples);
+		const uint32_t samples_to_render = MinU(q->remaining, samples);
 
 		switch (i->type)
 		{
@@ -315,7 +287,7 @@ void VoiceAllocatorMidi(struct VoiceAllocator* self, int byte0, int byte1, int b
 				// General MIDI mappings
 				// https://upload.wikimedia.org/wikipedia/commons/c/c2/GM_Standard_Drum_Map_on_the_keyboard.svg
 
-				const float vel_float = (float)(sMinI(byte2, 127)) / 127.0f;
+				const float vel_float = (float)(MinI(byte2, 127)) / 127.0f;
 
 				switch (byte1)
 				{

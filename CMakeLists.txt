@@ -14,10 +14,7 @@ endif ()
 
 if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
 	set(MATSURI_CFLAGS -Wall -Wextra -Wconversion -pedantic)
-endif ()
-
-if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" AND NOT CMAKE_BUILD_TYPE STREQUAL "Release")
-	# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
+	# set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -s") # Strip symbols
 endif ()
 ####
 
@@ -30,7 +27,7 @@ target_compile_options("matsuri-library"     PRIVATE ${MATSURI_CFLAGS})
 target_compile_options("matsuri-library-pic" PRIVATE ${MATSURI_CFLAGS})
 
 set_target_properties("matsuri-library" PROPERTIES C_VISIBILITY_PRESET hidden)
-# set_target_properties("matsuri-library-pic" PROPERTIES C_VISIBILITY_PRESET hidden)
+set_target_properties("matsuri-library-pic" PROPERTIES C_VISIBILITY_PRESET hidden)
 set_target_properties("matsuri-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 
@@ -42,23 +39,31 @@ set_target_properties("generate-wavs" PROPERTIES OUTPUT_NAME "matsuri-v2-wavs")
 
 
 # Plugin, CLAP
-add_library("matsuri-clap" MODULE "./source/clap/plugin.c" "./source/voice-allocator.c")
+set(CLAP_SOURCES "./source/clap/plugin.c"
+                 "./source/voice-allocator.c"
+                 "./source/misc.c"
+)
+
+add_library("matsuri-clap" MODULE ${CLAP_SOURCES})
 target_compile_options("matsuri-clap" PRIVATE ${MATSURI_CFLAGS})
 target_link_libraries("matsuri-clap" PRIVATE "matsuri-library-pic")
 
 set_target_properties("matsuri-clap" PROPERTIES PREFIX "")
 set_target_properties("matsuri-clap" PROPERTIES OUTPUT_NAME "matsuri-v2")
 set_target_properties("matsuri-clap" PROPERTIES SUFFIX ".clap")
+set_target_properties("matsuri-clap" PROPERTIES C_VISIBILITY_PRESET hidden)
 set_target_properties("matsuri-clap" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
-# set_target_properties("matsuri-clap" PROPERTIES C_VISIBILITY_PRESET hidden)
 
 
 # Plugin, WASM
 if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
-	set(WASM_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/matsuri-v2-wasm/matsuri-v2.wasm")
 	set(WASM_SOURCES "${CMAKE_SOURCE_DIR}/source/wasm/plugin.c"
 	                 "${CMAKE_SOURCE_DIR}/source/matsuri-library.c"
-	                 "${CMAKE_SOURCE_DIR}/source/voice-allocator.c")
+	                 "${CMAKE_SOURCE_DIR}/source/voice-allocator.c"
+	                 "${CMAKE_SOURCE_DIR}/source/misc.c"
+	)
+
+	set(WASM_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/matsuri-v2-wasm/matsuri-v2.wasm")
 
 	set(WASM_DIR "${CMAKE_CURRENT_BINARY_DIR}/matsuri-v2-wasm")
 
