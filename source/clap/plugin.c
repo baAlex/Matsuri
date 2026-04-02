@@ -185,7 +185,7 @@ static clap_process_status sProcessPlugin(const struct clap_plugin* _plugin, con
 					const clap_event_param_value_t* param_event = (const clap_event_param_value_t*)(event);
 					const uint32_t index = (uint32_t)param_event->param_id;
 
-					if (index >= 0 && index < PARAMETERS_NO)
+					if (index < PARAMETERS_NO)
 					{
 						plugin->parameter[index] = (int)(param_event->value * 4096.0);
 					}
@@ -329,7 +329,7 @@ static bool sParametersValue(const clap_plugin_t* _plugin, clap_id id, double* v
 	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(_plugin->plugin_data);
 	const uint32_t index = (uint32_t)id;
 
-	if (index >= 0 && index < PARAMETERS_NO)
+	if (index < PARAMETERS_NO)
 	{
 		*value = (double)(plugin->parameter[index]) / 4096.0;
 		return true;
@@ -343,7 +343,7 @@ static bool sParametersValueToText(const clap_plugin_t* plugin, clap_id id, doub
 	(void)plugin;
 	const uint32_t index = (uint32_t)id;
 
-	if (index >= 0 && index < PARAMETERS_NO)
+	if (index < PARAMETERS_NO)
 	{
 		snprintf(display, size, "%f", value);
 		return true;
@@ -377,7 +377,7 @@ static void sParametersFlush(const clap_plugin_t* _plugin, const clap_input_even
 		const clap_event_param_value_t* param_event = (const clap_event_param_value_t*)(in->get(in, event_index));
 		const uint32_t index = (uint32_t)param_event->param_id;
 
-		if (index >= 0 && index < PARAMETERS_NO)
+		if (index < PARAMETERS_NO)
 		{
 			plugin->parameter[index] = (int)(param_event->value * 4096.0);
 			plugin->parameters_changed_offline = 1;

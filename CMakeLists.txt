@@ -9,6 +9,7 @@ set(CMAKE_C_STANDARD 11)
 ####
 if (MSVC)
 	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+	add_compile_options(/experimental:c11atomics)
 	set(MATSURI_CFLAGS /W4)
 endif ()
 
