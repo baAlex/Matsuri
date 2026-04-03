@@ -174,7 +174,7 @@ float SquareX6Step(const struct SquareX6Program* restrict p, struct SquareX6Stat
 	add += (float)(((s->phase[4] >> SHIFT) & 2) - 1);
 	add += (float)(((s->phase[5] >> SHIFT) & 2) - 1);
 
-	return add * p->amplitude;
+	return add * p->volume;
 }
 
 
@@ -278,7 +278,7 @@ void OscillatorSetProgram(float sampling_frequency, float decay_ms, float sweep_
 }
 
 void OscillatorSetState(enum StateState state_state, float sampling_frequency, float frequency, float delay_ms,
-                        float amplitude, struct OscillatorState* restrict s)
+                        float volume, struct OscillatorState* restrict s)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(frequency >= 0.0f);
@@ -290,7 +290,7 @@ void OscillatorSetState(enum StateState state_state, float sampling_frequency, f
 		s->delay = (int)((delay_ms * sampling_frequency) / 1000.0f) - 1;
 		s->omega = (frequency / sampling_frequency) * PI_TWO;
 		s->omega = s->omega * s->omega;
-		s->v = ((frequency / sampling_frequency) * PI_TWO) * amplitude; // It's omega before its ^2
+		s->v = ((frequency / sampling_frequency) * PI_TWO) * volume; // It's omega before its ^2
 		s->x = 0.0f;
 		s->sweep = 1.0;
 		break;
@@ -306,7 +306,7 @@ void OscillatorSetState(enum StateState state_state, float sampling_frequency, f
 
 
 void EnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms, float sustain,
-                        float decay2_ms, float amplitude, struct EnvelopeProgram* restrict p)
+                        float decay2_ms, float volume, struct EnvelopeProgram* restrict p)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(delay_ms >= 0.0f);
@@ -319,9 +319,9 @@ void EnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_m
 	p->durations[3] = sMax((-LOG_100_PERCENT), (decay2_ms * sampling_frequency) / 1000.0f);
 
 	p->levels[0] = 0.0f;
-	p->levels[1] = amplitude;
-	p->levels[2] = sustain * amplitude;
-	p->levels[3] = (decay2_ms <= 0.0f) ? (sustain * amplitude) : 0.0f;
+	p->levels[1] = volume;
+	p->levels[2] = sustain * volume;
+	p->levels[3] = (decay2_ms <= 0.0f) ? (sustain * volume) : 0.0f;
 }
 
 void EnvelopeSetState(enum StateState state_state, struct EnvelopeState* restrict s)
@@ -412,7 +412,7 @@ static FORCED_INLINE float sCos(float x)
 }
 
 
-void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance, float amplify,
+void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance, float volume,
                       struct FilterProgram* restrict p)
 {
 	assert(sampling_frequency >= 0.0f);
@@ -506,9 +506,9 @@ void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float 
 	}
 
 	// Optimization, division used to be in loop body [a]
-	p->c_b0 = (p->c_b0 / a0) * amplify;
-	p->c[B1] = (p->c[B1] / a0) * amplify;
-	p->c[B2] = (p->c[B2] / a0) * amplify;
+	p->c_b0 = (p->c_b0 / a0) * volume;
+	p->c[B1] = (p->c[B1] / a0) * volume;
+	p->c[B2] = (p->c[B2] / a0) * volume;
 	p->c[A1] /= a0;
 	p->c[A2] /= a0;
 
@@ -526,7 +526,7 @@ void FilterSetState(struct FilterState* restrict s)
 }
 
 
-void SquareX6SetProgram(float sampling_frequency, float amplitude, float frequency1, float frequency2, float frequency3,
+void SquareX6SetProgram(float sampling_frequency, float volume, float frequency1, float frequency2, float frequency3,
                         float frequency4, float frequency5, float frequency6, struct SquareX6Program* restrict p)
 {
 	p->step[0] = (int32_t)((frequency1 / sampling_frequency) * (float)(MASK));
@@ -536,7 +536,7 @@ void SquareX6SetProgram(float sampling_frequency, float amplitude, float frequen
 	p->step[4] = (int32_t)((frequency5 / sampling_frequency) * (float)(MASK));
 	p->step[5] = (int32_t)((frequency6 / sampling_frequency) * (float)(MASK));
 
-	p->amplitude = (1.0f / 6.0f) * amplitude;
+	p->volume = (1.0f / 6.0f) * volume;
 }
 
 void SquareX6SetState(uint32_t seed, struct SquareX6State* restrict s)
@@ -593,36 +593,36 @@ static FORCED_INLINE float sMix(float a, float b, float f)
 	return a + (b - a) * f;
 }
 
-float KickSetState(enum StateState state_state, float sampling_frequency, float velocity, float vel_amp_mod,
+float KickSetState(enum StateState state_state, float sampling_frequency, float velocity, float vel_vol_mod,
                    float vel_tone_mod, float reference_vel, struct KickState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
-	assert(vel_amp_mod >= 0.0f && vel_amp_mod <= 1.0f);
+	assert(vel_vol_mod >= 0.0f && vel_vol_mod <= 1.0f);
 
-	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
-	velocity = sMix(reference_vel, velocity, vel_tone_mod); // After general amplify
+	const float general_volume = sMix(1.0f, velocity * velocity, vel_vol_mod);
+	velocity = sMix(reference_vel, velocity, vel_tone_mod); // After general volume
 
 	s->distortion = sMap(0.5f, 1.0f, 0.0f, -0.25f, sMax(velocity, 0.5f)); // Distortion is linear
-	s->click_amplify = general_amplify;
+	s->click_volume = general_volume;
 
 	const float detune = sSemitoneDetune(sMap(0.5f, 1.0f, 0.0f, 2.0f, sMax(velocity, 0.5f))); // Linear as well
 
 	ShapedEnvelopeSetState(state_state, &s->env);
-	OscillatorSetState(state_state, sampling_frequency, 60.0f * detune, 2.58f, 0.7f * general_amplify, &s->osc[0]);
-	OscillatorSetState(state_state, sampling_frequency, 120.0f * detune, 2.58f, 0.3f * general_amplify, &s->osc[1]);
+	OscillatorSetState(state_state, sampling_frequency, 60.0f * detune, 2.58f, 0.7f * general_volume, &s->osc[0]);
+	OscillatorSetState(state_state, sampling_frequency, 120.0f * detune, 2.58f, 0.3f * general_volume, &s->osc[1]);
 
 	return (2.58f + 270.0f) + ((2.58f + 270.0f) * 10.0f) / 100.0f;
 }
 
 static FORCED_INLINE float sKickStep(const struct KickProgram* restrict p, struct KickState* restrict s)
 {
-	float signal = -ShapedEnvelopeStep(&p->env, &s->env) * s->click_amplify; // Initial click
+	float signal = -ShapedEnvelopeStep(&p->env, &s->env) * s->click_volume; // Initial click
 	signal += OscillatorStep(&p->osc[0], &s->osc[0]);
 	signal += OscillatorStep(&p->osc[1], &s->osc[1]);
 	return CheapDistortion(signal, s->distortion);
 }
 
-float RenderKick(float mixer_amplify, const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
+float RenderKick(float mixer_volume, const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
                  const float* out_end)
 {
 #ifndef NDEBUG
@@ -632,7 +632,7 @@ float RenderKick(float mixer_amplify, const struct KickProgram* restrict p, stru
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
-		signal = sKickStep(p, s) * mixer_amplify;
+		signal = sKickStep(p, s) * mixer_volume;
 		*sample = signal;
 
 #ifndef NDEBUG
@@ -649,13 +649,13 @@ float RenderKick(float mixer_amplify, const struct KickProgram* restrict p, stru
 	return signal;
 }
 
-float RenderAdditiveKick(float mixer_amplify, const struct KickProgram* restrict p, struct KickState* restrict s,
+float RenderAdditiveKick(float mixer_volume, const struct KickProgram* restrict p, struct KickState* restrict s,
                          float* out, const float* out_end)
 {
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
-		signal = sKickStep(p, s) * mixer_amplify;
+		signal = sKickStep(p, s) * mixer_volume;
 		*sample += signal;
 	}
 	return signal;
@@ -671,23 +671,23 @@ void SnareSetProgram(float sampling_frequency, struct SnareProgram* restrict p)
 }
 
 float SnareSetState(enum StateState state_state, float sampling_frequency, uint32_t seed, float velocity,
-                    float vel_amp_mod, float vel_tone_mod, float reference_vel, struct SnareState* restrict s)
+                    float vel_vol_mod, float vel_tone_mod, float reference_vel, struct SnareState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
-	assert(vel_amp_mod >= 0.0f && vel_amp_mod <= 1.0f);
+	assert(vel_vol_mod >= 0.0f && vel_vol_mod <= 1.0f);
 
-	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
-	velocity = sMix(reference_vel, velocity, vel_tone_mod); // After general amplify
+	const float general_volume = sMix(1.0f, velocity * velocity, vel_vol_mod);
+	velocity = sMix(reference_vel, velocity, vel_tone_mod); // After general volume
 
 	const float tone_vel = velocity * velocity;
 
 	s->distortion = sMap(0.5f, 1.0f, 0.0f, -0.3f, sMax(velocity, 0.5f)); // Distortion is linear
-	s->noise_amplify = sMap(0.25f, 1.0f, 1.0f, 1.75f, sMax(tone_vel, 0.25f)) * general_amplify;
-	const float osc_amplify = sMap(0.25f, 1.0f, 1.0f, 0.6f, sMax(tone_vel, 0.25f)) * general_amplify;
+	s->noise_volume = sMap(0.25f, 1.0f, 1.0f, 1.75f, sMax(tone_vel, 0.25f)) * general_volume;
+	const float osc_volume = sMap(0.25f, 1.0f, 1.0f, 0.6f, sMax(tone_vel, 0.25f)) * general_volume;
 
 	const float detune = sSemitoneDetune(sMap(0.5f, 1.0f, 0.0f, -2.0f, sMax(velocity, 0.5f))); // Linear as well
 
-	OscillatorSetState(state_state, sampling_frequency, 310.0f * detune, 1.0f, 0.75f * osc_amplify, &s->osc);
+	OscillatorSetState(state_state, sampling_frequency, 310.0f * detune, 1.0f, 0.75f * osc_volume, &s->osc);
 	NoiseSet(seed, &s->noise);
 	EnvelopeSetState(state_state, &s->env);
 	FilterSetState(&s->filter[0]);
@@ -702,12 +702,12 @@ static FORCED_INLINE float sSnareStep(const struct SnareProgram* restrict p, str
 
 	const float noise = NoiseStep(&s->noise) * EnvelopeStep(&p->env, &s->env);
 	signal +=
-	    FilterStep(FilterStep(noise, &p->filter[0], &s->filter[0]), &p->filter[1], &s->filter[1]) * s->noise_amplify;
+	    FilterStep(FilterStep(noise, &p->filter[0], &s->filter[0]), &p->filter[1], &s->filter[1]) * s->noise_volume;
 
 	return CheapDistortion(signal, s->distortion);
 }
 
-float RenderSnare(float mixer_amplify, const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out,
+float RenderSnare(float mixer_volume, const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out,
                   const float* out_end)
 {
 #ifndef NDEBUG
@@ -717,7 +717,7 @@ float RenderSnare(float mixer_amplify, const struct SnareProgram* restrict p, st
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
-		signal = sSnareStep(p, s) * mixer_amplify;
+		signal = sSnareStep(p, s) * mixer_volume;
 		*sample = signal;
 
 #ifndef NDEBUG
@@ -734,13 +734,13 @@ float RenderSnare(float mixer_amplify, const struct SnareProgram* restrict p, st
 	return signal;
 }
 
-float RenderAdditiveSnare(float mixer_amplify, const struct SnareProgram* restrict p, struct SnareState* restrict s,
+float RenderAdditiveSnare(float mixer_volume, const struct SnareProgram* restrict p, struct SnareState* restrict s,
                           float* out, const float* out_end)
 {
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
-		signal = sSnareStep(p, s) * mixer_amplify;
+		signal = sSnareStep(p, s) * mixer_volume;
 		*sample += signal;
 	}
 	return signal;
@@ -784,11 +784,11 @@ void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgra
 }
 
 float HatSetState(enum StateState state_state, float sampling_frequency, enum HatType type, uint32_t seed,
-                  float velocity, float vel_amp_mod, float vel_tone_mod, float reference_vel,
+                  float velocity, float vel_vol_mod, float vel_tone_mod, float reference_vel,
                   struct HatState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
-	assert(vel_amp_mod >= 0.0f && vel_amp_mod <= 1.0f);
+	assert(vel_vol_mod >= 0.0f && vel_vol_mod <= 1.0f);
 
 	float short_attack;
 	float long_attack;
@@ -796,8 +796,8 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	float long_length;
 	float long_shape;
 
-	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
-	velocity = sMix(reference_vel, velocity, vel_tone_mod); // After general amplify
+	const float general_volume = sMix(1.0f, velocity * velocity, vel_vol_mod);
+	velocity = sMix(reference_vel, velocity, vel_tone_mod); // After general volume
 
 	const float tone_vel = velocity * velocity;
 
@@ -805,9 +805,9 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	{
 	case OPEN_HAT:
 	{
-		s->final_amplify = sMap(0.25f, 1.0f, 1.1f, 1.0f, sMax(tone_vel, 0.25f)) * general_amplify; // Obtained in [c]
-		s->long_gain = 1.2f;
-		s->noise_gain = sMap(0.25f, 1.0f, 0.038f, 0.1f, sMax(tone_vel, 0.25f));
+		s->final_volume = sMap(0.25f, 1.0f, 1.1f, 1.0f, sMax(tone_vel, 0.25f)) * general_volume; // Obtained in [c]
+		s->long_volume = 1.2f;
+		s->noise_volume = sMap(0.25f, 1.0f, 0.038f, 0.1f, sMax(tone_vel, 0.25f));
 
 		short_attack = sMap(0.25f, 1.0f, 1.25f, 10.0f, sMax(tone_vel, 0.25f));
 		long_attack = short_attack;
@@ -823,9 +823,9 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	}
 	case CLOSED_HAT:
 	{
-		s->final_amplify = sMap(0.25f, 1.0f, 2.7f, 2.4f, sMax(tone_vel, 0.25f)) * general_amplify; // Obtained in [c]
-		s->long_gain = 0.0f;
-		s->noise_gain = sMap(0.25f, 1.0f, 0.0f, 0.04f, sMax(tone_vel, 0.25f));
+		s->final_volume = sMap(0.25f, 1.0f, 2.7f, 2.4f, sMax(tone_vel, 0.25f)) * general_volume; // Obtained in [c]
+		s->long_volume = 0.0f;
+		s->noise_volume = sMap(0.25f, 1.0f, 0.0f, 0.04f, sMax(tone_vel, 0.25f));
 
 		short_attack = sMap(0.25f, 1.0f, 2.5f, 20.0f, sMax(tone_vel, 0.25f));
 		long_attack = short_attack;
@@ -840,11 +840,11 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	case CYMBAL:
 	{
 		// Easing because, reasons (mid cymbal was too loud, were low and max were fine)
-		s->final_amplify =
-		    sMap(0.25f, 1.0f, 2.4f, 1.3f, sEasing(sMax(tone_vel, 0.25f), -0.1f)) * general_amplify; // Obtained in [c]
+		s->final_volume =
+		    sMap(0.25f, 1.0f, 2.4f, 1.3f, sEasing(sMax(tone_vel, 0.25f), -0.1f)) * general_volume; // Obtained in [c]
 
-		s->long_gain = sMap(0.25f, 1.0f, 0.25f, 0.9f, sMax(tone_vel, 0.25f));
-		s->noise_gain = sMap(0.25f, 1.0f, 0.0f, 0.2f, sMax(tone_vel, 0.25f));
+		s->long_volume = sMap(0.25f, 1.0f, 0.25f, 0.9f, sMax(tone_vel, 0.25f));
+		s->noise_volume = sMap(0.25f, 1.0f, 0.0f, 0.2f, sMax(tone_vel, 0.25f));
 
 		short_attack = 5.0f;
 		long_attack = 10.0f;
@@ -887,7 +887,7 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	return 0.0f;
 }
 
-float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
+float RenderHat(float volume, const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
                 const float* out_end)
 {
 #ifndef NDEBUG
@@ -915,14 +915,14 @@ float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSt
 		signal = FilterStep(signal, &p->hp, &s->hp);
 
 		// Envelope it
-		signal *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * s->long_gain //
+		signal *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * s->long_volume //
 		          + EnvelopeStep(&s->env_short_p, &s->env_short);
 
 		// Add transient white noise
-		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * s->noise_gain;
+		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * s->noise_volume;
 
 		// Final filter
-		*sample = FilterStep(signal, &p->lp, &s->lp) * amplify * s->final_amplify;
+		*sample = FilterStep(signal, &p->lp, &s->lp) * volume * s->final_volume;
 
 #ifndef NDEBUG
 		max_level_final = sMax(sAbs(*sample), max_level_final); // [c]
@@ -939,7 +939,7 @@ float RenderHat(float amplify, const struct HatProgram* restrict p, struct HatSt
 	return signal;
 }
 
-float RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
+float RenderAdditiveHat(float volume, const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
                         const float* out_end)
 {
 	float signal;
@@ -958,14 +958,14 @@ float RenderAdditiveHat(float amplify, const struct HatProgram* restrict p, stru
 		signal = FilterStep(signal, &p->hp, &s->hp);
 
 		// Envelope it
-		signal *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * s->long_gain //
+		signal *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * s->long_volume //
 		          + EnvelopeStep(&s->env_short_p, &s->env_short);
 
 		// Add transient white noise
-		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * s->noise_gain;
+		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * s->noise_volume;
 
 		// Final filter
-		signal = FilterStep(signal, &p->lp, &s->lp) * amplify * s->final_amplify;
+		signal = FilterStep(signal, &p->lp, &s->lp) * volume * s->final_volume;
 		*sample += signal;
 	}
 
@@ -988,16 +988,16 @@ void TomSetProgram(float sampling_frequency, enum TomType type, struct TomProgra
 }
 
 float TomSetState(enum StateState state_state, float sampling_frequency, enum TomType type, float velocity,
-                  float vel_amp_mod, float vel_tone_mod, float reference_vel, struct TomState* restrict s)
+                  float vel_vol_mod, float vel_tone_mod, float reference_vel, struct TomState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
-	assert(vel_amp_mod >= 0.0f && vel_amp_mod <= 1.0f);
+	assert(vel_vol_mod >= 0.0f && vel_vol_mod <= 1.0f);
 
 	// TODO, I cannot hear velocity affecting tone. I can see more transient on the spectrum, but
 	// it feels more like artifacts in the samples, which are normalised, than anything else.
 	// Also, I'm also old :,(
-	const float general_amplify = sMix(1.0f, velocity * velocity, vel_amp_mod);
-	velocity = sMix(reference_vel, velocity, vel_tone_mod); // After general amplify
+	const float general_volume = sMix(1.0f, velocity * velocity, vel_vol_mod);
+	velocity = sMix(reference_vel, velocity, vel_tone_mod); // After general volume
 
 	float frequency;
 	switch (type)
@@ -1006,9 +1006,9 @@ float TomSetState(enum StateState state_state, float sampling_frequency, enum To
 	case HIGH_TOM: frequency = 210.0f; break;
 	}
 
-	s->click_amplify = general_amplify;
+	s->click_volume = general_volume;
 	ShapedEnvelopeSetState(state_state, &s->env);
-	OscillatorSetState(state_state, sampling_frequency, frequency, 1.5f, 1.0f * general_amplify, &s->osc);
+	OscillatorSetState(state_state, sampling_frequency, frequency, 1.5f, 1.0f * general_volume, &s->osc);
 
 	switch (type)
 	{
@@ -1021,12 +1021,12 @@ float TomSetState(enum StateState state_state, float sampling_frequency, enum To
 
 static FORCED_INLINE float sTomStep(const struct TomProgram* restrict p, struct TomState* restrict s)
 {
-	float signal = -ShapedEnvelopeStep(&p->env, &s->env) * s->click_amplify;
+	float signal = -ShapedEnvelopeStep(&p->env, &s->env) * s->click_volume;
 	signal += OscillatorStep(&p->osc, &s->osc);
 	return signal;
 }
 
-float RenderTom(float mixer_amplify, const struct TomProgram* restrict p, struct TomState* restrict s, float* out,
+float RenderTom(float mixer_volume, const struct TomProgram* restrict p, struct TomState* restrict s, float* out,
                 const float* out_end)
 {
 #ifndef NDEBUG
@@ -1036,7 +1036,7 @@ float RenderTom(float mixer_amplify, const struct TomProgram* restrict p, struct
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
-		signal = sTomStep(p, s) * mixer_amplify;
+		signal = sTomStep(p, s) * mixer_volume;
 		*sample = signal;
 
 #ifndef NDEBUG
@@ -1053,13 +1053,13 @@ float RenderTom(float mixer_amplify, const struct TomProgram* restrict p, struct
 	return signal;
 }
 
-float RenderAdditiveTom(float mixer_amplify, const struct TomProgram* restrict p, struct TomState* restrict s,
+float RenderAdditiveTom(float mixer_volume, const struct TomProgram* restrict p, struct TomState* restrict s,
                         float* out, const float* out_end)
 {
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
-		signal = sTomStep(p, s) * mixer_amplify;
+		signal = sTomStep(p, s) * mixer_volume;
 		*sample += signal;
 	}
 	return signal;

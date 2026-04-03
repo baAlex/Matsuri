@@ -30,15 +30,15 @@ void VoiceAllocatorSet(struct VoiceAllocator* self, float sampling_frequency, in
 	self->max_items = (uint32_t)(max_items);
 
 	self->rng = 666;
-	self->vel_amp_mod = 1.0f;
+	self->vel_vol_mod = 1.0f;
 
-	self->amplify[(int)(TYPE_KICK)] = 1.0f;
-	self->amplify[(int)(TYPE_SNARE)] = 1.0f;
-	self->amplify[(int)(TYPE_OPEN_HAT)] = 1.0f;
-	self->amplify[(int)(TYPE_CLOSED_HAT)] = 1.0f;
-	self->amplify[(int)(TYPE_CYMBAL)] = 1.0f;
-	self->amplify[(int)(TYPE_LOW_TOM)] = 1.0f;
-	self->amplify[(int)(TYPE_HIGH_TOM)] = 1.0f;
+	self->volume[(int)(TYPE_KICK)] = 1.0f;
+	self->volume[(int)(TYPE_SNARE)] = 1.0f;
+	self->volume[(int)(TYPE_OPEN_HAT)] = 1.0f;
+	self->volume[(int)(TYPE_CLOSED_HAT)] = 1.0f;
+	self->volume[(int)(TYPE_CYMBAL)] = 1.0f;
+	self->volume[(int)(TYPE_LOW_TOM)] = 1.0f;
+	self->volume[(int)(TYPE_HIGH_TOM)] = 1.0f;
 
 	Memset(self->voices, 0, sizeof(struct VoiceAllocatorVoice) * (size_t)(max_items));
 	Memset(self->states, 0, sizeof(struct VoiceAllocatorState) * (size_t)(max_items));
@@ -131,32 +131,32 @@ void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy str
 	switch (type)
 	{
 	case TYPE_KICK:
-		duration = KickSetState(STATE_START, self->sampling_frequency, velocity, self->vel_amp_mod, self->vel_tone_mod,
+		duration = KickSetState(STATE_START, self->sampling_frequency, velocity, self->vel_vol_mod, self->vel_tone_mod,
 		                        self->reference_vel, &self->states[item].state.kick);
 		break;
 	case TYPE_SNARE:
-		duration = SnareSetState(STATE_START, self->sampling_frequency, self->rng, velocity, self->vel_amp_mod,
+		duration = SnareSetState(STATE_START, self->sampling_frequency, self->rng, velocity, self->vel_vol_mod,
 		                         self->vel_tone_mod, self->reference_vel, &self->states[item].state.snare);
 		break;
 	case TYPE_OPEN_HAT:
-		duration = HatSetState(STATE_START, self->sampling_frequency, OPEN_HAT, self->rng, velocity, self->vel_amp_mod,
+		duration = HatSetState(STATE_START, self->sampling_frequency, OPEN_HAT, self->rng, velocity, self->vel_vol_mod,
 		                       self->vel_tone_mod, self->reference_vel, &self->states[item].state.hat);
 		break;
 	case TYPE_CLOSED_HAT:
 		duration =
-		    HatSetState(STATE_START, self->sampling_frequency, CLOSED_HAT, self->rng, velocity, self->vel_amp_mod,
+		    HatSetState(STATE_START, self->sampling_frequency, CLOSED_HAT, self->rng, velocity, self->vel_vol_mod,
 		                self->vel_tone_mod, self->reference_vel, &self->states[item].state.hat);
 		break;
 	case TYPE_CYMBAL:
-		duration = HatSetState(STATE_START, self->sampling_frequency, CYMBAL, self->rng, velocity, self->vel_amp_mod,
+		duration = HatSetState(STATE_START, self->sampling_frequency, CYMBAL, self->rng, velocity, self->vel_vol_mod,
 		                       self->vel_tone_mod, self->reference_vel, &self->states[item].state.hat);
 		break;
 	case TYPE_LOW_TOM:
-		duration = TomSetState(STATE_START, self->sampling_frequency, LOW_TOM, velocity, self->vel_amp_mod,
+		duration = TomSetState(STATE_START, self->sampling_frequency, LOW_TOM, velocity, self->vel_vol_mod,
 		                       self->vel_tone_mod, self->reference_vel, &self->states[item].state.tom);
 		break;
 	case TYPE_HIGH_TOM:
-		duration = TomSetState(STATE_START, self->sampling_frequency, HIGH_TOM, velocity, self->vel_amp_mod,
+		duration = TomSetState(STATE_START, self->sampling_frequency, HIGH_TOM, velocity, self->vel_vol_mod,
 		                       self->vel_tone_mod, self->reference_vel, &self->states[item].state.tom);
 	}
 
@@ -183,14 +183,14 @@ void VoiceAllocatorStop(struct VoiceAllocator* self, uint32_t id)
 }
 
 
-void VoiceAllocatorConfigureVoice(struct VoiceAllocator* self, enum VoiceAllocatorVoiceType type, float amplify)
+void VoiceAllocatorConfigureVoice(struct VoiceAllocator* self, enum VoiceAllocatorVoiceType type, float volume)
 {
-	self->amplify[(int)(type)] = amplify;
+	self->volume[(int)(type)] = volume;
 }
 
-void VoiceAllocatorConfigure(struct VoiceAllocator* self, float vel_amp_mod, float vel_tone_mod, float reference_vel)
+void VoiceAllocatorConfigure(struct VoiceAllocator* self, float vel_vol_mod, float vel_tone_mod, float reference_vel)
 {
-	self->vel_amp_mod = vel_amp_mod;
+	self->vel_vol_mod = vel_vol_mod;
 	self->vel_tone_mod = vel_tone_mod;
 	self->reference_vel = reference_vel;
 }
@@ -223,32 +223,32 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* 
 		switch (i->type)
 		{
 		case TYPE_KICK:
-			i->last_signal = RenderAdditiveKick(self->amplify[TYPE_KICK], &self->program.kick, &i->state.kick, out,
+			i->last_signal = RenderAdditiveKick(self->volume[TYPE_KICK], &self->program.kick, &i->state.kick, out,
 			                                    out + samples_to_render);
 			break;
 		case TYPE_SNARE:
-			i->last_signal = RenderAdditiveSnare(self->amplify[TYPE_SNARE], &self->program.snare, &i->state.snare, out,
+			i->last_signal = RenderAdditiveSnare(self->volume[TYPE_SNARE], &self->program.snare, &i->state.snare, out,
 			                                     out + samples_to_render);
 			break;
 		case TYPE_OPEN_HAT:
-			i->last_signal = RenderAdditiveHat(self->amplify[TYPE_OPEN_HAT], &self->program.open_hat, &i->state.hat,
-			                                   out, out + samples_to_render);
+			i->last_signal = RenderAdditiveHat(self->volume[TYPE_OPEN_HAT], &self->program.open_hat, &i->state.hat, out,
+			                                   out + samples_to_render);
 			break;
 		case TYPE_CLOSED_HAT:
-			i->last_signal = RenderAdditiveHat(self->amplify[TYPE_CLOSED_HAT], &self->program.closed_hat, &i->state.hat,
+			i->last_signal = RenderAdditiveHat(self->volume[TYPE_CLOSED_HAT], &self->program.closed_hat, &i->state.hat,
 			                                   out, out + samples_to_render);
 			break;
 		case TYPE_CYMBAL:
-			i->last_signal = RenderAdditiveHat(self->amplify[TYPE_CYMBAL], &self->program.cymbal, &i->state.hat, out,
+			i->last_signal = RenderAdditiveHat(self->volume[TYPE_CYMBAL], &self->program.cymbal, &i->state.hat, out,
 			                                   out + samples_to_render);
 			break;
 		case TYPE_LOW_TOM:
-			i->last_signal = RenderAdditiveTom(self->amplify[TYPE_LOW_TOM], &self->program.low_tom, &i->state.tom, out,
+			i->last_signal = RenderAdditiveTom(self->volume[TYPE_LOW_TOM], &self->program.low_tom, &i->state.tom, out,
 			                                   out + samples_to_render);
 			break;
 		case TYPE_HIGH_TOM:
-			i->last_signal = RenderAdditiveTom(self->amplify[TYPE_HIGH_TOM], &self->program.high_tom, &i->state.tom,
-			                                   out, out + samples_to_render);
+			i->last_signal = RenderAdditiveTom(self->volume[TYPE_HIGH_TOM], &self->program.high_tom, &i->state.tom, out,
+			                                   out + samples_to_render);
 		}
 
 		// Update item

@@ -25,15 +25,15 @@ class MatsuriV2Processor extends AudioWorkletProcessor {
 	static get parameterDescriptors() {
 		// https://developer.mozilla.org/en-US/docs/Web/API/AudioParam#k-rate
 		return [
-			{ name: "gain", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "gain-bass-drum", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "gain-snare-drum", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "gain-closed-hit-hat", defaultValue: 0.2, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "gain-open-hit-hat", defaultValue: 0.2, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "gain-cymbal", defaultValue: 0.5, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "gain-low-tom", defaultValue: 0.75, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "gain-high-tom", defaultValue: 0.75, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "velocity-gain-modulation", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "volume", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "volume-bass-drum", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "volume-snare-drum", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "volume-closed-hit-hat", defaultValue: 0.2, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "volume-open-hit-hat", defaultValue: 0.2, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "volume-cymbal", defaultValue: 0.5, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "volume-low-tom", defaultValue: 0.75, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "volume-high-tom", defaultValue: 0.75, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "velocity-volume-modulation", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "velocity-tone-modulation", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "reference-velocity", defaultValue: 0.5, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 		];
@@ -84,15 +84,15 @@ class MatsuriV2Processor extends AudioWorkletProcessor {
 			return true;
 
 		this.m_wasm.Render(
-			parameters["gain"][0],
-			parameters["gain-bass-drum"][0],
-			parameters["gain-snare-drum"][0],
-			parameters["gain-closed-hit-hat"][0],
-			parameters["gain-open-hit-hat"][0],
-			parameters["gain-cymbal"][0],
-			parameters["gain-low-tom"][0],
-			parameters["gain-high-tom"][0],
-			parameters["velocity-gain-modulation"][0],
+			parameters["volume"][0],
+			parameters["volume-bass-drum"][0],
+			parameters["volume-snare-drum"][0],
+			parameters["volume-closed-hit-hat"][0],
+			parameters["volume-open-hit-hat"][0],
+			parameters["volume-cymbal"][0],
+			parameters["volume-low-tom"][0],
+			parameters["volume-high-tom"][0],
+			parameters["velocity-volume-modulation"][0],
 			parameters["velocity-tone-modulation"][0],
 			parameters["reference-velocity"][0],
 			this.m_view.length);

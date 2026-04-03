@@ -47,14 +47,14 @@ static const clap_plugin_descriptor_t s_descriptor = {
 #define PARAMETERS_NO 8
 enum Parameter
 {
-	PARAMETER_AMPLIFY = 0,
-	PARAMETER_KICK_AMPLIFY,
-	PARAMETER_SNARE_AMPLIFY,
-	PARAMETER_CLOSED_HAT_AMPLIFY,
-	PARAMETER_OPEN_HAT_AMPLIFY,
-	PARAMETER_CYMBAL_AMPLIFY,
-	PARAMETER_LOW_TOM_AMPLIFY,
-	PARAMETER_HIGH_TOM_AMPLIFY,
+	PARAMETER_VOLUME = 0,
+	PARAMETER_KICK_VOLUME,
+	PARAMETER_SNARE_VOLUME,
+	PARAMETER_CLOSED_HAT_VOLUME,
+	PARAMETER_OPEN_HAT_VOLUME,
+	PARAMETER_CYMBAL_VOLUME,
+	PARAMETER_LOW_TOM_VOLUME,
+	PARAMETER_HIGH_TOM_VOLUME,
 };
 
 struct MatsuriPlugin
@@ -70,14 +70,19 @@ struct MatsuriPlugin
 };
 
 
-int sFloatToFixed(float v)
+static int sFloatToFixed100(float v)
 {
-	return (int)(v * 4096.0f);
+	return (int)(v * 655.36f);
 }
 
-float sFixedToFloat(int v)
+static float sFixedToFloat100(int v)
 {
-	return (float)(v) / 4096.0f;
+	return (float)(v) / 655.36f;
+}
+
+static float sFixed100ToVolume1(int v)
+{
+	return ExponentialVolumeEasing(sFixedToFloat100(v) / 100.0f);
 }
 
 
@@ -164,15 +169,15 @@ static uint32_t sPluginParametersNo(const clap_plugin_t* plugin)
 	return PARAMETERS_NO;
 }
 
-static void sPluginGainParameter(const char* label, uint32_t index, clap_param_info_t* out)
+static void sPluginVolumeParameter(const char* label, uint32_t index, clap_param_info_t* out)
 {
 	memset(out, 0, sizeof(clap_param_info_t));
 	out->id = index;
 
 	out->flags = CLAP_PARAM_IS_AUTOMATABLE;
 	out->min_value = 0.0f;
-	out->max_value = 1.0f;
-	out->default_value = 1.0f;
+	out->max_value = 100.0f;
+	out->default_value = 100.0f;
 	strcpy(out->name, label);
 }
 
@@ -182,14 +187,14 @@ static bool sPluginParametersInfo(const clap_plugin_t* plugin, uint32_t index, c
 
 	switch (index)
 	{
-	case PARAMETER_AMPLIFY: sPluginGainParameter("Master Gain", index, out); return true;
-	case PARAMETER_KICK_AMPLIFY: sPluginGainParameter("Kick Gain", index, out); return true;
-	case PARAMETER_SNARE_AMPLIFY: sPluginGainParameter("Snare Gain", index, out); return true;
-	case PARAMETER_CLOSED_HAT_AMPLIFY: sPluginGainParameter("Closed Hat Gain", index, out); return true;
-	case PARAMETER_OPEN_HAT_AMPLIFY: sPluginGainParameter("Open Hat Gain", index, out); return true;
-	case PARAMETER_CYMBAL_AMPLIFY: sPluginGainParameter("Cymbal Gain", index, out); return true;
-	case PARAMETER_LOW_TOM_AMPLIFY: sPluginGainParameter("Low Tom Gain", index, out); return true;
-	case PARAMETER_HIGH_TOM_AMPLIFY: sPluginGainParameter("High Tom Gain", index, out); return true;
+	case PARAMETER_VOLUME: sPluginVolumeParameter("Master Volume", index, out); return true;
+	case PARAMETER_KICK_VOLUME: sPluginVolumeParameter("Kick Volume", index, out); return true;
+	case PARAMETER_SNARE_VOLUME: sPluginVolumeParameter("Snare Volume", index, out); return true;
+	case PARAMETER_CLOSED_HAT_VOLUME: sPluginVolumeParameter("Closed Hat Volume", index, out); return true;
+	case PARAMETER_OPEN_HAT_VOLUME: sPluginVolumeParameter("Open Hat Volume", index, out); return true;
+	case PARAMETER_CYMBAL_VOLUME: sPluginVolumeParameter("Cymbal Volume", index, out); return true;
+	case PARAMETER_LOW_TOM_VOLUME: sPluginVolumeParameter("Low Tom Volume", index, out); return true;
+	case PARAMETER_HIGH_TOM_VOLUME: sPluginVolumeParameter("High Tom Volume", index, out); return true;
 	default: break;
 	}
 
@@ -203,7 +208,7 @@ static bool sPluginParametersValue(const clap_plugin_t* _plugin, clap_id id, dou
 
 	if (index < PARAMETERS_NO)
 	{
-		*value = (double)(sFixedToFloat(plugin->parameter[index]));
+		*value = (double)(sFixedToFloat100(plugin->parameter[index]));
 		return true;
 	}
 
@@ -218,7 +223,7 @@ static bool sPluginParametersValueToText(const clap_plugin_t* plugin, clap_id id
 
 	if (index < PARAMETERS_NO)
 	{
-		snprintf(display, size, "%f", value);
+		snprintf(display, size, "%.1f%%", value);
 		return true;
 	}
 
@@ -252,7 +257,7 @@ static void sPluginParametersFlush(const clap_plugin_t* _plugin, const clap_inpu
 
 		if (index < PARAMETERS_NO)
 		{
-			plugin->parameter[index] = sFloatToFixed((float)(param_event->value));
+			plugin->parameter[index] = sFloatToFixed100((float)(param_event->value));
 			plugin->parameters_changed_offline = 1;
 		}
 	}
@@ -278,14 +283,14 @@ static bool sPluginInitialise(const struct clap_plugin* _plugin)
 
 	atomic_init(&plugin->parameters_changed_offline, 1); // Force an initial update
 
-	atomic_init(&plugin->parameter[(int)(PARAMETER_AMPLIFY)], sFloatToFixed(1.0f));
-	atomic_init(&plugin->parameter[(int)(PARAMETER_KICK_AMPLIFY)], sFloatToFixed(1.0f));
-	atomic_init(&plugin->parameter[(int)(PARAMETER_SNARE_AMPLIFY)], sFloatToFixed(1.0f));
-	atomic_init(&plugin->parameter[(int)(PARAMETER_CLOSED_HAT_AMPLIFY)], sFloatToFixed(1.0f));
-	atomic_init(&plugin->parameter[(int)(PARAMETER_OPEN_HAT_AMPLIFY)], sFloatToFixed(1.0f));
-	atomic_init(&plugin->parameter[(int)(PARAMETER_CYMBAL_AMPLIFY)], sFloatToFixed(1.0f));
-	atomic_init(&plugin->parameter[(int)(PARAMETER_LOW_TOM_AMPLIFY)], sFloatToFixed(1.0f));
-	atomic_init(&plugin->parameter[(int)(PARAMETER_HIGH_TOM_AMPLIFY)], sFloatToFixed(1.0f));
+	atomic_init(&plugin->parameter[(int)(PARAMETER_VOLUME)], sFloatToFixed100(100.0f));
+	atomic_init(&plugin->parameter[(int)(PARAMETER_KICK_VOLUME)], sFloatToFixed100(100.0f));
+	atomic_init(&plugin->parameter[(int)(PARAMETER_SNARE_VOLUME)], sFloatToFixed100(100.0f));
+	atomic_init(&plugin->parameter[(int)(PARAMETER_CLOSED_HAT_VOLUME)], sFloatToFixed100(100.0f));
+	atomic_init(&plugin->parameter[(int)(PARAMETER_OPEN_HAT_VOLUME)], sFloatToFixed100(100.0f));
+	atomic_init(&plugin->parameter[(int)(PARAMETER_CYMBAL_VOLUME)], sFloatToFixed100(100.0f));
+	atomic_init(&plugin->parameter[(int)(PARAMETER_LOW_TOM_VOLUME)], sFloatToFixed100(100.0f));
+	atomic_init(&plugin->parameter[(int)(PARAMETER_HIGH_TOM_VOLUME)], sFloatToFixed100(100.0f));
 
 	return true;
 }
@@ -364,25 +369,26 @@ static void sPluginProcessEvent(struct MatsuriPlugin* plugin, const clap_event_h
 			return;
 
 		// Keep parameter around
-		plugin->parameter[index] = sFloatToFixed((float)(param_event->value));
+		plugin->parameter[index] = sFloatToFixed100((float)(param_event->value));
 
-		if (index == PARAMETER_AMPLIFY)
+		if (index == PARAMETER_VOLUME)
 		{
 			plugin->parameters_changed_offline = 1; // Force all other voices to update
 			return;                                 // Nothing more to do
 		}
 
 		// It it's a volume parameter, update that particular voice
-		const float v = sFixedToFloat(plugin->parameter[(int)(PARAMETER_AMPLIFY)]) * (float)(param_event->value);
+		const float v = sFixed100ToVolume1(plugin->parameter[(int)(PARAMETER_VOLUME)]) *
+		                ExponentialVolumeEasing((float)(param_event->value) / 100.0f);
 		switch (index)
 		{
-		case PARAMETER_KICK_AMPLIFY: VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_KICK, v); break;
-		case PARAMETER_SNARE_AMPLIFY: VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_SNARE, v); break;
-		case PARAMETER_CLOSED_HAT_AMPLIFY: VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CLOSED_HAT, v); break;
-		case PARAMETER_OPEN_HAT_AMPLIFY: VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_OPEN_HAT, v); break;
-		case PARAMETER_CYMBAL_AMPLIFY: VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CYMBAL, v); break;
-		case PARAMETER_LOW_TOM_AMPLIFY: VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_LOW_TOM, v); break;
-		case PARAMETER_HIGH_TOM_AMPLIFY: VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_HIGH_TOM, v); break;
+		case PARAMETER_KICK_VOLUME: VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_KICK, v); break;
+		case PARAMETER_SNARE_VOLUME: VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_SNARE, v); break;
+		case PARAMETER_CLOSED_HAT_VOLUME: VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CLOSED_HAT, v); break;
+		case PARAMETER_OPEN_HAT_VOLUME: VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_OPEN_HAT, v); break;
+		case PARAMETER_CYMBAL_VOLUME: VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CYMBAL, v); break;
+		case PARAMETER_LOW_TOM_VOLUME: VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_LOW_TOM, v); break;
+		case PARAMETER_HIGH_TOM_VOLUME: VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_HIGH_TOM, v); break;
 		default: break;
 		}
 	}
@@ -403,22 +409,22 @@ static clap_process_status sPluginProcess(const struct clap_plugin* _plugin, con
 	if (plugin->parameters_changed_offline != 0) // Outside code changed our guys (changed them not using events)
 	{
 		plugin->parameters_changed_offline = 0;
-		const float a = sFixedToFloat(plugin->parameter[(int)(PARAMETER_AMPLIFY)]);
+		const float v = sFixed100ToVolume1(plugin->parameter[(int)(PARAMETER_VOLUME)]);
 
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_KICK,
-		                             a * sFixedToFloat(plugin->parameter[(int)(PARAMETER_KICK_AMPLIFY)]));
+		                             v * sFixed100ToVolume1(plugin->parameter[(int)(PARAMETER_KICK_VOLUME)]));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_SNARE,
-		                             a * sFixedToFloat(plugin->parameter[(int)(PARAMETER_SNARE_AMPLIFY)]));
+		                             v * sFixed100ToVolume1(plugin->parameter[(int)(PARAMETER_SNARE_VOLUME)]));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CLOSED_HAT,
-		                             a * sFixedToFloat(plugin->parameter[(int)(PARAMETER_CLOSED_HAT_AMPLIFY)]));
+		                             v * sFixed100ToVolume1(plugin->parameter[(int)(PARAMETER_CLOSED_HAT_VOLUME)]));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_OPEN_HAT,
-		                             a * sFixedToFloat(plugin->parameter[(int)(PARAMETER_OPEN_HAT_AMPLIFY)]));
+		                             v * sFixed100ToVolume1(plugin->parameter[(int)(PARAMETER_OPEN_HAT_VOLUME)]));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CYMBAL,
-		                             a * sFixedToFloat(plugin->parameter[(int)(PARAMETER_CYMBAL_AMPLIFY)]));
+		                             v * sFixed100ToVolume1(plugin->parameter[(int)(PARAMETER_CYMBAL_VOLUME)]));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_LOW_TOM,
-		                             a * sFixedToFloat(plugin->parameter[(int)(PARAMETER_LOW_TOM_AMPLIFY)]));
+		                             v * sFixed100ToVolume1(plugin->parameter[(int)(PARAMETER_LOW_TOM_VOLUME)]));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_HIGH_TOM,
-		                             a * sFixedToFloat(plugin->parameter[(int)(PARAMETER_HIGH_TOM_AMPLIFY)]));
+		                             v * sFixed100ToVolume1(plugin->parameter[(int)(PARAMETER_HIGH_TOM_VOLUME)]));
 	}
 
 	for (uint32_t f = 0; f < frames;)

@@ -57,10 +57,10 @@ struct VoiceAllocator
 	uint32_t max_items;
 
 	uint32_t rng;
-	float vel_amp_mod;
+	float vel_vol_mod;
 	float vel_tone_mod;
 	float reference_vel;
-	float amplify[7]; // One for each VoiceAllocatorVoiceType
+	float volume[7]; // One for each VoiceAllocatorVoiceType
 
 	struct VoiceAllocatorVoice voices[MAX_MAX_ITEMS];
 	struct VoiceAllocatorState states[MAX_MAX_ITEMS];
@@ -95,8 +95,8 @@ enum AllocationStrategy
 void VoiceAllocatorSet(struct VoiceAllocator* allocator, float sampling_frequency, int max_items);
 void VoiceAllocatorPlay(struct VoiceAllocator* allocator, enum AllocationStrategy, uint32_t id,
                         enum VoiceAllocatorVoiceType type, float velocity);
-void VoiceAllocatorConfigureVoice(struct VoiceAllocator* allocator, enum VoiceAllocatorVoiceType type, float amplify);
-void VoiceAllocatorConfigure(struct VoiceAllocator* allocator, float vel_amp_mod, float vel_tone_mod,
+void VoiceAllocatorConfigureVoice(struct VoiceAllocator* allocator, enum VoiceAllocatorVoiceType type, float volume);
+void VoiceAllocatorConfigure(struct VoiceAllocator* allocator, float vel_vol_mod, float vel_tone_mod,
                              float reference_vel);
 void VoiceAllocatorStop(struct VoiceAllocator* allocator, uint32_t id);
 void VoiceAllocatorRender(struct VoiceAllocator* allocator, uint32_t samples, float* out);

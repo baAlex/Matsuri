@@ -12,6 +12,7 @@ defined by the Mozilla Public License, v. 2.0.
 
 #include <stddef.h>
 
+#include "../misc.h"
 #include "../voice-allocator.h"
 
 
@@ -33,22 +34,23 @@ void Midi(int byte0, int byte1, int byte2)
 }
 
 
-const float* Render(float amplify, float kick_amplify, float snare_amplify, float closed_hat_amplify,
-                    float open_hat_amplify, float cymbal_amplify, float low_tom_amplify, float high_tom_amplify,
-                    float vel_amp_mod, float vel_tone_mod, float reference_velocity, uint32_t samples)
+const float* Render(float volume, float kick_volume, float snare_volume, float closed_hat_volume, float open_hat_volume,
+                    float cymbal_volume, float low_tom_volume, float high_tom_volume, float vel_vol_mod,
+                    float vel_tone_mod, float reference_velocity, uint32_t samples)
 {
 	if (samples > BUFFER_LEN)
 		return NULL;
 
-	VoiceAllocatorConfigure(&s_allocator, vel_amp_mod, vel_tone_mod, reference_velocity);
+	VoiceAllocatorConfigure(&s_allocator, vel_vol_mod, vel_tone_mod, reference_velocity);
 
-	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_KICK, amplify * kick_amplify);
-	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_SNARE, amplify * snare_amplify);
-	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_CLOSED_HAT, amplify * closed_hat_amplify);
-	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_OPEN_HAT, amplify * open_hat_amplify);
-	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_CYMBAL, amplify * cymbal_amplify);
-	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_LOW_TOM, amplify * low_tom_amplify);
-	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_HIGH_TOM, amplify * high_tom_amplify);
+	volume = ExponentialVolumeEasing(volume);
+	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_KICK, volume * ExponentialVolumeEasing(kick_volume));
+	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_SNARE, volume * ExponentialVolumeEasing(snare_volume));
+	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_CLOSED_HAT, volume * ExponentialVolumeEasing(closed_hat_volume));
+	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_OPEN_HAT, volume * ExponentialVolumeEasing(open_hat_volume));
+	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_CYMBAL, volume * ExponentialVolumeEasing(cymbal_volume));
+	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_LOW_TOM, volume * ExponentialVolumeEasing(low_tom_volume));
+	VoiceAllocatorConfigureVoice(&s_allocator, TYPE_HIGH_TOM, volume * ExponentialVolumeEasing(high_tom_volume));
 
 	VoiceAllocatorRender(&s_allocator, samples, s_buffer);
 

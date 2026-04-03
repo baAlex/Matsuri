@@ -37,4 +37,6 @@ uint32_t MinU(uint32_t a, uint32_t b);
 float MinF(float a, float b);
 float MaxF(float a, float b);
 
+float ExponentialVolumeEasing(float x);
+
 #endif

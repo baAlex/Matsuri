@@ -40,7 +40,7 @@ struct OscillatorState
 };
 
 void OscillatorSetProgram(float sampling_frequency, float decay_ms, float sweep_factor, struct OscillatorProgram* p);
-void OscillatorSetState(enum StateState, float sampling_frequency, float frequency, float delay_ms, float amplitude,
+void OscillatorSetState(enum StateState, float sampling_frequency, float frequency, float delay_ms, float volume,
                         struct OscillatorState* s);
 float OscillatorStep(const struct OscillatorProgram* p, struct OscillatorState* s);
 
@@ -59,7 +59,7 @@ struct EnvelopeState
 };
 
 void EnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms, float sustain,
-                        float decay2_ms, float amplitude, struct EnvelopeProgram* p);
+                        float decay2_ms, float volume, struct EnvelopeProgram* p);
 void EnvelopeSetState(enum StateState, struct EnvelopeState* s);
 float EnvelopeStep(const struct EnvelopeProgram* p, struct EnvelopeState* s);
 
@@ -114,7 +114,7 @@ enum Filter12dbType
 	RC_LOWPASS_12DB
 };
 
-void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance, float amplify,
+void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance, float volume,
                       struct FilterProgram* p);
 void FilterSetState(struct FilterState* s);
 float FilterStep(float x, const struct FilterProgram* p, struct FilterState* s);
@@ -123,7 +123,7 @@ float FilterStep(float x, const struct FilterProgram* p, struct FilterState* s);
 struct SquareX6Program
 {
 	int32_t step[6];
-	float amplitude;
+	float volume;
 };
 
 struct SquareX6State
@@ -131,7 +131,7 @@ struct SquareX6State
 	int32_t phase[6];
 };
 
-void SquareX6SetProgram(float sampling_frequency, float amplitude, float frequency1, float frequency2, float frequency3,
+void SquareX6SetProgram(float sampling_frequency, float volume, float frequency1, float frequency2, float frequency3,
                         float frequency4, float frequency5, float frequency6, struct SquareX6Program* p);
 void SquareX6SetState(uint32_t seed, struct SquareX6State* s);
 float SquareX6Step(const struct SquareX6Program* p, struct SquareX6State* s);
@@ -168,15 +168,15 @@ struct KickState
 	struct ShapedEnvelopeState env;
 	struct OscillatorState osc[2];
 	float distortion;
-	float click_amplify;
+	float click_volume;
 };
 
 void KickSetProgram(float sampling_frequency, struct KickProgram* p);
-float KickSetState(enum StateState, float sampling_frequency, float velocity, float vel_amp_mod, float vel_tone_mod,
+float KickSetState(enum StateState, float sampling_frequency, float velocity, float vel_vol_mod, float vel_tone_mod,
                    float reference_vel, struct KickState* s);
 
-float RenderKick(float amplify, const struct KickProgram* p, struct KickState* s, float* out, const float* out_end);
-float RenderAdditiveKick(float amplify, const struct KickProgram* p, struct KickState* s, float* out,
+float RenderKick(float volume, const struct KickProgram* p, struct KickState* s, float* out, const float* out_end);
+float RenderAdditiveKick(float volume, const struct KickProgram* p, struct KickState* s, float* out,
                          const float* out_end);
 
 
@@ -194,15 +194,15 @@ struct SnareState
 	struct NoiseState noise;
 	struct FilterState filter[2];
 	float distortion;
-	float noise_amplify;
+	float noise_volume;
 };
 
 void SnareSetProgram(float sampling_frequency, struct SnareProgram* p);
-float SnareSetState(enum StateState, float sampling_frequency, uint32_t seed, float velocity, float vel_amp_mod,
+float SnareSetState(enum StateState, float sampling_frequency, uint32_t seed, float velocity, float vel_vol_mod,
                     float vel_tone_mod, float reference_vel, struct SnareState* s);
 
-float RenderSnare(float amplify, const struct SnareProgram* p, struct SnareState* s, float* out, const float* out_end);
-float RenderAdditiveSnare(float amplify, const struct SnareProgram* p, struct SnareState* s, float* out,
+float RenderSnare(float volume, const struct SnareProgram* p, struct SnareState* s, float* out, const float* out_end);
+float RenderAdditiveSnare(float volume, const struct SnareProgram* p, struct SnareState* s, float* out,
                           const float* out_end);
 
 
@@ -233,9 +233,9 @@ struct HatState
 
 	struct NoiseState noise;
 
-	float noise_gain;
-	float long_gain;
-	float final_amplify;
+	float noise_volume;
+	float long_volume;
+	float final_volume;
 	float fade_out_in;
 	float fade_out_in_c;
 };
@@ -249,11 +249,10 @@ enum HatType
 
 void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgram* p);
 float HatSetState(enum StateState, float sampling_frequency, enum HatType type, uint32_t seed, float velocity,
-                  float vel_amp_mod, float vel_tone_mod, float reference_vel, struct HatState* s);
+                  float vel_vol_mod, float vel_tone_mod, float reference_vel, struct HatState* s);
 
-float RenderHat(float amplify, const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
-float RenderAdditiveHat(float amplify, const struct HatProgram* p, struct HatState* s, float* out,
-                        const float* out_end);
+float RenderHat(float volume, const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
+float RenderAdditiveHat(float volume, const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
 
 
 struct TomProgram
@@ -264,7 +263,7 @@ struct TomProgram
 
 struct TomState
 {
-	float click_amplify;
+	float click_volume;
 	struct ShapedEnvelopeState env;
 	struct OscillatorState osc;
 };
@@ -276,10 +275,9 @@ enum TomType
 };
 
 void TomSetProgram(float sampling_frequency, enum TomType type, struct TomProgram* p);
-float TomSetState(enum StateState, float sampling_frequency, enum TomType type, float velocity, float vel_amp_mod,
+float TomSetState(enum StateState, float sampling_frequency, enum TomType type, float velocity, float vel_vol_mod,
                   float vel_tone_mod, float reference_vel, struct TomState* s);
 
-float RenderTom(float amplify, const struct TomProgram* p, struct TomState* s, float* out, const float* out_end);
-float RenderAdditiveTom(float amplify, const struct TomProgram* p, struct TomState* s, float* out,
-                        const float* out_end);
+float RenderTom(float volume, const struct TomProgram* p, struct TomState* s, float* out, const float* out_end);
+float RenderAdditiveTom(float volume, const struct TomProgram* p, struct TomState* s, float* out, const float* out_end);
 #endif
