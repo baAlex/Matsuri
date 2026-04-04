@@ -42,9 +42,9 @@
 			ConnectSliderParameter("slider-volume-high-tom", "volume-high-tom");
 			ConnectSliderParameter("slider-velocity-volume-modulation", "velocity-volume-modulation");
 			ConnectSliderParameter("slider-velocity-tone-modulation", "velocity-tone-modulation");
-			ConnectSliderParameter("slider-reference-velocity", "reference-velocity");
+			ConnectSliderParameter("slider-velocity-reference", "velocity-reference");
 
-			reference_vel = document.getElementById("slider-reference-velocity");
+			reference_vel = document.getElementById("slider-velocity-reference");
 		}
 
 		async function KeyOn(key_no) {
@@ -215,8 +215,8 @@
 			<label>Tone modulation [2]:
 				<input type="range" id="slider-velocity-tone-modulation" min="0" max="100" value="100"
 					list="marker100" /></label>
-			<label>Reference velocity:
-				<input type="range" id="slider-reference-velocity" min="0" max="100" value="50"
+			<label>Velocity reference:
+				<input type="range" id="slider-velocity-reference" min="0" max="100" value="50"
 					list="marker50" /></label>
 
 			<datalist id="marker100">
