@@ -23,10 +23,13 @@ defined by the Mozilla Public License, v. 2.0.
 #include "../voice-allocator.h"
 
 
+#define UNNECESSARY_PRINTS 1
+
+
 static const clap_plugin_descriptor_t s_descriptor = {
     .clap_version = CLAP_VERSION_INIT,
-    .id = "baAlex.Matsuri.v2",
-    .name = "Matsuri V2",
+    .id = "com.github.baAlex.Matsuri.v2",
+    .name = "Matsuri v2",
     .vendor = "Alexander Brandt",
     .url = "https://github.com/baAlex/Matsuri/",
     .manual_url = "https://github.com/baAlex/Matsuri/",
@@ -63,6 +66,7 @@ enum ParameterId
 struct ParameterInfo
 {
 	enum ParameterId id;
+	const char* group; // TODO, Neither Zrythm nor QTractor honor this
 	const char* name;
 	float default_value;
 	float min_value;
@@ -72,26 +76,27 @@ struct ParameterInfo
 	const char* unit;
 };
 
-static struct ParameterInfo s_parameters_info[PARAMETERS_NO] = {
-    {PARAMETER_VOLUME, "Master Volume", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+static const struct ParameterInfo s_parameters_info[PARAMETERS_NO] = {
+    {PARAMETER_VOLUME, "Volume", "Master", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
 
-    {PARAMETER_KICK_VOLUME, "Bass Drum Volume", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_SNARE_VOLUME, "Snare Drum Volume", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_CLOSED_HAT_VOLUME, "Closed Hit-Hat Volume", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_OPEN_HAT_VOLUME, "Open Hit-Hat Volume", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_CYMBAL_VOLUME, "Cymbal Volume", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_LOW_TOM_VOLUME, "Low Tom Volume", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_HIGH_TOM_VOLUME, "High Tom Volume", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {PARAMETER_KICK_VOLUME, "Volume", "Bass Drum", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {PARAMETER_SNARE_VOLUME, "Volume", "Snare Drum", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {PARAMETER_CLOSED_HAT_VOLUME, "Volume", "Closed Hit-Hat", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {PARAMETER_OPEN_HAT_VOLUME, "Volume", "Open Hit-Hat", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {PARAMETER_CYMBAL_VOLUME, "Volume", "Cymbal", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {PARAMETER_LOW_TOM_VOLUME, "Volume", "Low Tom", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {PARAMETER_HIGH_TOM_VOLUME, "Volume", "High Tom", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
 
-    {PARAMETER_VELOCITY_VOLUME_MODULATION, "Velocity-Volume Modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
-    {PARAMETER_VELOCITY_TONE_MODULATION, "Velocity-Tone Modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
-    {PARAMETER_VELOCITY_REFERENCE, "Velocity Reference", 0.5f, 0.0f, 1.0f, 65536.0f, "x"},
+    {PARAMETER_VELOCITY_VOLUME_MODULATION, "Velocity", "Velocity-Volume Modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
+    {PARAMETER_VELOCITY_TONE_MODULATION, "Velocity", "Velocity-Tone Modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
+    {PARAMETER_VELOCITY_REFERENCE, "Velocity", "Velocity Reference", 0.5f, 0.0f, 1.0f, 65536.0f, "x"},
 };
 
 struct MatsuriPlugin
 {
 	clap_plugin_t plugin;
 	const clap_host_t* host;
+	const clap_host_log_t* host_log;
 
 	float sampling_frequency;
 	struct VoiceAllocator allocator;
@@ -211,11 +216,13 @@ static bool sPluginParametersInfo(const clap_plugin_t* plugin, uint32_t index, c
 		memset(out, 0, sizeof(clap_param_info_t));
 		out->id = index;
 
-		out->flags = CLAP_PARAM_IS_AUTOMATABLE;
+		out->flags = CLAP_PARAM_IS_AUTOMATABLE | CLAP_PARAM_REQUIRES_PROCESS;
 		out->default_value = s_parameters_info[index].default_value;
 		out->min_value = s_parameters_info[index].min_value;
 		out->max_value = s_parameters_info[index].max_value;
+
 		strcpy(out->name, s_parameters_info[index].name);
+		strcpy(out->module, s_parameters_info[index].group);
 
 		return true;
 	}
@@ -271,6 +278,11 @@ static void sPluginParametersFlush(const clap_plugin_t* plugin_, const clap_inpu
 	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
 	(void)out;
 
+#ifdef UNNECESSARY_PRINTS
+	if (plugin->host_log != NULL)
+		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: sPluginParametersFlush()");
+#endif
+
 	for (uint32_t event_index = 0; event_index < in->size(in); event_index += 1)
 	{
 		const clap_event_header_t* event = in->get(in, event_index);
@@ -299,6 +311,101 @@ static const clap_plugin_params_t s_plugin_parameters_extensions = {
 };
 
 
+////////////////
+// clap_state //
+////////////////
+
+#define MATSURI_VERSION 2
+
+static bool sPluginStateSave(const clap_plugin_t* plugin_, const clap_ostream_t* stream)
+{
+	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
+
+#ifdef UNNECESSARY_PRINTS
+	if (plugin->host_log != NULL)
+		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: sPluginStateSave()");
+#endif
+
+	int p[PARAMETERS_NO];
+	for (int i = 0; i < PARAMETERS_NO; i += 1)
+		p[i] = plugin->parameter[i]; // Not sure if needed, but, calling an pseudo fwrite() on
+		                             // top of atomic types feels bad
+
+	// Write version
+	const int version = MATSURI_VERSION;
+	if (stream->write(stream, &version, sizeof(int)) != sizeof(int))
+	{
+		if (plugin->host_log != NULL)
+			plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Host error writing state/preset\n");
+		return false;
+	}
+
+	// Write parameters
+	for (int i = 0; i < PARAMETERS_NO; i += 1)
+	{
+		if (stream->write(stream, &p[i], sizeof(int)) != sizeof(int))
+		{
+			if (plugin->host_log != NULL)
+				plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Host error writing state/preset\n");
+			return false;
+		}
+	}
+
+	// Bye!
+	return true;
+}
+
+static bool sPluginStateLoad(const clap_plugin_t* plugin_, const clap_istream_t* stream)
+{
+	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
+
+#ifdef UNNECESSARY_PRINTS
+	if (plugin->host_log != NULL)
+		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: sPluginStateLoad()");
+#endif
+
+	int p[PARAMETERS_NO];
+
+	// Read version
+	int version;
+	if (stream->read(stream, &version, sizeof(int)) != sizeof(int))
+	{
+		if (plugin->host_log != NULL)
+			plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Host error reading state/preset\n");
+		return false;
+	}
+
+	if (version != MATSURI_VERSION) // There is old versions yet
+	{
+		if (plugin->host_log != NULL)
+			plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Unknown state/preset version\n");
+		return false;
+	}
+
+	// Read parameters
+	for (int i = 0; i < PARAMETERS_NO; i += 1)
+	{
+		if (stream->read(stream, &p[i], sizeof(int)) != sizeof(int))
+		{
+			if (plugin->host_log != NULL)
+				plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Host error reading state/preset\n");
+			return false;
+		}
+	}
+
+	for (int i = 0; i < PARAMETERS_NO; i += 1)
+		plugin->parameter[i] = p[i];
+
+	// Bye!
+	return true;
+}
+
+static const clap_plugin_state_t s_plugin_state_extension = {
+    .save = sPluginStateSave,
+    .load = sPluginStateLoad,
+};
+
+
 /////////////////
 // clap_plugin //
 /////////////////
@@ -306,6 +413,13 @@ static const clap_plugin_params_t s_plugin_parameters_extensions = {
 static bool sPluginInitialise(const struct clap_plugin* plugin_)
 {
 	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
+
+	plugin->host_log = (const clap_host_log_t*)(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
+
+#ifdef UNNECESSARY_PRINTS
+	if (plugin->host_log != NULL)
+		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: sPluginInitialise()");
+#endif
 
 	atomic_init(&plugin->parameters_changed_offline, 1); // Force an initial update
 
@@ -335,6 +449,13 @@ static bool sPluginActivate(const struct clap_plugin* plugin_, double sampling_f
 	VoiceAllocatorSet(&plugin->allocator, plugin->sampling_frequency, MAX_MAX_ITEMS);
 	// TODO, should I set parameters again?, like in Initialise()???
 
+	plugin->host_log = (const clap_host_log_t*)(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
+
+#ifdef UNNECESSARY_PRINTS
+	if (plugin->host_log != NULL)
+		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: sPluginActivate()");
+#endif
+
 	return true;
 }
 
@@ -359,6 +480,13 @@ static void sPluginReset(const struct clap_plugin* plugin_)
 	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
 	VoiceAllocatorSet(&plugin->allocator, plugin->sampling_frequency, MAX_MAX_ITEMS);
 	// TODO, should I set parameters again?, like in Initialise()???
+
+	plugin->host_log = (const clap_host_log_t*)(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
+
+#ifdef UNNECESSARY_PRINTS
+	if (plugin->host_log != NULL)
+		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: sPluginReset()");
+#endif
 }
 
 static void sPluginProcessEvent(struct MatsuriPlugin* plugin, const clap_event_header_t* event)
@@ -521,6 +649,8 @@ static const void* sPluginGetExtension(const struct clap_plugin* plugin, const c
 		return &s_plugin_audio_ports_extensions;
 	if (strcmp(id, CLAP_EXT_PARAMS) == 0)
 		return &s_plugin_parameters_extensions;
+	if (strcmp(id, CLAP_EXT_STATE) == 0)
+		return &s_plugin_state_extension;
 	return NULL;
 }
 
