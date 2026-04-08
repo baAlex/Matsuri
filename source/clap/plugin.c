@@ -20,22 +20,22 @@ defined by the Mozilla Public License, v. 2.0.
 #include "../thirdparty/clap/include/clap/clap.h" // IWYU pragma: keep
 
 #include "../misc.h"
+#include "../version.h"
 #include "../voice-allocator.h"
 
 
 #define UNNECESSARY_PRINTS 1
 
-
 static const clap_plugin_descriptor_t s_descriptor = {
     .clap_version = CLAP_VERSION_INIT,
-    .id = "com.github.baAlex.Matsuri.v2",
-    .name = "Matsuri v2",
-    .vendor = "Alexander Brandt",
-    .url = "https://github.com/baAlex/Matsuri/",
-    .manual_url = "https://github.com/baAlex/Matsuri/",
-    .support_url = "https://github.com/baAlex/Matsuri/",
-    .version = "2.0",
-    .description = "TR-606 Synthesizer",
+    .id = MATSURI_URI,
+    .name = MATSURI_NAME,
+    .vendor = MATSURI_VENDOR,
+    .url = MATSURI_URL,
+    .manual_url = MATSURI_URL,
+    .support_url = MATSURI_URL,
+    .version = MATSURI_VERSION_STRING,
+    .description = MATSURI_DESCRIPTION,
 
     .features =
         (const char*[]){
@@ -315,8 +315,6 @@ static const clap_plugin_params_t s_plugin_parameters_extensions = {
 // clap_state //
 ////////////////
 
-#define MATSURI_VERSION 2
-
 static bool sPluginStateSave(const clap_plugin_t* plugin_, const clap_ostream_t* stream)
 {
 	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
@@ -332,7 +330,7 @@ static bool sPluginStateSave(const clap_plugin_t* plugin_, const clap_ostream_t*
 		                             // top of atomic types feels bad
 
 	// Write version
-	const int version = MATSURI_VERSION;
+	const int version = MATSURI_VERSION_MAJOR;
 	if (stream->write(stream, &version, sizeof(int)) != sizeof(int))
 	{
 		if (plugin->host_log != NULL)
@@ -375,7 +373,7 @@ static bool sPluginStateLoad(const clap_plugin_t* plugin_, const clap_istream_t*
 		return false;
 	}
 
-	if (version != MATSURI_VERSION) // There is old versions yet
+	if (version != MATSURI_VERSION_MAJOR) // There isn't old versions yet
 	{
 		if (plugin->host_log != NULL)
 			plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Unknown state/preset version\n");
@@ -739,3 +737,5 @@ EXPORT const clap_plugin_entry_t clap_entry = {
     .deinit = sEntryDeinitialisation,
     .get_factory = sEntryGetFactory,
 };
+
+EXPORT const char* copyright = MATSURI_COPYRIGHT;

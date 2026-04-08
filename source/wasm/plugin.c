@@ -13,6 +13,7 @@ defined by the Mozilla Public License, v. 2.0.
 #include <stddef.h>
 
 #include "../misc.h"
+#include "../version.h"
 #include "../voice-allocator.h"
 
 
@@ -56,3 +57,15 @@ const float* Render(float volume, float kick_volume, float snare_volume, float c
 
 	return s_buffer;
 }
+
+// clang-format off
+const char* GetId(void )            { return MATSURI_URI; }
+const char* GetName(void )          { return MATSURI_NAME; }
+const char* GetVendor(void )        { return MATSURI_VENDOR; }
+const char* GetUrl(void )           { return MATSURI_URL; }
+const char* GetDescription(void )   { return MATSURI_DESCRIPTION; }
+const char* GetVersionString(void ) { return MATSURI_VERSION_STRING; }
+int GetVersionMajor(void )          { return MATSURI_VERSION_MAJOR; }
+int GetVersionMinor(void )          { return MATSURI_VERSION_MINOR; }
+const char* GetCopyright(void )     { return MATSURI_COPYRIGHT; }
+// clang-format off
