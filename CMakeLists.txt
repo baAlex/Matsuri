@@ -15,7 +15,6 @@ endif ()
 
 if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
 	set(MATSURI_CFLAGS -Wall -Wextra -Wconversion -pedantic)
-	# set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -s") # Strip symbols
 endif ()
 ####
 
@@ -36,7 +35,7 @@ set_target_properties("matsuri-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE
 add_executable("generate-wavs" "./source/generate-wavs.c")
 target_compile_options("generate-wavs" PRIVATE ${MATSURI_CFLAGS})
 target_link_libraries("generate-wavs" PRIVATE "matsuri-library")
-set_target_properties("generate-wavs" PROPERTIES OUTPUT_NAME "matsuri-v2-wavs")
+set_target_properties("generate-wavs" PROPERTIES OUTPUT_NAME "matsuri-v2-generate-wavs")
 
 
 # Plugin, CLAP
@@ -69,7 +68,7 @@ if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
 	set(WASM_DIR "${CMAKE_CURRENT_BINARY_DIR}/matsuri-v2-wasm")
 
 	set(WASM_TEST_PAGE_SRC "${CMAKE_SOURCE_DIR}/source/wasm/test-page.html")
-	set(WASM_TEST_PAGE_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-v2-wasm/test-page.html")
+	set(WASM_TEST_PAGE_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-v2-wasm/test-page-v2.html")
 
 	set(WASM_JS_SRC "${CMAKE_SOURCE_DIR}/source/wasm/plugin.js")
 	set(WASM_JS_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-v2-wasm/matsuri-v2.js")

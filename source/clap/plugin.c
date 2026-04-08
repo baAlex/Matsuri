@@ -81,9 +81,9 @@ static const struct ParameterInfo s_parameters_info[PARAMETERS_NO] = {
 
     {PARAMETER_KICK_VOLUME, "Volume", "Bass Drum", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
     {PARAMETER_SNARE_VOLUME, "Volume", "Snare Drum", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_CLOSED_HAT_VOLUME, "Volume", "Closed Hit-Hat", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_OPEN_HAT_VOLUME, "Volume", "Open Hit-Hat", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_CYMBAL_VOLUME, "Volume", "Cymbal", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {PARAMETER_CLOSED_HAT_VOLUME, "Volume", "Closed Hit-Hat", 65.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {PARAMETER_OPEN_HAT_VOLUME, "Volume", "Open Hit-Hat", 70.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {PARAMETER_CYMBAL_VOLUME, "Volume", "Cymbal", 80.0f, 0.0f, 100.0f, 655.36f, "%"},
     {PARAMETER_LOW_TOM_VOLUME, "Volume", "Low Tom", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
     {PARAMETER_HIGH_TOM_VOLUME, "Volume", "High Tom", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
 
