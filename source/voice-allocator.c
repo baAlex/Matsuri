@@ -22,6 +22,25 @@ defined by the Mozilla Public License, v. 2.0.
 #endif
 
 
+#if 0
+#define FORCED_INLINE __attribute__((always_inline))
+#else
+#define FORCED_INLINE inline // Empty, not needed, "-O3" and "-flto" are doing their job
+#endif
+
+#define LOG_100_PERCENT -4.60517018599f // ln(0.01) = ln(1.0 / 100.0)
+
+static FORCED_INLINE float sAbs(float x)
+{
+	return (x < 0.0f) ? -x : x;
+}
+
+static FORCED_INLINE float sMax(float a, float b)
+{
+	return (a > b) ? a : b;
+}
+
+
 void VoiceAllocatorSet(struct VoiceAllocator* self, float sampling_frequency, int max_items)
 {
 	assert(max_items <= MAX_MAX_ITEMS);
@@ -46,6 +65,10 @@ void VoiceAllocatorSet(struct VoiceAllocator* self, float sampling_frequency, in
 	TailSetProgram(sampling_frequency, 10.0f, &self->tail_p);
 	TailSetState(&self->tail_s);
 	self->tail_samples = (uint32_t)((10.0f * sampling_frequency) / 1000.0f);
+
+	self->limiter = 0.0f;
+	self->limiter_c = 0.0f;
+	self->master_volume = 1.0f;
 
 	KickSetProgram(sampling_frequency, &self->program.kick);
 	SnareSetProgram(sampling_frequency, &self->program.snare);
@@ -188,11 +211,17 @@ void VoiceAllocatorConfigureVoice(struct VoiceAllocator* self, enum VoiceAllocat
 	self->volume[(int)(type)] = volume;
 }
 
-void VoiceAllocatorConfigure(struct VoiceAllocator* self, float vel_vol_mod, float vel_tone_mod, float reference_vel)
+void VoiceAllocatorConfigure(struct VoiceAllocator* self, float vel_vol_mod, float vel_tone_mod, float reference_vel,
+                             float limiter_decay, float master_volume)
 {
 	self->vel_vol_mod = vel_vol_mod;
 	self->vel_tone_mod = vel_tone_mod;
 	self->reference_vel = reference_vel;
+
+	const float limiter_decay_samples = (limiter_decay * self->sampling_frequency) / 1000.0f;
+	self->limiter_c = 1.0f - ((-LOG_100_PERCENT) / sMax((-LOG_100_PERCENT), limiter_decay_samples));
+
+	self->master_volume = master_volume;
 }
 
 
@@ -253,6 +282,24 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* 
 
 		// Update item
 		q->remaining -= samples_to_render;
+	}
+
+	// Post-processing
+	if (self->limiter_c == 0.0f)
+	{
+		for (float* sample = out; sample < out + samples; sample += 1)
+		{
+			*sample = (*sample) * self->master_volume;
+		}
+	}
+	else
+	{
+		for (float* sample = out; sample < out + samples; sample += 1)
+		{
+			self->limiter = sMax(self->limiter, sAbs(*sample) - 1.0f);
+			*sample = ((*sample) / (self->limiter + 1.0f)) * self->master_volume;
+			self->limiter = self->limiter * self->limiter_c;
+		}
 	}
 }
 

@@ -69,6 +69,10 @@ struct VoiceAllocator
 	struct TailState tail_s;
 	uint32_t tail_samples;
 
+	float limiter;
+	float limiter_c;
+	float master_volume;
+
 	struct
 	{
 		// Programs are shared between voices of the same instrument
@@ -97,7 +101,7 @@ void VoiceAllocatorPlay(struct VoiceAllocator* allocator, enum AllocationStrateg
                         enum VoiceAllocatorVoiceType type, float velocity);
 void VoiceAllocatorConfigureVoice(struct VoiceAllocator* allocator, enum VoiceAllocatorVoiceType type, float volume);
 void VoiceAllocatorConfigure(struct VoiceAllocator* allocator, float vel_vol_mod, float vel_tone_mod,
-                             float reference_vel);
+                             float reference_vel, float limiter_decay, float master_volume);
 void VoiceAllocatorStop(struct VoiceAllocator* allocator, uint32_t id);
 void VoiceAllocatorRender(struct VoiceAllocator* allocator, uint32_t samples, float* out);
 

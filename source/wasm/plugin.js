@@ -58,6 +58,10 @@ export class MatsuriV2Node extends AudioWorkletNode {
 
 		// Send WASM to worklet so it can finish its initialisation there
 		this.port.postMessage({ type: "Initialise", array: s_wasm_array });
+
+		this.port.onmessage = (event) => {
+			console.log(event.data);
+		};
 	}
 
 	noteOn(note_no, velocity = 0.5) {

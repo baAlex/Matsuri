@@ -15,14 +15,14 @@
 		let reference_vel;
 
 		async function InitialiseStuff() {
-			function ConnectSliderParameter(slider_id, parameter_name) {
-				const slider = document.getElementById(slider_id);
+			function ConnectRangeParameter(range_id, parameter_name) {
+				const range = document.getElementById(range_id);
 				const parameter = node.parameters.get(parameter_name);
 
-				parameter.setValueAtTime(parseFloat(slider.value) / 100.0, ctx.currentTime);
+				parameter.setValueAtTime(parseFloat(range.value), ctx.currentTime);
 
-				slider.addEventListener("input", () => {
-					parameter.setValueAtTime(parseFloat(slider.value) / 100.0, ctx.currentTime);
+				range.addEventListener("input", () => {
+					parameter.setValueAtTime(parseFloat(range.value), ctx.currentTime);
 				});
 			}
 
@@ -32,25 +32,26 @@
 			node = new matsuri.MatsuriV2Node(ctx);
 			node.connect(ctx.destination);
 
-			ConnectSliderParameter("slider-volume", "volume");
-			ConnectSliderParameter("slider-volume-bass-drum", "volume-bass-drum");
-			ConnectSliderParameter("slider-volume-snare-drum", "volume-snare-drum");
-			ConnectSliderParameter("slider-volume-closed-hit-hat", "volume-closed-hit-hat");
-			ConnectSliderParameter("slider-volume-open-hit-hat", "volume-open-hit-hat");
-			ConnectSliderParameter("slider-volume-cymbal", "volume-cymbal");
-			ConnectSliderParameter("slider-volume-low-tom", "volume-low-tom");
-			ConnectSliderParameter("slider-volume-high-tom", "volume-high-tom");
-			ConnectSliderParameter("slider-velocity-volume-modulation", "velocity-volume-modulation");
-			ConnectSliderParameter("slider-velocity-tone-modulation", "velocity-tone-modulation");
-			ConnectSliderParameter("slider-velocity-reference", "velocity-reference");
+			ConnectRangeParameter("range-volume-bass-drum", "volume-bass-drum");
+			ConnectRangeParameter("range-volume-snare-drum", "volume-snare-drum");
+			ConnectRangeParameter("range-volume-closed-hit-hat", "volume-closed-hit-hat");
+			ConnectRangeParameter("range-volume-open-hit-hat", "volume-open-hit-hat");
+			ConnectRangeParameter("range-volume-cymbal", "volume-cymbal");
+			ConnectRangeParameter("range-volume-low-tom", "volume-low-tom");
+			ConnectRangeParameter("range-volume-high-tom", "volume-high-tom");
+			ConnectRangeParameter("range-velocity-volume-modulation", "velocity-volume-modulation");
+			ConnectRangeParameter("range-velocity-tone-modulation", "velocity-tone-modulation");
+			ConnectRangeParameter("range-velocity-reference", "velocity-reference");
+			ConnectRangeParameter("range-limiter-decay", "limiter-decay");
+			ConnectRangeParameter("range-master-volume", "master-volume");
 
-			reference_vel = document.getElementById("slider-velocity-reference");
+			reference_vel = document.getElementById("range-velocity-reference");
 		}
 
 		async function KeyOn(key_no) {
 			if (ctx == null || node == null)
 				await InitialiseStuff();
-			node.noteOn(key_no, parseFloat(reference_vel.value) / 100.0);
+			node.noteOn(key_no, parseFloat(reference_vel.value));
 		}
 
 		async function Midi(byte0, byte1, byte2) {
@@ -171,27 +172,24 @@
 		<fieldset>
 			<legend>Volume:</legend>
 
-			<label>Master:
-				<input type="range" id="slider-volume" min="0" max="100" value="100" list="marker100" /></label>
-			<label>Bass Drum:
-				<input type="range" id="slider-volume-bass-drum" min="0" max="100" value="100"
+			<label>Bass drum:
+				<input type="range" id="range-volume-bass-drum" min="0" max="100" value="100"
 					list="marker100" /></label>
-			<label>Snare Drum:
-				<input type="range" id="slider-volume-snare-drum" min="0" max="100" value="100"
+			<label>Snare drum:
+				<input type="range" id="range-volume-snare-drum" min="0" max="100" value="100"
 					list="marker100" /></label>
-			<label>Closed Hit-Hat:
-				<input type="range" id="slider-volume-closed-hit-hat" min="0" max="100" value="65"
+			<label>Closed hit-hat:
+				<input type="range" id="range-volume-closed-hit-hat" min="0" max="100" value="65"
 					list="marker65" /></label>
-			<label>Open Hit-Hat:
-				<input type="range" id="slider-volume-open-hit-hat" min="0" max="100" value="70"
+			<label>Open hit-hat:
+				<input type="range" id="range-volume-open-hit-hat" min="0" max="100" value="70"
 					list="marker70" /></label>
 			<label>Cymbal:
-				<input type="range" id="slider-volume-cymbal" min="0" max="100" value="80" list="marker80" /></label>
-			<label>Low Tom:
-				<input type="range" id="slider-volume-low-tom" min="0" max="100" value="100" list="marker100" /></label>
-			<label>High Tom:
-				<input type="range" id="slider-volume-high-tom" min="0" max="100" value="100"
-					list="marker100" /></label>
+				<input type="range" id="range-volume-cymbal" min="0" max="100" value="80" list="marker80" /></label>
+			<label>Low tom:
+				<input type="range" id="range-volume-low-tom" min="0" max="100" value="100" list="marker100" /></label>
+			<label>High tom:
+				<input type="range" id="range-volume-high-tom" min="0" max="100" value="100" list="marker100" /></label>
 
 			<datalist id="marker100">
 				<option value="100"></option>
@@ -211,21 +209,37 @@
 			<legend>Velocity:</legend>
 
 			<label>Volume modulation [1]:
-				<input type="range" id="slider-velocity-volume-modulation" min="0" max="100" value="100"
-					list="marker100" /></label>
+				<input type="range" id="range-velocity-volume-modulation" min="0" max="1" value="1" step="0.001"
+					list="marker1" /></label>
 			<label>Tone modulation [2]:
-				<input type="range" id="slider-velocity-tone-modulation" min="0" max="100" value="100"
-					list="marker100" /></label>
+				<input type="range" id="range-velocity-tone-modulation" min="0" max="1" value="1" step="0.001"
+					list="marker1" /></label>
 			<label>Velocity reference:
-				<input type="range" id="slider-velocity-reference" min="0" max="100" value="50"
-					list="marker50" /></label>
+				<input type="range" id="range-velocity-reference" min="0.0" max="1.0" value="0.5" step="0.001"
+					list="marker05" /></label>
 
+			<datalist id="marker1">
+				<option value="1"></option>
+			</datalist>
+			<datalist id="marker05">
+				<option value="0.5"></option>
+			</datalist>
+		</fieldset>
+
+		<fieldset>
+			<legend>Output:</legend>
+
+			<label>Limiter decay (0 to disable it):
+				<input type="range" id="range-limiter-decay" min="0" max="1000" value="0" list="marker0" /></label>
+
+			<label>Master volume:
+				<input type="range" id="range-master-volume" min="0" max="100" value="100" list="marker100" /></label>
+
+			<datalist id="marker0">
+				<option value="0"></option>
+			</datalist>
 			<datalist id="marker100">
 				<option value="100"></option>
-			</datalist>
-			<datalist id="marker50">
-				<option value="50"></option>
-			</datalist>
 		</fieldset>
 
 		<fieldset>

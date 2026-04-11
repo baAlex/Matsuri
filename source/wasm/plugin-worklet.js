@@ -25,17 +25,18 @@ class MatsuriV2Processor extends AudioWorkletProcessor {
 	static get parameterDescriptors() {
 		// https://developer.mozilla.org/en-US/docs/Web/API/AudioParam#k-rate
 		return [
-			{ name: "volume", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "volume-bass-drum", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "volume-snare-drum", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "volume-closed-hit-hat", defaultValue: 0.65, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "volume-open-hit-hat", defaultValue: 0.70, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "volume-cymbal", defaultValue: 0.80, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "volume-low-tom", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
-			{ name: "volume-high-tom", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "volume-bass-drum", defaultValue: 1.0, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
+			{ name: "volume-snare-drum", defaultValue: 1.0, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
+			{ name: "volume-closed-hit-hat", defaultValue: 0.65, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
+			{ name: "volume-open-hit-hat", defaultValue: 0.70, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
+			{ name: "volume-cymbal", defaultValue: 0.80, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
+			{ name: "volume-low-tom", defaultValue: 1.0, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
+			{ name: "volume-high-tom", defaultValue: 1.0, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
 			{ name: "velocity-volume-modulation", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "velocity-tone-modulation", defaultValue: 1.0, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
 			{ name: "velocity-reference", defaultValue: 0.5, minValue: 0.0, maxValue: 1.0, automationRate: "k-rate" },
+			{ name: "limiter-decay", defaultValue: 0.0, minValue: 0.0, maxValue: 1000.0, automationRate: "k-rate" },
+			{ name: "master-volume", defaultValue: 1.0, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
 		];
 	}
 
@@ -59,6 +60,12 @@ class MatsuriV2Processor extends AudioWorkletProcessor {
 
 				const pointer = this.m_wasm.Initialise(sampleRate);
 				this.m_view = new Float32Array(this.m_wasm.memory.buffer, pointer, 128);
+
+				// if (pointer == null)
+				// {
+				// 	this.port.postMessage("Error, cannot initialise WASM");
+				// 	return;
+				// }
 
 				// Queued events?
 				for (const q of this.early_events) {
@@ -84,7 +91,6 @@ class MatsuriV2Processor extends AudioWorkletProcessor {
 			return true;
 
 		this.m_wasm.Render(
-			parameters["volume"][0],
 			parameters["volume-bass-drum"][0],
 			parameters["volume-snare-drum"][0],
 			parameters["volume-closed-hit-hat"][0],
@@ -95,6 +101,8 @@ class MatsuriV2Processor extends AudioWorkletProcessor {
 			parameters["velocity-volume-modulation"][0],
 			parameters["velocity-tone-modulation"][0],
 			parameters["velocity-reference"][0],
+			parameters["limiter-decay"][0],
+			parameters["master-volume"][0],
 			this.m_view.length);
 
 		const out = outputs[0];

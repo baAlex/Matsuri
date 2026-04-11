@@ -47,11 +47,10 @@ static const clap_plugin_descriptor_t s_descriptor = {
 };
 
 
-#define PARAMETERS_NO 11
+#define PARAMETERS_NO 12
 enum ParameterId
 {
-	PARAMETER_VOLUME = 0,
-	PARAMETER_KICK_VOLUME,
+	PARAMETER_KICK_VOLUME = 0,
 	PARAMETER_SNARE_VOLUME,
 	PARAMETER_CLOSED_HAT_VOLUME,
 	PARAMETER_OPEN_HAT_VOLUME,
@@ -61,11 +60,12 @@ enum ParameterId
 	PARAMETER_VELOCITY_VOLUME_MODULATION,
 	PARAMETER_VELOCITY_TONE_MODULATION,
 	PARAMETER_VELOCITY_REFERENCE,
+	PARAMETER_LIMITER_DECAY,
+	PARAMETER_MASTER_VOLUME,
 };
 
 struct ParameterInfo
 {
-	enum ParameterId id;
 	const char* group; // TODO, Neither Zrythm nor QTractor honor this
 	const char* name;
 	float default_value;
@@ -77,19 +77,20 @@ struct ParameterInfo
 };
 
 static const struct ParameterInfo s_parameters_info[PARAMETERS_NO] = {
-    {PARAMETER_VOLUME, "Volume", "Master", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"", "Bass drum", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"", "Snare drum", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"", "Closed hit-hat", 65.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"", "Open hit-hat", 70.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"", "Cymbal", 80.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"", "Low tom", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"", "High tom", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
 
-    {PARAMETER_KICK_VOLUME, "Volume", "Bass Drum", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_SNARE_VOLUME, "Volume", "Snare Drum", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_CLOSED_HAT_VOLUME, "Volume", "Closed Hit-Hat", 65.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_OPEN_HAT_VOLUME, "Volume", "Open Hit-Hat", 70.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_CYMBAL_VOLUME, "Volume", "Cymbal", 80.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_LOW_TOM_VOLUME, "Volume", "Low Tom", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {PARAMETER_HIGH_TOM_VOLUME, "Volume", "High Tom", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"", "Velocity-volume modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
+    {"", "Velocity-tone modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
+    {"", "Velocity reference", 0.5f, 0.0f, 1.0f, 65536.0f, "x"},
 
-    {PARAMETER_VELOCITY_VOLUME_MODULATION, "Velocity", "Velocity-Volume Modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
-    {PARAMETER_VELOCITY_TONE_MODULATION, "Velocity", "Velocity-Tone Modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
-    {PARAMETER_VELOCITY_REFERENCE, "Velocity", "Velocity Reference", 0.5f, 0.0f, 1.0f, 65536.0f, "x"},
+    {"", "Limiter decay", 0.0f, 0.0f, 1000.0f, 65.536f, "ms"},
+    {"", "Master", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
 };
 
 struct MatsuriPlugin
@@ -116,7 +117,13 @@ static float sFixedToFloat(int v, float conversion)
 	return (float)(v) / conversion;
 }
 
-static float sParameterToVolume(const struct MatsuriPlugin* plugin, int index)
+static float sParameter(const struct MatsuriPlugin* plugin, int index)
+{
+	return sFixedToFloat(plugin->parameter[index], s_parameters_info[index].fixed_conversion) /
+	       s_parameters_info[index].max_value;
+}
+
+static float sVolumeParameter(const struct MatsuriPlugin* plugin, int index)
 {
 	return ExponentialVolumeEasing(                                                          //
 	    sFixedToFloat(plugin->parameter[index], s_parameters_info[index].fixed_conversion) / //
@@ -216,7 +223,7 @@ static bool sPluginParametersInfo(const clap_plugin_t* plugin, uint32_t index, c
 		memset(out, 0, sizeof(clap_param_info_t));
 		out->id = index;
 
-		out->flags = CLAP_PARAM_IS_AUTOMATABLE | CLAP_PARAM_REQUIRES_PROCESS;
+		out->flags = CLAP_PARAM_IS_AUTOMATABLE;
 		out->default_value = s_parameters_info[index].default_value;
 		out->min_value = s_parameters_info[index].min_value;
 		out->max_value = s_parameters_info[index].max_value;
@@ -522,28 +529,21 @@ static void sPluginProcessEvent(struct MatsuriPlugin* plugin, const clap_event_h
 		    sFloatToFixed((float)(param_event->value), s_parameters_info[index].fixed_conversion);
 
 		// Handle special cases
-		if (index == PARAMETER_VOLUME)
+		if (index == PARAMETER_VELOCITY_VOLUME_MODULATION || index == PARAMETER_VELOCITY_TONE_MODULATION ||
+		    index == PARAMETER_VELOCITY_REFERENCE || index == PARAMETER_LIMITER_DECAY ||
+		    index == PARAMETER_MASTER_VOLUME)
 		{
-			plugin->parameters_changed_offline = 1; // Force all other voices to update
-			return;                                 // Nothing more to do
-		}
-		else if (index == PARAMETER_VELOCITY_VOLUME_MODULATION || index == PARAMETER_VELOCITY_TONE_MODULATION ||
-		         index == PARAMETER_VELOCITY_REFERENCE)
-		{
-			VoiceAllocatorConfigure(
-			    &plugin->allocator,
-			    sFixedToFloat(plugin->parameter[(int)(PARAMETER_VELOCITY_VOLUME_MODULATION)],
-			                  s_parameters_info[(int)(PARAMETER_VELOCITY_VOLUME_MODULATION)].fixed_conversion), //
-			    sFixedToFloat(plugin->parameter[(int)(PARAMETER_VELOCITY_TONE_MODULATION)],
-			                  s_parameters_info[(int)(PARAMETER_VELOCITY_TONE_MODULATION)].fixed_conversion), //
-			    sFixedToFloat(plugin->parameter[(int)(PARAMETER_VELOCITY_REFERENCE)],
-			                  s_parameters_info[(int)(PARAMETER_VELOCITY_REFERENCE)].fixed_conversion));
+			VoiceAllocatorConfigure(&plugin->allocator,
+			                        sParameter(plugin, (int)(PARAMETER_VELOCITY_VOLUME_MODULATION)), //
+			                        sParameter(plugin, (int)(PARAMETER_VELOCITY_TONE_MODULATION)),   //
+			                        sParameter(plugin, (int)(PARAMETER_VELOCITY_REFERENCE)),         //
+			                        sParameter(plugin, (int)(PARAMETER_LIMITER_DECAY)),              //
+			                        sVolumeParameter(plugin, (int)(PARAMETER_MASTER_VOLUME)));
 			return; // Nothing more to do
 		}
 
-		// Handle volume parameter
-		const float v = sParameterToVolume(plugin, (int)(PARAMETER_VOLUME)) *
-		                ExponentialVolumeEasing(((float)(param_event->value) / s_parameters_info[index].max_value));
+		// Handle volume parameters
+		const float v = ExponentialVolumeEasing(((float)(param_event->value) / s_parameters_info[index].max_value));
 
 		switch (index)
 		{
@@ -574,31 +574,27 @@ static clap_process_status sPluginProcess(const struct clap_plugin* plugin_, con
 	if (plugin->parameters_changed_offline != 0) // Outside code changed our guys (changed them not using events)
 	{
 		plugin->parameters_changed_offline = 0;
-		const float v = sParameterToVolume(plugin, (int)(PARAMETER_VOLUME));
 
-		VoiceAllocatorConfigure(
-		    &plugin->allocator,
-		    sFixedToFloat(plugin->parameter[(int)(PARAMETER_VELOCITY_VOLUME_MODULATION)],
-		                  s_parameters_info[(int)(PARAMETER_VELOCITY_VOLUME_MODULATION)].fixed_conversion), //
-		    sFixedToFloat(plugin->parameter[(int)(PARAMETER_VELOCITY_TONE_MODULATION)],
-		                  s_parameters_info[(int)(PARAMETER_VELOCITY_TONE_MODULATION)].fixed_conversion), //
-		    sFixedToFloat(plugin->parameter[(int)(PARAMETER_VELOCITY_REFERENCE)],
-		                  s_parameters_info[(int)(PARAMETER_VELOCITY_REFERENCE)].fixed_conversion));
+		VoiceAllocatorConfigure(&plugin->allocator, sParameter(plugin, (int)(PARAMETER_VELOCITY_VOLUME_MODULATION)), //
+		                        sParameter(plugin, (int)(PARAMETER_VELOCITY_TONE_MODULATION)),                       //
+		                        sParameter(plugin, (int)(PARAMETER_VELOCITY_REFERENCE)),                             //
+		                        sParameter(plugin, (int)(PARAMETER_LIMITER_DECAY)),                                  //
+		                        sVolumeParameter(plugin, (int)(PARAMETER_MASTER_VOLUME)));
 
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_KICK,
-		                             v * sParameterToVolume(plugin, (int)(PARAMETER_KICK_VOLUME)));
+		                             sVolumeParameter(plugin, (int)(PARAMETER_KICK_VOLUME)));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_SNARE,
-		                             v * sParameterToVolume(plugin, (int)(PARAMETER_SNARE_VOLUME)));
+		                             sVolumeParameter(plugin, (int)(PARAMETER_SNARE_VOLUME)));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CLOSED_HAT,
-		                             v * sParameterToVolume(plugin, (int)(PARAMETER_CLOSED_HAT_VOLUME)));
+		                             sVolumeParameter(plugin, (int)(PARAMETER_CLOSED_HAT_VOLUME)));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_OPEN_HAT,
-		                             v * sParameterToVolume(plugin, (int)(PARAMETER_OPEN_HAT_VOLUME)));
+		                             sVolumeParameter(plugin, (int)(PARAMETER_OPEN_HAT_VOLUME)));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CYMBAL,
-		                             v * sParameterToVolume(plugin, (int)(PARAMETER_CYMBAL_VOLUME)));
+		                             sVolumeParameter(plugin, (int)(PARAMETER_CYMBAL_VOLUME)));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_LOW_TOM,
-		                             v * sParameterToVolume(plugin, (int)(PARAMETER_LOW_TOM_VOLUME)));
+		                             sVolumeParameter(plugin, (int)(PARAMETER_LOW_TOM_VOLUME)));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_HIGH_TOM,
-		                             v * sParameterToVolume(plugin, (int)(PARAMETER_HIGH_TOM_VOLUME)));
+		                             sVolumeParameter(plugin, (int)(PARAMETER_HIGH_TOM_VOLUME)));
 	}
 
 	for (uint32_t f = 0; f < frames;)
