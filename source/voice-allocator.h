@@ -19,6 +19,17 @@ defined by the Mozilla Public License, v. 2.0.
 #define MAX_MAX_ITEMS 16
 
 
+struct TailProgram
+{
+	float c;
+};
+
+struct TailState
+{
+	float x;
+};
+
+
 struct VoiceAllocatorVoice // Should be tiny in size, we iterate it a lot
 {
 	uint32_t id;
@@ -65,8 +76,8 @@ struct VoiceAllocator
 	struct VoiceAllocatorVoice voices[MAX_MAX_ITEMS];
 	struct VoiceAllocatorState states[MAX_MAX_ITEMS];
 
-	struct mtsr_TailProgram tail_p;
-	struct mtsr_TailState tail_s;
+	struct TailProgram tail_p;
+	struct TailState tail_s;
 	uint32_t tail_samples;
 
 	float limiter;

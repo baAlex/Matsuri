@@ -184,7 +184,22 @@ float mtsr_CheapDistortion(float x, float f)
 	return sEasing(x, f);
 }
 
-static FORCED_INLINE float sFastNegExp(float x)
+
+//
+
+
+static FORCED_INLINE float sMax(float a, float b)
+{
+	return (a > b) ? a : b;
+}
+
+static FORCED_INLINE float sRound(float x)
+{
+	return (x >= 0.0f) ? (float)((int)(x + 0.5f)) : (float)((int)(x - 0.5f));
+}
+
+
+float mtsr_FastNegExp(float x)
 {
 	assert(x >= 0.0f);
 
@@ -228,38 +243,10 @@ static FORCED_INLINE float sFastNegExp(float x)
 	// https://theorangeduck.com/page/spring-roll-call
 }
 
-float mtsr_FancyDistortion(float x, float f)
-{
-	assert(x >= -1.0f && x <= 1.0f);
-	assert(f > 0.001f);
-	const float v = (sFastNegExp(sAbs(x) * f) - 1.0f) / (sFastNegExp(f) - 1.0f);
-	return (x > 0.0f) ? v : -v;
-}
-
-
-float mtsr_TailStep(struct mtsr_TailProgram* restrict p, struct mtsr_TailState* restrict s)
-{
-	s->x *= p->c;
-	return s->x;
-}
-
-
-//
-
-
-static FORCED_INLINE float sMax(float a, float b)
-{
-	return (a > b) ? a : b;
-}
-
-static FORCED_INLINE float sRound(float x)
-{
-	return (x >= 0.0f) ? (float)((int)(x + 0.5f)) : (float)((int)(x - 0.5f));
-}
 
 static FORCED_INLINE float sSemitoneDetune(float x)
 {
-	const float a = sFastNegExp(LOG_2_SEMITONE * sAbs(x));
+	const float a = mtsr_FastNegExp(LOG_2_SEMITONE * sAbs(x));
 	return (x < 0.0f) ? a : 1.0f / a;
 }
 
@@ -273,10 +260,10 @@ void mtsr_OscillatorSetProgram(float sampling_frequency, float decay_ms, float s
 	const float decay_samples = (decay_ms * sampling_frequency) / 1000.0f;
 	const float sweep_decay_samples = (sweep_decay_ms * sampling_frequency) / 1000.0f;
 
-	p->zeta = (1.0f - sFastNegExp((-LOG_60DB) / decay_samples)) * 2.0f;
+	p->zeta = (1.0f - mtsr_FastNegExp((-LOG_60DB) / decay_samples)) * 2.0f;
 
 	p->sweep_target = sSemitoneDetune(sweep_factor);
-	p->sweep_step = 1.0f - sFastNegExp((-LOG_100_PERCENT) / sweep_decay_samples);
+	p->sweep_step = 1.0f - mtsr_FastNegExp((-LOG_100_PERCENT) / sweep_decay_samples);
 }
 
 void mtsr_OscillatorSetState(enum mtsr_StateState state_state, float sampling_frequency, float frequency,
@@ -440,18 +427,18 @@ void mtsr_FilterSetProgram(float sampling_frequency, enum mtsr_FilterType type, 
 
 	case MTSR_RC_HIGHPASS_6DB: // Mine, common sense
 	{
-		p->c_b0 = sFastNegExp(wo);
-		p->c[B1] = -sFastNegExp(wo);
+		p->c_b0 = mtsr_FastNegExp(wo);
+		p->c[B1] = -mtsr_FastNegExp(wo);
 		p->c[B2] = 0.0f;
 
 		a0 = 1.0f;
-		p->c[A1] = -sFastNegExp(wo);
+		p->c[A1] = -mtsr_FastNegExp(wo);
 		p->c[A2] = 0.0f;
 		break;
 	}
 	case MTSR_RC_LOWPASS_6DB: // Mine, common sense
 	{
-		const float a = sFastNegExp(wo);
+		const float a = mtsr_FastNegExp(wo);
 		p->c_b0 = 1.0f - a;
 		p->c[B1] = 0.0f;
 		p->c[B2] = 0.0f;
@@ -463,7 +450,7 @@ void mtsr_FilterSetProgram(float sampling_frequency, enum mtsr_FilterType type, 
 	}
 	case MTSR_RC_LOWPASS_12DB: // Mine, brute force
 	{
-		const float a = sFastNegExp(wo);
+		const float a = mtsr_FastNegExp(wo);
 		p->c_b0 = (1.0f - a) * (1.0f - a);
 		p->c[B1] = 0.0f;
 		p->c[B2] = 0.0f;
@@ -559,23 +546,6 @@ void mtsr_SquareX6SetState(uint32_t seed, struct mtsr_SquareX6State* restrict s)
 	s->phase[3] = p3 & MASK;
 	s->phase[4] = p4 & MASK;
 	s->phase[5] = p5 & MASK;
-}
-
-
-void mtsr_TailSetProgram(float sampling_frequency, float decay_ms, struct mtsr_TailProgram* restrict p)
-{
-	const float decay_samples = (decay_ms * sampling_frequency) / 1000.0f;
-	p->c = sFastNegExp((-LOG_100_PERCENT) / decay_samples);
-}
-
-void mtsr_TailSetState(struct mtsr_TailState* restrict s)
-{
-	s->x = 0.0f;
-}
-
-void mtsr_TailAccumulate(struct mtsr_TailState* restrict s, float signal)
-{
-	s->x += signal;
 }
 
 
@@ -859,7 +829,7 @@ float mtsr606_HatSetState(enum mtsr_StateState state_state, float sampling_frequ
 
 		const float fade_out_in_samples =
 		    (sMap(0.25f, 1.0f, 2000.0f, 3000.0f, sMax(tone_vel, 0.25f)) * sampling_frequency) / 1000.0f;
-		s->fade_out_in_c = sFastNegExp((-LOG_100_PERCENT) / fade_out_in_samples);
+		s->fade_out_in_c = mtsr_FastNegExp((-LOG_100_PERCENT) / fade_out_in_samples);
 
 		// Same length logic as open hat (with different values)
 		long_length = sMap(0.25f, 1.0f, 1400.0f, 2500.0f, sMax(tone_vel, 0.125f));

@@ -140,23 +140,7 @@ float mtsr_SquareX6Step(const struct mtsr_SquareX6Program* p, struct mtsr_Square
 
 
 float mtsr_CheapDistortion(float x, float f);
-float mtsr_FancyDistortion(float x, float f);
-
-
-struct mtsr_TailProgram
-{
-	float c;
-};
-
-struct mtsr_TailState
-{
-	float x;
-};
-
-void mtsr_TailSetProgram(float sampling_frequency, float decay_ms, struct mtsr_TailProgram* p);
-void mtsr_TailSetState(struct mtsr_TailState* s);
-void mtsr_TailAccumulate(struct mtsr_TailState* s, float signal);
-float mtsr_TailStep(struct mtsr_TailProgram* p, struct mtsr_TailState* s);
+float mtsr_FastNegExp(float x);
 
 
 struct mtsr606_KickProgram

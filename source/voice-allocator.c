@@ -41,6 +41,29 @@ static FORCED_INLINE float sMax(float a, float b)
 }
 
 
+float TailStep(struct TailProgram* restrict p, struct TailState* restrict s)
+{
+	s->x *= p->c;
+	return s->x;
+}
+
+void TailSetProgram(float sampling_frequency, float decay_ms, struct TailProgram* restrict p)
+{
+	const float decay_samples = (decay_ms * sampling_frequency) / 1000.0f;
+	p->c = mtsr_FastNegExp((-LOG_100_PERCENT) / decay_samples);
+}
+
+void TailSetState(struct TailState* restrict s)
+{
+	s->x = 0.0f;
+}
+
+void TailAccumulate(struct TailState* restrict s, float signal)
+{
+	s->x += signal;
+}
+
+
 void VoiceAllocatorSet(struct VoiceAllocator* self, float sampling_frequency, int max_items)
 {
 	assert(max_items <= MAX_MAX_ITEMS);
@@ -62,8 +85,8 @@ void VoiceAllocatorSet(struct VoiceAllocator* self, float sampling_frequency, in
 	Memset(self->voices, 0, sizeof(struct VoiceAllocatorVoice) * (size_t)(max_items));
 	Memset(self->states, 0, sizeof(struct VoiceAllocatorState) * (size_t)(max_items));
 
-	mtsr_TailSetProgram(sampling_frequency, 10.0f, &self->tail_p);
-	mtsr_TailSetState(&self->tail_s);
+	TailSetProgram(sampling_frequency, 10.0f, &self->tail_p);
+	TailSetState(&self->tail_s);
 	self->tail_samples = (uint32_t)((10.0f * sampling_frequency) / 1000.0f);
 
 	self->limiter = 0.0f;
@@ -110,7 +133,7 @@ static uint32_t sFindAndSetQueueItem(struct VoiceAllocator* self, enum Allocatio
 		{
 			if (self->voices[i].id == id)
 			{
-				mtsr_TailAccumulate(&self->tail_s, self->states[i].last_signal);
+				TailAccumulate(&self->tail_s, self->states[i].last_signal);
 				self->voices[i].remaining = 0;
 				item_to_use = i;
 			}
@@ -204,7 +227,7 @@ void VoiceAllocatorStop(struct VoiceAllocator* self, uint32_t id)
 
 		if (v->id == id && v->remaining != 0)
 		{
-			mtsr_TailAccumulate(&self->tail_s, s->last_signal);
+			TailAccumulate(&self->tail_s, s->last_signal);
 			v->remaining = 0;
 		}
 	}
@@ -232,11 +255,11 @@ void VoiceAllocatorConfigure(struct VoiceAllocator* self, float vel_vol_mod, flo
 
 void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* out)
 {
-	// Render tails (and clean)
+	// Render tail (and clean)
 	{
 		float* sample = out;
 		for (; sample < out + MinU(self->tail_samples, samples); sample += 1)
-			*sample = mtsr_TailStep(&self->tail_p, &self->tail_s);
+			*sample = TailStep(&self->tail_p, &self->tail_s);
 		for (; sample < out + samples; sample += 1)
 			*sample = 0.0f;
 	}
