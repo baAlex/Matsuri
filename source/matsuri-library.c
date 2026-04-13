@@ -263,18 +263,19 @@ static FORCED_INLINE float sSemitoneDetune(float x)
 }
 
 
-void OscillatorSetProgram(float sampling_frequency, float decay_ms, float sweep_factor,
+void OscillatorSetProgram(float sampling_frequency, float decay_ms, float sweep_factor, float sweep_decay_ms,
                           struct OscillatorProgram* restrict p)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(decay_ms >= 0.0f);
 
 	const float decay_samples = (decay_ms * sampling_frequency) / 1000.0f;
+	const float sweep_decay_samples = (sweep_decay_ms * sampling_frequency) / 1000.0f;
 
 	p->zeta = (1.0f - sFastNegExp((-LOG_60DB) / decay_samples)) * 2.0f;
 
 	p->sweep_target = sSemitoneDetune(sweep_factor);
-	p->sweep_step = 1.0f - sFastNegExp((-LOG_100_PERCENT) / decay_samples);
+	p->sweep_step = 1.0f - sFastNegExp((-LOG_100_PERCENT) / sweep_decay_samples);
 }
 
 void OscillatorSetState(enum StateState state_state, float sampling_frequency, float frequency, float delay_ms,
@@ -579,8 +580,8 @@ void TailAccumulate(struct TailState* restrict s, float signal)
 void KickSetProgram(float sampling_frequency, struct KickProgram* restrict p)
 {
 	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, 1.13f, 2.58f - 1.13f, -0.4f, 0.2f, &p->env);
-	OscillatorSetProgram(sampling_frequency, 270.0f, 0.0f, &p->osc[0]);
-	OscillatorSetProgram(sampling_frequency, 65.0f, 0.0f, &p->osc[1]);
+	OscillatorSetProgram(sampling_frequency, 300.0f, -1.0f, 300.0f, &p->osc[0]);
+	OscillatorSetProgram(sampling_frequency, 150.0f, -6.0f, 150.0f, &p->osc[1]);
 }
 
 static FORCED_INLINE float sMap(float in_a, float in_b, float out_a, float out_b, float f)
@@ -664,8 +665,8 @@ float RenderAdditiveKick(float mixer_volume, const struct KickProgram* restrict 
 
 void SnareSetProgram(float sampling_frequency, struct SnareProgram* restrict p)
 {
-	OscillatorSetProgram(sampling_frequency, 140.0f, -12.0f, &p->osc);
-	EnvelopeSetProgram(sampling_frequency, 0.0f, 2.0f, 60.0f, 0.05f, 50.0f, 3.75f, &p->env);
+	OscillatorSetProgram(sampling_frequency, 140.0f, -12.0f, 140.0f, &p->osc);
+	EnvelopeSetProgram(sampling_frequency, 0.0f, 2.0f, 0.0f, 1.0f, 85.0f, 3.7f, &p->env);
 	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 3500.0f, 0.6f, 1.0f, &p->filter[0]);
 	FilterSetProgram(sampling_frequency, RC_LOWPASS_6DB, 500.0f, 0.0f, 1.0f, &p->filter[1]);
 }
@@ -976,15 +977,22 @@ float RenderAdditiveHat(float volume, const struct HatProgram* restrict p, struc
 void TomSetProgram(float sampling_frequency, enum TomType type, struct TomProgram* restrict p)
 {
 	float length;
+	float sweep;
 
 	switch (type)
 	{
-	case LOW_TOM: length = 390.0f; break;
-	case HIGH_TOM: length = 250.0f; break;
+	case LOW_TOM:
+		length = 390.0f;
+		sweep = -6.0f;
+		break;
+	case HIGH_TOM:
+		length = 250.0f;
+		sweep = -3.0f;
+		break;
 	}
 
 	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, 0.5f, 1.5f - 0.5f, 0.8f, -0.2f, &p->env);
-	OscillatorSetProgram(sampling_frequency, length, -1.0f, &p->osc);
+	OscillatorSetProgram(sampling_frequency, length, sweep, 100.0f, &p->osc);
 }
 
 float TomSetState(enum StateState state_state, float sampling_frequency, enum TomType type, float velocity,
@@ -1002,13 +1010,13 @@ float TomSetState(enum StateState state_state, float sampling_frequency, enum To
 	float frequency;
 	switch (type)
 	{
-	case LOW_TOM: frequency = 150.0f; break;
-	case HIGH_TOM: frequency = 210.0f; break;
+	case LOW_TOM: frequency = 170.0f; break;
+	case HIGH_TOM: frequency = 220.0f; break;
 	}
 
 	s->click_volume = general_volume;
 	ShapedEnvelopeSetState(state_state, &s->env);
-	OscillatorSetState(state_state, sampling_frequency, frequency, 1.5f, 1.0f * general_volume, &s->osc);
+	OscillatorSetState(state_state, sampling_frequency, frequency, 1.5f, general_volume, &s->osc);
 
 	switch (type)
 	{

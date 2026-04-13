@@ -39,7 +39,8 @@ struct OscillatorState
 	float sweep;
 };
 
-void OscillatorSetProgram(float sampling_frequency, float decay_ms, float sweep_factor, struct OscillatorProgram* p);
+void OscillatorSetProgram(float sampling_frequency, float decay_ms, float sweep_factor, float sweep_decay_ms,
+                          struct OscillatorProgram* p);
 void OscillatorSetState(enum StateState, float sampling_frequency, float frequency, float delay_ms, float volume,
                         struct OscillatorState* s);
 float OscillatorStep(const struct OscillatorProgram* p, struct OscillatorState* s);
