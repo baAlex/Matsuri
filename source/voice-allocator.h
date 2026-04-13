@@ -42,10 +42,10 @@ struct VoiceAllocatorState // Big as instruments require it, we don't access thi
 	enum VoiceAllocatorVoiceType type;
 	union
 	{
-		struct KickState kick;
-		struct SnareState snare;
-		struct HatState hat;
-		struct TomState tom;
+		struct mtsr606_KickState kick;
+		struct mtsr606_SnareState snare;
+		struct mtsr606_HatState hat;
+		struct mtsr606_TomState tom;
 	} state;
 
 	float last_signal;
@@ -65,8 +65,8 @@ struct VoiceAllocator
 	struct VoiceAllocatorVoice voices[MAX_MAX_ITEMS];
 	struct VoiceAllocatorState states[MAX_MAX_ITEMS];
 
-	struct TailProgram tail_p;
-	struct TailState tail_s;
+	struct mtsr_TailProgram tail_p;
+	struct mtsr_TailState tail_s;
 	uint32_t tail_samples;
 
 	float limiter;
@@ -76,13 +76,13 @@ struct VoiceAllocator
 	struct
 	{
 		// Programs are shared between voices of the same instrument
-		struct KickProgram kick;
-		struct SnareProgram snare;
-		struct HatProgram open_hat;
-		struct HatProgram closed_hat;
-		struct HatProgram cymbal;
-		struct TomProgram low_tom;
-		struct TomProgram high_tom;
+		struct mtsr606_KickProgram kick;
+		struct mtsr606_SnareProgram snare;
+		struct mtsr606_HatProgram open_hat;
+		struct mtsr606_HatProgram closed_hat;
+		struct mtsr606_HatProgram cymbal;
+		struct mtsr606_TomProgram low_tom;
+		struct mtsr606_TomProgram high_tom;
 	} program;
 };
 

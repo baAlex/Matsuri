@@ -41,7 +41,7 @@ defined by the Mozilla Public License, v. 2.0.
 #endif
 
 
-float OscillatorStep(const struct OscillatorProgram* restrict p, struct OscillatorState* restrict s)
+float mtsr_OscillatorStep(const struct mtsr_OscillatorProgram* restrict p, struct mtsr_OscillatorState* restrict s)
 {
 	const int go = (s->delay < 0) ? 1 : 0;
 
@@ -55,7 +55,7 @@ float OscillatorStep(const struct OscillatorProgram* restrict p, struct Oscillat
 }
 
 
-float EnvelopeStep(const struct EnvelopeProgram* restrict p, struct EnvelopeState* restrict s)
+float mtsr_EnvelopeStep(const struct mtsr_EnvelopeProgram* restrict p, struct mtsr_EnvelopeState* restrict s)
 {
 	const uint32_t stage = s->stage; // Compiler wants these to be loaded in a
 	const uint32_t x = s->x;         // register in order to emit a CMOV
@@ -96,7 +96,8 @@ static FORCED_INLINE float sEasing(float x, float f)
 	return (x - f * x) / (f - 2.0f * f * sAbs(x) + 1.0f);
 }
 
-float ShapedEnvelopeStep(const struct ShapedEnvelopeProgram* restrict p, struct ShapedEnvelopeState* restrict s)
+float mtsr_ShapedEnvelopeStep(const struct mtsr_ShapedEnvelopeProgram* restrict p,
+                              struct mtsr_ShapedEnvelopeState* restrict s)
 {
 	const uint32_t stage = s->stage;
 	const uint32_t x = s->x;
@@ -122,7 +123,7 @@ static FORCED_INLINE uint32_t sXorshift(uint32_t x)
 	return x;
 }
 
-float NoiseStep(struct NoiseState* restrict s)
+float mtsr_NoiseStep(struct mtsr_NoiseState* restrict s)
 {
 	s->x = sXorshift(s->x);
 	return (float)((s->x) >> 8) * NOISE_SCALE - 1.0f;
@@ -139,7 +140,7 @@ float NoiseStep(struct NoiseState* restrict s)
 #define B2 X2
 #define A2 Y2
 
-float FilterStep(float x, const struct FilterProgram* restrict p, struct FilterState* restrict s)
+float mtsr_FilterStep(float x, const struct mtsr_FilterProgram* restrict p, struct mtsr_FilterState* restrict s)
 {
 	const float y = (p->c_b0 * x)                                   //
 	                + (p->c[B1] * s->s[X1]) + (p->c[B2] * s->s[X2]) // [a]
@@ -157,7 +158,7 @@ float FilterStep(float x, const struct FilterProgram* restrict p, struct FilterS
 #define MASK 16777215 // ((1 << PRECISION) - 1) (for PRECISION = 24)
 #define SHIFT 22      // (PRECISION - 2)        (for PRECISION = 24)
 
-float SquareX6Step(const struct SquareX6Program* restrict p, struct SquareX6State* restrict s)
+float mtsr_SquareX6Step(const struct mtsr_SquareX6Program* restrict p, struct mtsr_SquareX6State* restrict s)
 {
 	s->phase[0] = (s->phase[0] + p->step[0]) & MASK;
 	s->phase[1] = (s->phase[1] + p->step[1]) & MASK;
@@ -178,7 +179,7 @@ float SquareX6Step(const struct SquareX6Program* restrict p, struct SquareX6Stat
 }
 
 
-float CheapDistortion(float x, float f)
+float mtsr_CheapDistortion(float x, float f)
 {
 	return sEasing(x, f);
 }
@@ -227,7 +228,7 @@ static FORCED_INLINE float sFastNegExp(float x)
 	// https://theorangeduck.com/page/spring-roll-call
 }
 
-float FancyDistortion(float x, float f)
+float mtsr_FancyDistortion(float x, float f)
 {
 	assert(x >= -1.0f && x <= 1.0f);
 	assert(f > 0.001f);
@@ -236,7 +237,7 @@ float FancyDistortion(float x, float f)
 }
 
 
-float TailStep(struct TailProgram* restrict p, struct TailState* restrict s)
+float mtsr_TailStep(struct mtsr_TailProgram* restrict p, struct mtsr_TailState* restrict s)
 {
 	s->x *= p->c;
 	return s->x;
@@ -263,8 +264,8 @@ static FORCED_INLINE float sSemitoneDetune(float x)
 }
 
 
-void OscillatorSetProgram(float sampling_frequency, float decay_ms, float sweep_factor, float sweep_decay_ms,
-                          struct OscillatorProgram* restrict p)
+void mtsr_OscillatorSetProgram(float sampling_frequency, float decay_ms, float sweep_factor, float sweep_decay_ms,
+                               struct mtsr_OscillatorProgram* restrict p)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(decay_ms >= 0.0f);
@@ -278,8 +279,8 @@ void OscillatorSetProgram(float sampling_frequency, float decay_ms, float sweep_
 	p->sweep_step = 1.0f - sFastNegExp((-LOG_100_PERCENT) / sweep_decay_samples);
 }
 
-void OscillatorSetState(enum StateState state_state, float sampling_frequency, float frequency, float delay_ms,
-                        float volume, struct OscillatorState* restrict s)
+void mtsr_OscillatorSetState(enum mtsr_StateState state_state, float sampling_frequency, float frequency,
+                             float delay_ms, float volume, struct mtsr_OscillatorState* restrict s)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(frequency >= 0.0f);
@@ -287,7 +288,7 @@ void OscillatorSetState(enum StateState state_state, float sampling_frequency, f
 
 	switch (state_state)
 	{
-	case STATE_START:
+	case MTSR_STATE_START:
 		s->delay = (int)((delay_ms * sampling_frequency) / 1000.0f) - 1;
 		s->omega = (frequency / sampling_frequency) * PI_TWO;
 		s->omega = s->omega * s->omega;
@@ -295,7 +296,7 @@ void OscillatorSetState(enum StateState state_state, float sampling_frequency, f
 		s->x = 0.0f;
 		s->sweep = 1.0;
 		break;
-	case STATE_DEAD:
+	case MTSR_STATE_DEAD:
 		s->delay = 0;
 		s->omega = (frequency / sampling_frequency) * PI_TWO;
 		s->omega = s->omega * s->omega;
@@ -306,8 +307,8 @@ void OscillatorSetState(enum StateState state_state, float sampling_frequency, f
 }
 
 
-void EnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms, float sustain,
-                        float decay2_ms, float volume, struct EnvelopeProgram* restrict p)
+void mtsr_EnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms, float sustain,
+                             float decay2_ms, float volume, struct mtsr_EnvelopeProgram* restrict p)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(delay_ms >= 0.0f);
@@ -325,16 +326,16 @@ void EnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_m
 	p->levels[3] = (decay2_ms <= 0.0f) ? (sustain * volume) : 0.0f;
 }
 
-void EnvelopeSetState(enum StateState state_state, struct EnvelopeState* restrict s)
+void mtsr_EnvelopeSetState(enum mtsr_StateState state_state, struct mtsr_EnvelopeState* restrict s)
 {
 	switch (state_state)
 	{
-	case STATE_START:
+	case MTSR_STATE_START:
 		s->x = 0;
 		s->y = 0.0f;
 		s->stage = 0;
 		break;
-	case STATE_DEAD:
+	case MTSR_STATE_DEAD:
 		s->x = 0;
 		s->y = 0.0f;
 		s->stage = 3;
@@ -342,8 +343,8 @@ void EnvelopeSetState(enum StateState state_state, struct EnvelopeState* restric
 }
 
 
-void ShapedEnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
-                              float attack_shape, float decay_shape, struct ShapedEnvelopeProgram* restrict p)
+void mtsr_ShapedEnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
+                                   float attack_shape, float decay_shape, struct mtsr_ShapedEnvelopeProgram* restrict p)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(delay_ms >= 0.0f);
@@ -364,16 +365,16 @@ void ShapedEnvelopeSetProgram(float sampling_frequency, float delay_ms, float at
 	p->shapes[1] = decay_shape;
 }
 
-void ShapedEnvelopeSetState(enum StateState state_state, struct ShapedEnvelopeState* restrict s)
+void mtsr_ShapedEnvelopeSetState(enum mtsr_StateState state_state, struct mtsr_ShapedEnvelopeState* restrict s)
 {
 	switch (state_state)
 	{
-	case STATE_START:
+	case MTSR_STATE_START:
 		s->x = 0;
 		s->y = 0.0f;
 		s->stage = 0;
 		break;
-	case STATE_DEAD:
+	case MTSR_STATE_DEAD:
 		s->x = 0;
 		s->y = 0.0f;
 		s->stage = 3;
@@ -381,7 +382,7 @@ void ShapedEnvelopeSetState(enum StateState state_state, struct ShapedEnvelopeSt
 }
 
 
-void NoiseSet(uint32_t seed, struct NoiseState* s)
+void mtsr_NoiseSet(uint32_t seed, struct mtsr_NoiseState* s)
 {
 	assert(seed != 0);
 	s->x = seed;
@@ -413,8 +414,8 @@ static FORCED_INLINE float sCos(float x)
 }
 
 
-void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance, float volume,
-                      struct FilterProgram* restrict p)
+void mtsr_FilterSetProgram(float sampling_frequency, enum mtsr_FilterType type, float cutoff, float resonance,
+                           float volume, struct mtsr_FilterProgram* restrict p)
 {
 	assert(sampling_frequency >= 0.0f);
 	assert(cutoff >= 0.0f);
@@ -437,7 +438,7 @@ void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float 
 		// floats rather than single floats). And it's less code.
 		// Only con is that it uses more coefficients
 
-	case RC_HIGHPASS_6DB: // Mine, common sense
+	case MTSR_RC_HIGHPASS_6DB: // Mine, common sense
 	{
 		p->c_b0 = sFastNegExp(wo);
 		p->c[B1] = -sFastNegExp(wo);
@@ -448,7 +449,7 @@ void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float 
 		p->c[A2] = 0.0f;
 		break;
 	}
-	case RC_LOWPASS_6DB: // Mine, common sense
+	case MTSR_RC_LOWPASS_6DB: // Mine, common sense
 	{
 		const float a = sFastNegExp(wo);
 		p->c_b0 = 1.0f - a;
@@ -460,7 +461,7 @@ void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float 
 		p->c[A2] = 0.0f;
 		break;
 	}
-	case RC_LOWPASS_12DB: // Mine, brute force
+	case MTSR_RC_LOWPASS_12DB: // Mine, brute force
 	{
 		const float a = sFastNegExp(wo);
 		p->c_b0 = (1.0f - a) * (1.0f - a);
@@ -472,7 +473,7 @@ void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float 
 		p->c[A2] = a * a;
 		break;
 	}
-	case BANDPASS_12DB: // Robert Bristow-Johnson
+	case MTSR_BANDPASS_12DB: // Robert Bristow-Johnson
 	{
 		p->c_b0 = sSin(wo) / 2.0f;
 		p->c[B1] = 0.0f;
@@ -483,7 +484,7 @@ void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float 
 		p->c[A2] = 1.0f - alpha;
 		break;
 	}
-	case HIGHPASS_12DB: // Robert Bristow-Johnson
+	case MTSR_HIGHPASS_12DB: // Robert Bristow-Johnson
 	{
 		p->c_b0 = (1.0f + sCos(wo)) / 2.0f;
 		p->c[B1] = -(1.0f + sCos(wo));
@@ -494,7 +495,7 @@ void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float 
 		p->c[A2] = 1.0f - alpha;
 		break;
 	}
-	default: // LOWPASS_12DB, Robert Bristow-Johnson
+	default: // MTSR_LOWPASS_12DB, Robert Bristow-Johnson
 	{
 		p->c_b0 = (1.0f - sCos(wo)) / 2.0f;
 		p->c[B1] = 1.0f - sCos(wo);
@@ -518,7 +519,7 @@ void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float 
 	p->c[A2] = -p->c[A2];
 }
 
-void FilterSetState(struct FilterState* restrict s)
+void mtsr_FilterSetState(struct mtsr_FilterState* restrict s)
 {
 	s->s[0] = 0.0f;
 	s->s[1] = 0.0f;
@@ -527,8 +528,9 @@ void FilterSetState(struct FilterState* restrict s)
 }
 
 
-void SquareX6SetProgram(float sampling_frequency, float volume, float frequency1, float frequency2, float frequency3,
-                        float frequency4, float frequency5, float frequency6, struct SquareX6Program* restrict p)
+void mtsr_SquareX6SetProgram(float sampling_frequency, float volume, float frequency1, float frequency2,
+                             float frequency3, float frequency4, float frequency5, float frequency6,
+                             struct mtsr_SquareX6Program* restrict p)
 {
 	p->step[0] = (int32_t)((frequency1 / sampling_frequency) * (float)(MASK));
 	p->step[1] = (int32_t)((frequency2 / sampling_frequency) * (float)(MASK));
@@ -540,7 +542,7 @@ void SquareX6SetProgram(float sampling_frequency, float volume, float frequency1
 	p->volume = (1.0f / 6.0f) * volume;
 }
 
-void SquareX6SetState(uint32_t seed, struct SquareX6State* restrict s)
+void mtsr_SquareX6SetState(uint32_t seed, struct mtsr_SquareX6State* restrict s)
 {
 	assert(seed != 0);
 
@@ -560,28 +562,28 @@ void SquareX6SetState(uint32_t seed, struct SquareX6State* restrict s)
 }
 
 
-void TailSetProgram(float sampling_frequency, float decay_ms, struct TailProgram* restrict p)
+void mtsr_TailSetProgram(float sampling_frequency, float decay_ms, struct mtsr_TailProgram* restrict p)
 {
 	const float decay_samples = (decay_ms * sampling_frequency) / 1000.0f;
 	p->c = sFastNegExp((-LOG_100_PERCENT) / decay_samples);
 }
 
-void TailSetState(struct TailState* restrict s)
+void mtsr_TailSetState(struct mtsr_TailState* restrict s)
 {
 	s->x = 0.0f;
 }
 
-void TailAccumulate(struct TailState* restrict s, float signal)
+void mtsr_TailAccumulate(struct mtsr_TailState* restrict s, float signal)
 {
 	s->x += signal;
 }
 
 
-void KickSetProgram(float sampling_frequency, struct KickProgram* restrict p)
+void mtsr606_KickSetProgram(float sampling_frequency, struct mtsr606_KickProgram* restrict p)
 {
-	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, 1.13f, 2.58f - 1.13f, -0.4f, 0.2f, &p->env);
-	OscillatorSetProgram(sampling_frequency, 300.0f, -1.0f, 300.0f, &p->osc[0]);
-	OscillatorSetProgram(sampling_frequency, 150.0f, -6.0f, 150.0f, &p->osc[1]);
+	mtsr_ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, 1.13f, 2.58f - 1.13f, -0.4f, 0.2f, &p->env);
+	mtsr_OscillatorSetProgram(sampling_frequency, 300.0f, -1.0f, 300.0f, &p->osc[0]);
+	mtsr_OscillatorSetProgram(sampling_frequency, 150.0f, -6.0f, 150.0f, &p->osc[1]);
 }
 
 static FORCED_INLINE float sMap(float in_a, float in_b, float out_a, float out_b, float f)
@@ -594,8 +596,9 @@ static FORCED_INLINE float sMix(float a, float b, float f)
 	return a + (b - a) * f;
 }
 
-float KickSetState(enum StateState state_state, float sampling_frequency, float velocity, float vel_vol_mod,
-                   float vel_tone_mod, float reference_vel, struct KickState* restrict s)
+float mtsr606_KickSetState(enum mtsr_StateState state_state, float sampling_frequency, float velocity,
+                           float vel_vol_mod, float vel_tone_mod, float reference_vel,
+                           struct mtsr606_KickState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
 	assert(vel_vol_mod >= 0.0f && vel_vol_mod <= 1.0f);
@@ -608,23 +611,23 @@ float KickSetState(enum StateState state_state, float sampling_frequency, float 
 
 	const float detune = sSemitoneDetune(sMap(0.5f, 1.0f, 0.0f, 2.0f, sMax(velocity, 0.5f))); // Linear as well
 
-	ShapedEnvelopeSetState(state_state, &s->env);
-	OscillatorSetState(state_state, sampling_frequency, 60.0f * detune, 2.58f, 0.7f * general_volume, &s->osc[0]);
-	OscillatorSetState(state_state, sampling_frequency, 120.0f * detune, 2.58f, 0.3f * general_volume, &s->osc[1]);
+	mtsr_ShapedEnvelopeSetState(state_state, &s->env);
+	mtsr_OscillatorSetState(state_state, sampling_frequency, 60.0f * detune, 2.58f, 0.7f * general_volume, &s->osc[0]);
+	mtsr_OscillatorSetState(state_state, sampling_frequency, 120.0f * detune, 2.58f, 0.3f * general_volume, &s->osc[1]);
 
 	return (2.58f + 270.0f) + ((2.58f + 270.0f) * 10.0f) / 100.0f;
 }
 
-static FORCED_INLINE float sKickStep(const struct KickProgram* restrict p, struct KickState* restrict s)
+static FORCED_INLINE float sKickStep(const struct mtsr606_KickProgram* restrict p, struct mtsr606_KickState* restrict s)
 {
-	float signal = -ShapedEnvelopeStep(&p->env, &s->env) * s->click_volume; // Initial click
-	signal += OscillatorStep(&p->osc[0], &s->osc[0]);
-	signal += OscillatorStep(&p->osc[1], &s->osc[1]);
-	return CheapDistortion(signal, s->distortion);
+	float signal = -mtsr_ShapedEnvelopeStep(&p->env, &s->env) * s->click_volume; // Initial click
+	signal += mtsr_OscillatorStep(&p->osc[0], &s->osc[0]);
+	signal += mtsr_OscillatorStep(&p->osc[1], &s->osc[1]);
+	return mtsr_CheapDistortion(signal, s->distortion);
 }
 
-float RenderKick(float mixer_volume, const struct KickProgram* restrict p, struct KickState* restrict s, float* out,
-                 const float* out_end)
+float mtsr606_RenderKick(float mixer_volume, const struct mtsr606_KickProgram* restrict p,
+                         struct mtsr606_KickState* restrict s, float* out, const float* out_end)
 {
 #ifndef NDEBUG
 	float max_level = 0.0f;
@@ -650,8 +653,8 @@ float RenderKick(float mixer_volume, const struct KickProgram* restrict p, struc
 	return signal;
 }
 
-float RenderAdditiveKick(float mixer_volume, const struct KickProgram* restrict p, struct KickState* restrict s,
-                         float* out, const float* out_end)
+float mtsr606_RenderAdditiveKick(float mixer_volume, const struct mtsr606_KickProgram* restrict p,
+                                 struct mtsr606_KickState* restrict s, float* out, const float* out_end)
 {
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
@@ -663,16 +666,17 @@ float RenderAdditiveKick(float mixer_volume, const struct KickProgram* restrict 
 }
 
 
-void SnareSetProgram(float sampling_frequency, struct SnareProgram* restrict p)
+void mtsr606_SnareSetProgram(float sampling_frequency, struct mtsr606_SnareProgram* restrict p)
 {
-	OscillatorSetProgram(sampling_frequency, 140.0f, -12.0f, 140.0f, &p->osc);
-	EnvelopeSetProgram(sampling_frequency, 0.0f, 2.0f, 0.0f, 1.0f, 85.0f, 3.7f, &p->env);
-	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 3500.0f, 0.6f, 1.0f, &p->filter[0]);
-	FilterSetProgram(sampling_frequency, RC_LOWPASS_6DB, 500.0f, 0.0f, 1.0f, &p->filter[1]);
+	mtsr_OscillatorSetProgram(sampling_frequency, 140.0f, -12.0f, 140.0f, &p->osc);
+	mtsr_EnvelopeSetProgram(sampling_frequency, 0.0f, 2.0f, 0.0f, 1.0f, 85.0f, 3.7f, &p->env);
+	mtsr_FilterSetProgram(sampling_frequency, MTSR_HIGHPASS_12DB, 3500.0f, 0.6f, 1.0f, &p->filter[0]);
+	mtsr_FilterSetProgram(sampling_frequency, MTSR_RC_LOWPASS_6DB, 500.0f, 0.0f, 1.0f, &p->filter[1]);
 }
 
-float SnareSetState(enum StateState state_state, float sampling_frequency, uint32_t seed, float velocity,
-                    float vel_vol_mod, float vel_tone_mod, float reference_vel, struct SnareState* restrict s)
+float mtsr606_SnareSetState(enum mtsr_StateState state_state, float sampling_frequency, uint32_t seed, float velocity,
+                            float vel_vol_mod, float vel_tone_mod, float reference_vel,
+                            struct mtsr606_SnareState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
 	assert(vel_vol_mod >= 0.0f && vel_vol_mod <= 1.0f);
@@ -688,28 +692,29 @@ float SnareSetState(enum StateState state_state, float sampling_frequency, uint3
 
 	const float detune = sSemitoneDetune(sMap(0.5f, 1.0f, 0.0f, -2.0f, sMax(velocity, 0.5f))); // Linear as well
 
-	OscillatorSetState(state_state, sampling_frequency, 310.0f * detune, 1.0f, 0.75f * osc_volume, &s->osc);
-	NoiseSet(seed, &s->noise);
-	EnvelopeSetState(state_state, &s->env);
-	FilterSetState(&s->filter[0]);
-	FilterSetState(&s->filter[1]);
+	mtsr_OscillatorSetState(state_state, sampling_frequency, 310.0f * detune, 1.0f, 0.75f * osc_volume, &s->osc);
+	mtsr_NoiseSet(seed, &s->noise);
+	mtsr_EnvelopeSetState(state_state, &s->env);
+	mtsr_FilterSetState(&s->filter[0]);
+	mtsr_FilterSetState(&s->filter[1]);
 
 	return 140.0f + (140.0f * 10.0f) / 100.0f;
 }
 
-static FORCED_INLINE float sSnareStep(const struct SnareProgram* restrict p, struct SnareState* restrict s)
+static FORCED_INLINE float sSnareStep(const struct mtsr606_SnareProgram* restrict p,
+                                      struct mtsr606_SnareState* restrict s)
 {
-	float signal = OscillatorStep(&p->osc, &s->osc);
+	float signal = mtsr_OscillatorStep(&p->osc, &s->osc);
 
-	const float noise = NoiseStep(&s->noise) * EnvelopeStep(&p->env, &s->env);
-	signal +=
-	    FilterStep(FilterStep(noise, &p->filter[0], &s->filter[0]), &p->filter[1], &s->filter[1]) * s->noise_volume;
+	const float noise = mtsr_NoiseStep(&s->noise) * mtsr_EnvelopeStep(&p->env, &s->env);
+	signal += mtsr_FilterStep(mtsr_FilterStep(noise, &p->filter[0], &s->filter[0]), &p->filter[1], &s->filter[1]) *
+	          s->noise_volume;
 
-	return CheapDistortion(signal, s->distortion);
+	return mtsr_CheapDistortion(signal, s->distortion);
 }
 
-float RenderSnare(float mixer_volume, const struct SnareProgram* restrict p, struct SnareState* restrict s, float* out,
-                  const float* out_end)
+float mtsr606_RenderSnare(float mixer_volume, const struct mtsr606_SnareProgram* restrict p,
+                          struct mtsr606_SnareState* restrict s, float* out, const float* out_end)
 {
 #ifndef NDEBUG
 	float max_level = 0.0f;
@@ -735,8 +740,8 @@ float RenderSnare(float mixer_volume, const struct SnareProgram* restrict p, str
 	return signal;
 }
 
-float RenderAdditiveSnare(float mixer_volume, const struct SnareProgram* restrict p, struct SnareState* restrict s,
-                          float* out, const float* out_end)
+float mtsr606_RenderAdditiveSnare(float mixer_volume, const struct mtsr606_SnareProgram* restrict p,
+                                  struct mtsr606_SnareState* restrict s, float* out, const float* out_end)
 {
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
@@ -748,45 +753,45 @@ float RenderAdditiveSnare(float mixer_volume, const struct SnareProgram* restric
 }
 
 
-void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgram* restrict p)
+void mtsr606_HatSetProgram(float sampling_frequency, enum mtsr_HatType type, struct mtsr606_HatProgram* restrict p)
 {
 	float magic_metallic_normalisation;
 
 	switch (type)
 	{
-	case OPEN_HAT:
+	case MTSR_OPEN_HAT:
 	{
 		magic_metallic_normalisation = 3.5f; // Obtained in [b]
 		break;
 	}
-	case CLOSED_HAT:
+	case MTSR_CLOSED_HAT:
 	{
 		magic_metallic_normalisation = 3.0f; // Obtained in [b]
 		break;
 	}
-	case CYMBAL:
+	case MTSR_CYMBAL:
 	{
 		magic_metallic_normalisation = 3.5f; // Obtained in [b]
 		break;
 	}
 	}
 
-	SquareX6SetProgram(sampling_frequency, magic_metallic_normalisation, 684.35f, 511.97f, 305.88f, 420.2f, 271.14f,
-	                   201.23f, &p->sqr);
+	mtsr_SquareX6SetProgram(sampling_frequency, magic_metallic_normalisation, 684.35f, 511.97f, 305.88f, 420.2f,
+	                        271.14f, 201.23f, &p->sqr);
 
-	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 7100.0f, 3.0f, 1.0f, &p->bp[0]);
-	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 7100.0f, 0.5f, 1.0f, &p->bp[1]);
+	mtsr_FilterSetProgram(sampling_frequency, MTSR_BANDPASS_12DB, 7100.0f, 3.0f, 1.0f, &p->bp[0]);
+	mtsr_FilterSetProgram(sampling_frequency, MTSR_HIGHPASS_12DB, 7100.0f, 0.5f, 1.0f, &p->bp[1]);
 
 	// This filter, used by cymbal, seems to be asymmetrical on the real thing, 6Db-ish on highpass
-	FilterSetProgram(sampling_frequency, BANDPASS_12DB, 3000.0f, 4.0f, 0.125f, &p->bp[2]);
+	mtsr_FilterSetProgram(sampling_frequency, MTSR_BANDPASS_12DB, 3000.0f, 4.0f, 0.125f, &p->bp[2]);
 
-	FilterSetProgram(sampling_frequency, HIGHPASS_12DB, 4000.0f, 0.5f, 1.0f, &p->hp);
-	FilterSetProgram(sampling_frequency, RC_LOWPASS_12DB, 7100.0f, 0.0f, 1.0f, &p->lp);
+	mtsr_FilterSetProgram(sampling_frequency, MTSR_HIGHPASS_12DB, 4000.0f, 0.5f, 1.0f, &p->hp);
+	mtsr_FilterSetProgram(sampling_frequency, MTSR_RC_LOWPASS_12DB, 7100.0f, 0.0f, 1.0f, &p->lp);
 }
 
-float HatSetState(enum StateState state_state, float sampling_frequency, enum HatType type, uint32_t seed,
-                  float velocity, float vel_vol_mod, float vel_tone_mod, float reference_vel,
-                  struct HatState* restrict s)
+float mtsr606_HatSetState(enum mtsr_StateState state_state, float sampling_frequency, enum mtsr_HatType type,
+                          uint32_t seed, float velocity, float vel_vol_mod, float vel_tone_mod, float reference_vel,
+                          struct mtsr606_HatState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
 	assert(vel_vol_mod >= 0.0f && vel_vol_mod <= 1.0f);
@@ -804,7 +809,7 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 
 	switch (type)
 	{
-	case OPEN_HAT:
+	case MTSR_OPEN_HAT:
 	{
 		s->final_volume = sMap(0.25f, 1.0f, 1.1f, 1.0f, sMax(tone_vel, 0.25f)) * general_volume; // Obtained in [c]
 		s->long_volume = 1.2f;
@@ -822,7 +827,7 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 		long_shape = sMap(0.25f, 1.0f, 0.4f, 0.1f, sMax(tone_vel, 0.125f));
 		break;
 	}
-	case CLOSED_HAT:
+	case MTSR_CLOSED_HAT:
 	{
 		s->final_volume = sMap(0.25f, 1.0f, 2.7f, 2.4f, sMax(tone_vel, 0.25f)) * general_volume; // Obtained in [c]
 		s->long_volume = 0.0f;
@@ -838,7 +843,7 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 		long_shape = 0.0f;
 		break;
 	}
-	case CYMBAL:
+	case MTSR_CYMBAL:
 	{
 		// Easing because, reasons (mid cymbal was too loud, were low and max were fine)
 		s->final_volume =
@@ -863,33 +868,33 @@ float HatSetState(enum StateState state_state, float sampling_frequency, enum Ha
 	}
 	}
 
-	SquareX6SetState(seed, &s->sqr);
+	mtsr_SquareX6SetState(seed, &s->sqr);
 
-	FilterSetState(&s->bp[0]);
-	FilterSetState(&s->bp[1]);
-	FilterSetState(&s->bp[2]);
+	mtsr_FilterSetState(&s->bp[0]);
+	mtsr_FilterSetState(&s->bp[1]);
+	mtsr_FilterSetState(&s->bp[2]);
 
-	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, long_attack, long_length, 0.4f, long_shape, &s->env_long_p);
-	EnvelopeSetProgram(sampling_frequency, 0.0f, short_attack, 0.0f, 1.0f, short_length, 1.0f, &s->env_short_p);
-	ShapedEnvelopeSetState(state_state, &s->env_long);
-	EnvelopeSetState(state_state, &s->env_short);
+	mtsr_ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, long_attack, long_length, 0.4f, long_shape, &s->env_long_p);
+	mtsr_EnvelopeSetProgram(sampling_frequency, 0.0f, short_attack, 0.0f, 1.0f, short_length, 1.0f, &s->env_short_p);
+	mtsr_ShapedEnvelopeSetState(state_state, &s->env_long);
+	mtsr_EnvelopeSetState(state_state, &s->env_short);
 
-	FilterSetState(&s->hp);
-	FilterSetState(&s->lp);
+	mtsr_FilterSetState(&s->hp);
+	mtsr_FilterSetState(&s->lp);
 
-	NoiseSet(seed, &s->noise);
+	mtsr_NoiseSet(seed, &s->noise);
 
 	switch (type)
 	{
-	case OPEN_HAT: return (short_attack + long_length) + ((short_attack + long_length) * 10.0f) / 100.0f;
-	case CLOSED_HAT: return (short_attack + short_length) + ((short_attack + short_length) * 10.0f) / 100.0f;
-	case CYMBAL: return (long_attack + long_length) + ((long_attack + long_length) * 10.0f) / 100.0f;
+	case MTSR_OPEN_HAT: return (short_attack + long_length) + ((short_attack + long_length) * 10.0f) / 100.0f;
+	case MTSR_CLOSED_HAT: return (short_attack + short_length) + ((short_attack + short_length) * 10.0f) / 100.0f;
+	case MTSR_CYMBAL: return (long_attack + long_length) + ((long_attack + long_length) * 10.0f) / 100.0f;
 	}
 	return 0.0f;
 }
 
-float RenderHat(float volume, const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
-                const float* out_end)
+float mtsr606_RenderHat(float volume, const struct mtsr606_HatProgram* restrict p, struct mtsr606_HatState* restrict s,
+                        float* out, const float* out_end)
 {
 #ifndef NDEBUG
 	float max_level_metallic = 0.0f;
@@ -900,9 +905,9 @@ float RenderHat(float volume, const struct HatProgram* restrict p, struct HatSta
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		// Render bandpass filtered metallic noise
-		const float square = SquareX6Step(&p->sqr, &s->sqr);
-		const float high = FilterStep(FilterStep(square, &p->bp[0], &s->bp[0]), &p->bp[1], &s->bp[1]);
-		const float low = FilterStep(square, &p->bp[2], &s->bp[2]);
+		const float square = mtsr_SquareX6Step(&p->sqr, &s->sqr);
+		const float high = mtsr_FilterStep(mtsr_FilterStep(square, &p->bp[0], &s->bp[0]), &p->bp[1], &s->bp[1]);
+		const float low = mtsr_FilterStep(square, &p->bp[2], &s->bp[2]);
 
 		s->fade_out_in *= s->fade_out_in_c;
 		signal = low + (high - low) * s->fade_out_in;
@@ -912,18 +917,18 @@ float RenderHat(float volume, const struct HatProgram* restrict p, struct HatSta
 #endif
 
 		// Distort, and filter noise added by it (we want low frequencies clean)
-		signal = CheapDistortion(signal, -0.6f);
-		signal = FilterStep(signal, &p->hp, &s->hp);
+		signal = mtsr_CheapDistortion(signal, -0.6f);
+		signal = mtsr_FilterStep(signal, &p->hp, &s->hp);
 
 		// Envelope it
-		signal *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * s->long_volume //
-		          + EnvelopeStep(&s->env_short_p, &s->env_short);
+		signal *= mtsr_ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * s->long_volume //
+		          + mtsr_EnvelopeStep(&s->env_short_p, &s->env_short);
 
 		// Add transient white noise
-		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * s->noise_volume;
+		signal += mtsr_NoiseStep(&s->noise) * mtsr_EnvelopeStep(&s->env_short_p, &s->env_short) * s->noise_volume;
 
 		// Final filter
-		*sample = FilterStep(signal, &p->lp, &s->lp) * volume * s->final_volume;
+		*sample = mtsr_FilterStep(signal, &p->lp, &s->lp) * volume * s->final_volume;
 
 #ifndef NDEBUG
 		max_level_final = sMax(sAbs(*sample), max_level_final); // [c]
@@ -940,33 +945,33 @@ float RenderHat(float volume, const struct HatProgram* restrict p, struct HatSta
 	return signal;
 }
 
-float RenderAdditiveHat(float volume, const struct HatProgram* restrict p, struct HatState* restrict s, float* out,
-                        const float* out_end)
+float mtsr606_RenderAdditiveHat(float volume, const struct mtsr606_HatProgram* restrict p,
+                                struct mtsr606_HatState* restrict s, float* out, const float* out_end)
 {
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		// Render bandpass filtered metallic noise
-		const float square = SquareX6Step(&p->sqr, &s->sqr);
-		const float high = FilterStep(FilterStep(square, &p->bp[0], &s->bp[0]), &p->bp[1], &s->bp[1]);
-		const float low = FilterStep(square, &p->bp[2], &s->bp[2]);
+		const float square = mtsr_SquareX6Step(&p->sqr, &s->sqr);
+		const float high = mtsr_FilterStep(mtsr_FilterStep(square, &p->bp[0], &s->bp[0]), &p->bp[1], &s->bp[1]);
+		const float low = mtsr_FilterStep(square, &p->bp[2], &s->bp[2]);
 
 		s->fade_out_in *= s->fade_out_in_c;
 		signal = low + (high - low) * s->fade_out_in;
 
 		// Distort, and filter noise added by it (we want low frequencies clean)
-		signal = CheapDistortion(signal, -0.6f);
-		signal = FilterStep(signal, &p->hp, &s->hp);
+		signal = mtsr_CheapDistortion(signal, -0.6f);
+		signal = mtsr_FilterStep(signal, &p->hp, &s->hp);
 
 		// Envelope it
-		signal *= ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * s->long_volume //
-		          + EnvelopeStep(&s->env_short_p, &s->env_short);
+		signal *= mtsr_ShapedEnvelopeStep(&s->env_long_p, &s->env_long) * s->long_volume //
+		          + mtsr_EnvelopeStep(&s->env_short_p, &s->env_short);
 
 		// Add transient white noise
-		signal += NoiseStep(&s->noise) * EnvelopeStep(&s->env_short_p, &s->env_short) * s->noise_volume;
+		signal += mtsr_NoiseStep(&s->noise) * mtsr_EnvelopeStep(&s->env_short_p, &s->env_short) * s->noise_volume;
 
 		// Final filter
-		signal = FilterStep(signal, &p->lp, &s->lp) * volume * s->final_volume;
+		signal = mtsr_FilterStep(signal, &p->lp, &s->lp) * volume * s->final_volume;
 		*sample += signal;
 	}
 
@@ -974,29 +979,30 @@ float RenderAdditiveHat(float volume, const struct HatProgram* restrict p, struc
 }
 
 
-void TomSetProgram(float sampling_frequency, enum TomType type, struct TomProgram* restrict p)
+void mtsr606_TomSetProgram(float sampling_frequency, enum mtsr_TomType type, struct mtsr606_TomProgram* restrict p)
 {
 	float length;
 	float sweep;
 
 	switch (type)
 	{
-	case LOW_TOM:
+	case MTSR_LOW_TOM:
 		length = 390.0f;
 		sweep = -6.0f;
 		break;
-	case HIGH_TOM:
+	case MTSR_HIGH_TOM:
 		length = 250.0f;
 		sweep = -3.0f;
 		break;
 	}
 
-	ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, 0.5f, 1.5f - 0.5f, 0.8f, -0.2f, &p->env);
-	OscillatorSetProgram(sampling_frequency, length, sweep, 100.0f, &p->osc);
+	mtsr_ShapedEnvelopeSetProgram(sampling_frequency, 0.0f, 0.5f, 1.5f - 0.5f, 0.8f, -0.2f, &p->env);
+	mtsr_OscillatorSetProgram(sampling_frequency, length, sweep, 100.0f, &p->osc);
 }
 
-float TomSetState(enum StateState state_state, float sampling_frequency, enum TomType type, float velocity,
-                  float vel_vol_mod, float vel_tone_mod, float reference_vel, struct TomState* restrict s)
+float mtsr606_TomSetState(enum mtsr_StateState state_state, float sampling_frequency, enum mtsr_TomType type,
+                          float velocity, float vel_vol_mod, float vel_tone_mod, float reference_vel,
+                          struct mtsr606_TomState* restrict s)
 {
 	assert(velocity >= 0.0f && velocity <= 1.0f);
 	assert(vel_vol_mod >= 0.0f && vel_vol_mod <= 1.0f);
@@ -1010,32 +1016,32 @@ float TomSetState(enum StateState state_state, float sampling_frequency, enum To
 	float frequency;
 	switch (type)
 	{
-	case LOW_TOM: frequency = 170.0f; break;
-	case HIGH_TOM: frequency = 220.0f; break;
+	case MTSR_LOW_TOM: frequency = 170.0f; break;
+	case MTSR_HIGH_TOM: frequency = 220.0f; break;
 	}
 
 	s->click_volume = general_volume;
-	ShapedEnvelopeSetState(state_state, &s->env);
-	OscillatorSetState(state_state, sampling_frequency, frequency, 1.5f, general_volume, &s->osc);
+	mtsr_ShapedEnvelopeSetState(state_state, &s->env);
+	mtsr_OscillatorSetState(state_state, sampling_frequency, frequency, 1.5f, general_volume, &s->osc);
 
 	switch (type)
 	{
-	case LOW_TOM: return (1.5f + 390.0f) + ((1.5f + 390.0f) * 10.0f) / 100.0f; break;
-	case HIGH_TOM: return (1.5f + 250.0f) + ((1.5f + 250.0f) * 10.0f) / 100.0f; break;
+	case MTSR_LOW_TOM: return (1.5f + 390.0f) + ((1.5f + 390.0f) * 10.0f) / 100.0f; break;
+	case MTSR_HIGH_TOM: return (1.5f + 250.0f) + ((1.5f + 250.0f) * 10.0f) / 100.0f; break;
 	}
 
 	return 0.0f;
 }
 
-static FORCED_INLINE float sTomStep(const struct TomProgram* restrict p, struct TomState* restrict s)
+static FORCED_INLINE float sTomStep(const struct mtsr606_TomProgram* restrict p, struct mtsr606_TomState* restrict s)
 {
-	float signal = -ShapedEnvelopeStep(&p->env, &s->env) * s->click_volume;
-	signal += OscillatorStep(&p->osc, &s->osc);
+	float signal = -mtsr_ShapedEnvelopeStep(&p->env, &s->env) * s->click_volume;
+	signal += mtsr_OscillatorStep(&p->osc, &s->osc);
 	return signal;
 }
 
-float RenderTom(float mixer_volume, const struct TomProgram* restrict p, struct TomState* restrict s, float* out,
-                const float* out_end)
+float mtsr606_RenderTom(float mixer_volume, const struct mtsr606_TomProgram* restrict p,
+                        struct mtsr606_TomState* restrict s, float* out, const float* out_end)
 {
 #ifndef NDEBUG
 	float max_level = 0.0f;
@@ -1061,8 +1067,8 @@ float RenderTom(float mixer_volume, const struct TomProgram* restrict p, struct 
 	return signal;
 }
 
-float RenderAdditiveTom(float mixer_volume, const struct TomProgram* restrict p, struct TomState* restrict s,
-                        float* out, const float* out_end)
+float mtsr606_RenderAdditiveTom(float mixer_volume, const struct mtsr606_TomProgram* restrict p,
+                                struct mtsr606_TomState* restrict s, float* out, const float* out_end)
 {
 	float signal;
 	for (float* sample = out; sample < out_end; sample += 1)

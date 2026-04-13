@@ -62,21 +62,21 @@ void VoiceAllocatorSet(struct VoiceAllocator* self, float sampling_frequency, in
 	Memset(self->voices, 0, sizeof(struct VoiceAllocatorVoice) * (size_t)(max_items));
 	Memset(self->states, 0, sizeof(struct VoiceAllocatorState) * (size_t)(max_items));
 
-	TailSetProgram(sampling_frequency, 10.0f, &self->tail_p);
-	TailSetState(&self->tail_s);
+	mtsr_TailSetProgram(sampling_frequency, 10.0f, &self->tail_p);
+	mtsr_TailSetState(&self->tail_s);
 	self->tail_samples = (uint32_t)((10.0f * sampling_frequency) / 1000.0f);
 
 	self->limiter = 0.0f;
 	self->limiter_c = 0.0f;
 	self->master_volume = 1.0f;
 
-	KickSetProgram(sampling_frequency, &self->program.kick);
-	SnareSetProgram(sampling_frequency, &self->program.snare);
-	HatSetProgram(sampling_frequency, OPEN_HAT, &self->program.open_hat);
-	HatSetProgram(sampling_frequency, CLOSED_HAT, &self->program.closed_hat);
-	HatSetProgram(sampling_frequency, CYMBAL, &self->program.cymbal);
-	TomSetProgram(sampling_frequency, LOW_TOM, &self->program.low_tom);
-	TomSetProgram(sampling_frequency, HIGH_TOM, &self->program.high_tom);
+	mtsr606_KickSetProgram(sampling_frequency, &self->program.kick);
+	mtsr606_SnareSetProgram(sampling_frequency, &self->program.snare);
+	mtsr606_HatSetProgram(sampling_frequency, MTSR_OPEN_HAT, &self->program.open_hat);
+	mtsr606_HatSetProgram(sampling_frequency, MTSR_CLOSED_HAT, &self->program.closed_hat);
+	mtsr606_HatSetProgram(sampling_frequency, MTSR_CYMBAL, &self->program.cymbal);
+	mtsr606_TomSetProgram(sampling_frequency, MTSR_LOW_TOM, &self->program.low_tom);
+	mtsr606_TomSetProgram(sampling_frequency, MTSR_HIGH_TOM, &self->program.high_tom);
 }
 
 
@@ -110,7 +110,7 @@ static uint32_t sFindAndSetQueueItem(struct VoiceAllocator* self, enum Allocatio
 		{
 			if (self->voices[i].id == id)
 			{
-				TailAccumulate(&self->tail_s, self->states[i].last_signal);
+				mtsr_TailAccumulate(&self->tail_s, self->states[i].last_signal);
 				self->voices[i].remaining = 0;
 				item_to_use = i;
 			}
@@ -154,33 +154,38 @@ void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy str
 	switch (type)
 	{
 	case TYPE_KICK:
-		duration = KickSetState(STATE_START, self->sampling_frequency, velocity, self->vel_vol_mod, self->vel_tone_mod,
-		                        self->reference_vel, &self->states[item].state.kick);
+		duration = mtsr606_KickSetState(MTSR_STATE_START, self->sampling_frequency, velocity, self->vel_vol_mod,
+		                                self->vel_tone_mod, self->reference_vel, &self->states[item].state.kick);
 		break;
 	case TYPE_SNARE:
-		duration = SnareSetState(STATE_START, self->sampling_frequency, self->rng, velocity, self->vel_vol_mod,
-		                         self->vel_tone_mod, self->reference_vel, &self->states[item].state.snare);
+		duration =
+		    mtsr606_SnareSetState(MTSR_STATE_START, self->sampling_frequency, self->rng, velocity, self->vel_vol_mod,
+		                          self->vel_tone_mod, self->reference_vel, &self->states[item].state.snare);
 		break;
 	case TYPE_OPEN_HAT:
-		duration = HatSetState(STATE_START, self->sampling_frequency, OPEN_HAT, self->rng, velocity, self->vel_vol_mod,
-		                       self->vel_tone_mod, self->reference_vel, &self->states[item].state.hat);
+		duration = mtsr606_HatSetState(MTSR_STATE_START, self->sampling_frequency, MTSR_OPEN_HAT, self->rng, velocity,
+		                               self->vel_vol_mod, self->vel_tone_mod, self->reference_vel,
+		                               &self->states[item].state.hat);
 		break;
 	case TYPE_CLOSED_HAT:
-		duration =
-		    HatSetState(STATE_START, self->sampling_frequency, CLOSED_HAT, self->rng, velocity, self->vel_vol_mod,
-		                self->vel_tone_mod, self->reference_vel, &self->states[item].state.hat);
+		duration = mtsr606_HatSetState(MTSR_STATE_START, self->sampling_frequency, MTSR_CLOSED_HAT, self->rng, velocity,
+		                               self->vel_vol_mod, self->vel_tone_mod, self->reference_vel,
+		                               &self->states[item].state.hat);
 		break;
 	case TYPE_CYMBAL:
-		duration = HatSetState(STATE_START, self->sampling_frequency, CYMBAL, self->rng, velocity, self->vel_vol_mod,
-		                       self->vel_tone_mod, self->reference_vel, &self->states[item].state.hat);
+		duration = mtsr606_HatSetState(MTSR_STATE_START, self->sampling_frequency, MTSR_CYMBAL, self->rng, velocity,
+		                               self->vel_vol_mod, self->vel_tone_mod, self->reference_vel,
+		                               &self->states[item].state.hat);
 		break;
 	case TYPE_LOW_TOM:
-		duration = TomSetState(STATE_START, self->sampling_frequency, LOW_TOM, velocity, self->vel_vol_mod,
-		                       self->vel_tone_mod, self->reference_vel, &self->states[item].state.tom);
+		duration =
+		    mtsr606_TomSetState(MTSR_STATE_START, self->sampling_frequency, MTSR_LOW_TOM, velocity, self->vel_vol_mod,
+		                        self->vel_tone_mod, self->reference_vel, &self->states[item].state.tom);
 		break;
 	case TYPE_HIGH_TOM:
-		duration = TomSetState(STATE_START, self->sampling_frequency, HIGH_TOM, velocity, self->vel_vol_mod,
-		                       self->vel_tone_mod, self->reference_vel, &self->states[item].state.tom);
+		duration =
+		    mtsr606_TomSetState(MTSR_STATE_START, self->sampling_frequency, MTSR_HIGH_TOM, velocity, self->vel_vol_mod,
+		                        self->vel_tone_mod, self->reference_vel, &self->states[item].state.tom);
 	}
 
 	self->voices[item].remaining = (uint32_t)((duration * self->sampling_frequency) / 1000.0f);
@@ -199,7 +204,7 @@ void VoiceAllocatorStop(struct VoiceAllocator* self, uint32_t id)
 
 		if (v->id == id && v->remaining != 0)
 		{
-			TailAccumulate(&self->tail_s, s->last_signal);
+			mtsr_TailAccumulate(&self->tail_s, s->last_signal);
 			v->remaining = 0;
 		}
 	}
@@ -231,7 +236,7 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* 
 	{
 		float* sample = out;
 		for (; sample < out + MinU(self->tail_samples, samples); sample += 1)
-			*sample = TailStep(&self->tail_p, &self->tail_s);
+			*sample = mtsr_TailStep(&self->tail_p, &self->tail_s);
 		for (; sample < out + samples; sample += 1)
 			*sample = 0.0f;
 	}
@@ -252,32 +257,32 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* 
 		switch (i->type)
 		{
 		case TYPE_KICK:
-			i->last_signal = RenderAdditiveKick(self->volume[TYPE_KICK], &self->program.kick, &i->state.kick, out,
-			                                    out + samples_to_render);
+			i->last_signal = mtsr606_RenderAdditiveKick(self->volume[TYPE_KICK], &self->program.kick, &i->state.kick,
+			                                            out, out + samples_to_render);
 			break;
 		case TYPE_SNARE:
-			i->last_signal = RenderAdditiveSnare(self->volume[TYPE_SNARE], &self->program.snare, &i->state.snare, out,
-			                                     out + samples_to_render);
+			i->last_signal = mtsr606_RenderAdditiveSnare(self->volume[TYPE_SNARE], &self->program.snare,
+			                                             &i->state.snare, out, out + samples_to_render);
 			break;
 		case TYPE_OPEN_HAT:
-			i->last_signal = RenderAdditiveHat(self->volume[TYPE_OPEN_HAT], &self->program.open_hat, &i->state.hat, out,
-			                                   out + samples_to_render);
+			i->last_signal = mtsr606_RenderAdditiveHat(self->volume[TYPE_OPEN_HAT], &self->program.open_hat,
+			                                           &i->state.hat, out, out + samples_to_render);
 			break;
 		case TYPE_CLOSED_HAT:
-			i->last_signal = RenderAdditiveHat(self->volume[TYPE_CLOSED_HAT], &self->program.closed_hat, &i->state.hat,
-			                                   out, out + samples_to_render);
+			i->last_signal = mtsr606_RenderAdditiveHat(self->volume[TYPE_CLOSED_HAT], &self->program.closed_hat,
+			                                           &i->state.hat, out, out + samples_to_render);
 			break;
 		case TYPE_CYMBAL:
-			i->last_signal = RenderAdditiveHat(self->volume[TYPE_CYMBAL], &self->program.cymbal, &i->state.hat, out,
-			                                   out + samples_to_render);
+			i->last_signal = mtsr606_RenderAdditiveHat(self->volume[TYPE_CYMBAL], &self->program.cymbal, &i->state.hat,
+			                                           out, out + samples_to_render);
 			break;
 		case TYPE_LOW_TOM:
-			i->last_signal = RenderAdditiveTom(self->volume[TYPE_LOW_TOM], &self->program.low_tom, &i->state.tom, out,
-			                                   out + samples_to_render);
+			i->last_signal = mtsr606_RenderAdditiveTom(self->volume[TYPE_LOW_TOM], &self->program.low_tom,
+			                                           &i->state.tom, out, out + samples_to_render);
 			break;
 		case TYPE_HIGH_TOM:
-			i->last_signal = RenderAdditiveTom(self->volume[TYPE_HIGH_TOM], &self->program.high_tom, &i->state.tom, out,
-			                                   out + samples_to_render);
+			i->last_signal = mtsr606_RenderAdditiveTom(self->volume[TYPE_HIGH_TOM], &self->program.high_tom,
+			                                           &i->state.tom, out, out + samples_to_render);
 		}
 
 		// Update item

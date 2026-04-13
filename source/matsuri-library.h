@@ -16,21 +16,21 @@ defined by the Mozilla Public License, v. 2.0.
 #include <stdint.h>
 
 
-enum StateState
+enum mtsr_StateState
 {
-	STATE_START,
-	STATE_DEAD // Completely dead, an hard stop, not a release
+	MTSR_STATE_START,
+	MTSR_STATE_DEAD // Completely dead, an hard stop, not a release
 };
 
 
-struct OscillatorProgram
+struct mtsr_OscillatorProgram
 {
 	float zeta;
 	float sweep_step;
 	float sweep_target;
 };
 
-struct OscillatorState
+struct mtsr_OscillatorState
 {
 	int delay;
 	float omega;
@@ -39,200 +39,210 @@ struct OscillatorState
 	float sweep;
 };
 
-void OscillatorSetProgram(float sampling_frequency, float decay_ms, float sweep_factor, float sweep_decay_ms,
-                          struct OscillatorProgram* p);
-void OscillatorSetState(enum StateState, float sampling_frequency, float frequency, float delay_ms, float volume,
-                        struct OscillatorState* s);
-float OscillatorStep(const struct OscillatorProgram* p, struct OscillatorState* s);
+void mtsr_OscillatorSetProgram(float sampling_frequency, float decay_ms, float sweep_factor, float sweep_decay_ms,
+                               struct mtsr_OscillatorProgram* p);
+void mtsr_OscillatorSetState(enum mtsr_StateState, float sampling_frequency, float frequency, float delay_ms,
+                             float volume, struct mtsr_OscillatorState* s);
+float mtsr_OscillatorStep(const struct mtsr_OscillatorProgram* p, struct mtsr_OscillatorState* s);
 
 
-struct EnvelopeProgram
+struct mtsr_EnvelopeProgram
 {
 	float durations[4];
 	float levels[4];
 };
 
-struct EnvelopeState
+struct mtsr_EnvelopeState
 {
 	uint32_t x;
 	float y;
 	uint8_t stage;
 };
 
-void EnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms, float sustain,
-                        float decay2_ms, float volume, struct EnvelopeProgram* p);
-void EnvelopeSetState(enum StateState, struct EnvelopeState* s);
-float EnvelopeStep(const struct EnvelopeProgram* p, struct EnvelopeState* s);
+void mtsr_EnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms, float sustain,
+                             float decay2_ms, float volume, struct mtsr_EnvelopeProgram* p);
+void mtsr_EnvelopeSetState(enum mtsr_StateState, struct mtsr_EnvelopeState* s);
+float mtsr_EnvelopeStep(const struct mtsr_EnvelopeProgram* p, struct mtsr_EnvelopeState* s);
 
 
-struct ShapedEnvelopeProgram
+struct mtsr_ShapedEnvelopeProgram
 {
 	uint32_t durations[4];
 	float steps[4];
 	float shapes[2];
 };
 
-struct ShapedEnvelopeState
+struct mtsr_ShapedEnvelopeState
 {
 	uint32_t x;
 	float y;
 	uint8_t stage;
 };
 
-void ShapedEnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
-                              float attack_shape, float decay_shape, struct ShapedEnvelopeProgram* p);
-void ShapedEnvelopeSetState(enum StateState, struct ShapedEnvelopeState* s);
-float ShapedEnvelopeStep(const struct ShapedEnvelopeProgram* p, struct ShapedEnvelopeState* s);
+void mtsr_ShapedEnvelopeSetProgram(float sampling_frequency, float delay_ms, float attack_ms, float decay_ms,
+                                   float attack_shape, float decay_shape, struct mtsr_ShapedEnvelopeProgram* p);
+void mtsr_ShapedEnvelopeSetState(enum mtsr_StateState, struct mtsr_ShapedEnvelopeState* s);
+float mtsr_ShapedEnvelopeStep(const struct mtsr_ShapedEnvelopeProgram* p, struct mtsr_ShapedEnvelopeState* s);
 
 
-struct NoiseState
+struct mtsr_NoiseState
 {
 	uint32_t x;
 };
 
-void NoiseSet(uint32_t seed, struct NoiseState* s);
-float NoiseStep(struct NoiseState* s);
+void mtsr_NoiseSet(uint32_t seed, struct mtsr_NoiseState* s);
+float mtsr_NoiseStep(struct mtsr_NoiseState* s);
 
 
-struct FilterProgram
+struct mtsr_FilterProgram
 {
 	float c[4];
 	float c_b0;
 };
 
-struct FilterState
+struct mtsr_FilterState
 {
 	float s[4];
 };
 
-enum Filter12dbType
+enum mtsr_FilterType
 {
-	LOWPASS_12DB,
-	HIGHPASS_12DB,
-	BANDPASS_12DB,
-	RC_LOWPASS_6DB,
-	RC_HIGHPASS_6DB,
-	RC_LOWPASS_12DB
+	MTSR_LOWPASS_12DB,
+	MTSR_HIGHPASS_12DB,
+	MTSR_BANDPASS_12DB,
+	MTSR_RC_LOWPASS_6DB,
+	MTSR_RC_HIGHPASS_6DB,
+	MTSR_RC_LOWPASS_12DB
 };
 
-void FilterSetProgram(float sampling_frequency, enum Filter12dbType type, float cutoff, float resonance, float volume,
-                      struct FilterProgram* p);
-void FilterSetState(struct FilterState* s);
-float FilterStep(float x, const struct FilterProgram* p, struct FilterState* s);
+void mtsr_FilterSetProgram(float sampling_frequency, enum mtsr_FilterType type, float cutoff, float resonance,
+                           float volume, struct mtsr_FilterProgram* p);
+void mtsr_FilterSetState(struct mtsr_FilterState* s);
+float mtsr_FilterStep(float x, const struct mtsr_FilterProgram* p, struct mtsr_FilterState* s);
 
 
-struct SquareX6Program
+struct mtsr_SquareX6Program
 {
 	int32_t step[6];
 	float volume;
 };
 
-struct SquareX6State
+struct mtsr_SquareX6State
 {
 	int32_t phase[6];
 };
 
-void SquareX6SetProgram(float sampling_frequency, float volume, float frequency1, float frequency2, float frequency3,
-                        float frequency4, float frequency5, float frequency6, struct SquareX6Program* p);
-void SquareX6SetState(uint32_t seed, struct SquareX6State* s);
-float SquareX6Step(const struct SquareX6Program* p, struct SquareX6State* s);
+void mtsr_SquareX6SetProgram(float sampling_frequency, float volume, float frequency1, float frequency2,
+                             float frequency3, float frequency4, float frequency5, float frequency6,
+                             struct mtsr_SquareX6Program* p);
+void mtsr_SquareX6SetState(uint32_t seed, struct mtsr_SquareX6State* s);
+float mtsr_SquareX6Step(const struct mtsr_SquareX6Program* p, struct mtsr_SquareX6State* s);
 
 
-float CheapDistortion(float x, float f);
-float FancyDistortion(float x, float f);
+float mtsr_CheapDistortion(float x, float f);
+float mtsr_FancyDistortion(float x, float f);
 
 
-struct TailProgram
+struct mtsr_TailProgram
 {
 	float c;
 };
 
-struct TailState
+struct mtsr_TailState
 {
 	float x;
 };
 
-void TailSetProgram(float sampling_frequency, float decay_ms, struct TailProgram* p);
-void TailSetState(struct TailState* s);
-void TailAccumulate(struct TailState* s, float signal);
-float TailStep(struct TailProgram* p, struct TailState* s);
+void mtsr_TailSetProgram(float sampling_frequency, float decay_ms, struct mtsr_TailProgram* p);
+void mtsr_TailSetState(struct mtsr_TailState* s);
+void mtsr_TailAccumulate(struct mtsr_TailState* s, float signal);
+float mtsr_TailStep(struct mtsr_TailProgram* p, struct mtsr_TailState* s);
 
 
-struct KickProgram
+struct mtsr606_KickProgram
 {
-	struct ShapedEnvelopeProgram env;
-	struct OscillatorProgram osc[2];
+	struct mtsr_ShapedEnvelopeProgram env;
+	struct mtsr_OscillatorProgram osc[2];
 };
 
-struct KickState
+struct mtsr606_KickState
 {
-	struct ShapedEnvelopeState env;
-	struct OscillatorState osc[2];
+	struct mtsr_ShapedEnvelopeState env;
+	struct mtsr_OscillatorState osc[2];
 	float distortion;
 	float click_volume;
 };
 
-void KickSetProgram(float sampling_frequency, struct KickProgram* p);
-float KickSetState(enum StateState, float sampling_frequency, float velocity, float vel_vol_mod, float vel_tone_mod,
-                   float reference_vel, struct KickState* s);
+void mtsr606_KickSetProgram(float sampling_frequency, struct mtsr606_KickProgram* p);
+float mtsr606_KickSetState(enum mtsr_StateState, float sampling_frequency, float velocity, float vel_vol_mod,
+                           float vel_tone_mod, float reference_vel, struct mtsr606_KickState* s);
 
-float RenderKick(float volume, const struct KickProgram* p, struct KickState* s, float* out, const float* out_end);
-float RenderAdditiveKick(float volume, const struct KickProgram* p, struct KickState* s, float* out,
+float mtsr606_RenderKick(float volume, const struct mtsr606_KickProgram* p, struct mtsr606_KickState* s, float* out,
                          const float* out_end);
+float mtsr606_RenderAdditiveKick(float volume, const struct mtsr606_KickProgram* p, struct mtsr606_KickState* s,
+                                 float* out, const float* out_end);
 
 
-struct SnareProgram
+struct mtsr606_SnareProgram
 {
-	struct OscillatorProgram osc;
-	struct EnvelopeProgram env;
-	struct FilterProgram filter[2];
+	struct mtsr_OscillatorProgram osc;
+	struct mtsr_EnvelopeProgram env;
+	struct mtsr_FilterProgram filter[2];
 };
 
-struct SnareState
+struct mtsr606_SnareState
 {
-	struct OscillatorState osc;
-	struct EnvelopeState env;
-	struct NoiseState noise;
-	struct FilterState filter[2];
+	struct mtsr_OscillatorState osc;
+	struct mtsr_EnvelopeState env;
+	struct mtsr_NoiseState noise;
+	struct mtsr_FilterState filter[2];
 	float distortion;
 	float noise_volume;
 };
 
-void SnareSetProgram(float sampling_frequency, struct SnareProgram* p);
-float SnareSetState(enum StateState, float sampling_frequency, uint32_t seed, float velocity, float vel_vol_mod,
-                    float vel_tone_mod, float reference_vel, struct SnareState* s);
+void mtsr606_SnareSetProgram(float sampling_frequency, struct mtsr606_SnareProgram* p);
+float mtsr606_SnareSetState(enum mtsr_StateState, float sampling_frequency, uint32_t seed, float velocity,
+                            float vel_vol_mod, float vel_tone_mod, float reference_vel, struct mtsr606_SnareState* s);
 
-float RenderSnare(float volume, const struct SnareProgram* p, struct SnareState* s, float* out, const float* out_end);
-float RenderAdditiveSnare(float volume, const struct SnareProgram* p, struct SnareState* s, float* out,
+float mtsr606_RenderSnare(float volume, const struct mtsr606_SnareProgram* p, struct mtsr606_SnareState* s, float* out,
                           const float* out_end);
+float mtsr606_RenderAdditiveSnare(float volume, const struct mtsr606_SnareProgram* p, struct mtsr606_SnareState* s,
+                                  float* out, const float* out_end);
 
 
-struct HatProgram
+enum mtsr_HatType
 {
-	struct SquareX6Program sqr;
-
-	struct FilterProgram bp[3]; // Bandpass is asymmetrical, 24 of highpass, 12 of lowpass,
-	                            // shared between all hats and cymbal
-
-	struct FilterProgram hp; // For noise added by distorting
-	struct FilterProgram lp; // Final filter, mostly shapes white noise
+	MTSR_OPEN_HAT,
+	MTSR_CLOSED_HAT,
+	MTSR_CYMBAL
 };
 
-struct HatState
+struct mtsr606_HatProgram
 {
-	struct SquareX6State sqr;
-	struct FilterState bp[3];
+	struct mtsr_SquareX6Program sqr;
 
-	struct ShapedEnvelopeProgram env_long_p; // Envelope has a weird shape emulated here by using two of them,
-	                                         // also, while both are exponential, one is more "lineal" than
-	struct EnvelopeProgram env_short_p;      // the other, that's why the different types
-	struct ShapedEnvelopeState env_long;
-	struct EnvelopeState env_short;
+	struct mtsr_FilterProgram bp[3]; // Bandpass is asymmetrical, 24 of highpass, 12 of lowpass,
+	                                 // shared between all hats and cymbal
 
-	struct FilterState hp;
-	struct FilterState lp;
+	struct mtsr_FilterProgram hp; // For noise added by distorting
+	struct mtsr_FilterProgram lp; // Final filter, mostly shapes white noise
+};
 
-	struct NoiseState noise;
+struct mtsr606_HatState
+{
+	struct mtsr_SquareX6State sqr;
+	struct mtsr_FilterState bp[3];
+
+	struct mtsr_ShapedEnvelopeProgram env_long_p; // Envelope has a weird shape emulated here by using two of them,
+	                                              // also, while both are exponential, one is more "lineal" than
+	struct mtsr_EnvelopeProgram env_short_p;      // the other, that's why the different types
+	struct mtsr_ShapedEnvelopeState env_long;
+	struct mtsr_EnvelopeState env_short;
+
+	struct mtsr_FilterState hp;
+	struct mtsr_FilterState lp;
+
+	struct mtsr_NoiseState noise;
 
 	float noise_volume;
 	float long_volume;
@@ -241,44 +251,42 @@ struct HatState
 	float fade_out_in_c;
 };
 
-enum HatType
+void mtsr606_HatSetProgram(float sampling_frequency, enum mtsr_HatType type, struct mtsr606_HatProgram* p);
+float mtsr606_HatSetState(enum mtsr_StateState, float sampling_frequency, enum mtsr_HatType type, uint32_t seed,
+                          float velocity, float vel_vol_mod, float vel_tone_mod, float reference_vel,
+                          struct mtsr606_HatState* s);
+
+float mtsr606_RenderHat(float volume, const struct mtsr606_HatProgram* p, struct mtsr606_HatState* s, float* out,
+                        const float* out_end);
+float mtsr606_RenderAdditiveHat(float volume, const struct mtsr606_HatProgram* p, struct mtsr606_HatState* s,
+                                float* out, const float* out_end);
+
+
+enum mtsr_TomType
 {
-	OPEN_HAT,
-	CLOSED_HAT,
-	CYMBAL
+	MTSR_LOW_TOM,
+	MTSR_HIGH_TOM
 };
 
-void HatSetProgram(float sampling_frequency, enum HatType type, struct HatProgram* p);
-float HatSetState(enum StateState, float sampling_frequency, enum HatType type, uint32_t seed, float velocity,
-                  float vel_vol_mod, float vel_tone_mod, float reference_vel, struct HatState* s);
-
-float RenderHat(float volume, const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
-float RenderAdditiveHat(float volume, const struct HatProgram* p, struct HatState* s, float* out, const float* out_end);
-
-
-struct TomProgram
+struct mtsr606_TomProgram
 {
-	struct ShapedEnvelopeProgram env;
-	struct OscillatorProgram osc;
+	struct mtsr_ShapedEnvelopeProgram env;
+	struct mtsr_OscillatorProgram osc;
 };
 
-struct TomState
+struct mtsr606_TomState
 {
 	float click_volume;
-	struct ShapedEnvelopeState env;
-	struct OscillatorState osc;
+	struct mtsr_ShapedEnvelopeState env;
+	struct mtsr_OscillatorState osc;
 };
 
-enum TomType
-{
-	LOW_TOM,
-	HIGH_TOM
-};
+void mtsr606_TomSetProgram(float sampling_frequency, enum mtsr_TomType type, struct mtsr606_TomProgram* p);
+float mtsr606_TomSetState(enum mtsr_StateState, float sampling_frequency, enum mtsr_TomType type, float velocity,
+                          float vel_vol_mod, float vel_tone_mod, float reference_vel, struct mtsr606_TomState* s);
 
-void TomSetProgram(float sampling_frequency, enum TomType type, struct TomProgram* p);
-float TomSetState(enum StateState, float sampling_frequency, enum TomType type, float velocity, float vel_vol_mod,
-                  float vel_tone_mod, float reference_vel, struct TomState* s);
-
-float RenderTom(float volume, const struct TomProgram* p, struct TomState* s, float* out, const float* out_end);
-float RenderAdditiveTom(float volume, const struct TomProgram* p, struct TomState* s, float* out, const float* out_end);
+float mtsr606_RenderTom(float volume, const struct mtsr606_TomProgram* p, struct mtsr606_TomState* s, float* out,
+                        const float* out_end);
+float mtsr606_RenderAdditiveTom(float volume, const struct mtsr606_TomProgram* p, struct mtsr606_TomState* s,
+                                float* out, const float* out_end);
 #endif
