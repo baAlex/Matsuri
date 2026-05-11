@@ -85,8 +85,8 @@ static const struct ParameterInfo s_parameters_info[PARAMETERS_NO] = {
     {"Volume", "Low tom", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
     {"Volume", "High tom", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
 
-    {"Velocity", "Velocity-volume modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
-    {"Velocity", "Velocity-tone modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
+    {"Velocity", "Velocity-Volume modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
+    {"Velocity", "Velocity-Tone modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
     {"Velocity", "Velocity reference", 0.5f, 0.0f, 1.0f, 65536.0f, "x"},
 
     {"Other", "Limiter decay", 0.0f, 0.0f, 1000.0f, 65.536f, "ms"},
@@ -223,7 +223,8 @@ static bool sPluginParametersInfo(const clap_plugin_t* plugin, uint32_t index, c
 		memset(out, 0, sizeof(clap_param_info_t));
 		out->id = index;
 
-		out->flags = CLAP_PARAM_IS_AUTOMATABLE;
+		// Without CLAP_PARAM_REQUIRES_PROCESS, Zrythm rejects it
+		out->flags = CLAP_PARAM_IS_AUTOMATABLE | CLAP_PARAM_REQUIRES_PROCESS;
 		out->default_value = s_parameters_info[index].default_value;
 		out->min_value = s_parameters_info[index].min_value;
 		out->max_value = s_parameters_info[index].max_value;

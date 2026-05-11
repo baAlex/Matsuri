@@ -7,7 +7,7 @@ Synthesizer recreating the sound of Roland's TR-606 drum machine. Fast, tiny, an
 - CLAP plugin
 	- With velocity affecting both volume and timbre (configurable), optional limiter, volume controls, choking between hats, and each sound being unique.
 - Web Audio / WebAssembly [AudioNode](https://developer.mozilla.org/en-US/docs/Web/API/AudioNode)
-	- Same capabilities as CLAP plugin.
+	- Same capabilities as CLAP plugin. It also works lovely with [Web MIDI API](https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API).
 - FLAC samples with an SFZ definition
 	- For old-school musicians, they are more rigid: 4 velocities only. SFZ definition implements volume controls, and choking.
 
@@ -129,6 +129,17 @@ These are available parameters, with their default, minimum, and maximum values:
 | `master-volume`              | 1             | 0       | 100     |
 
 Limiter is disabled when its decay is set to zero, the default.
+
+Finally, you can send MIDI messages directly (follows General MIDI standard), so wiring with Web MIDI API is as simple as call `node.midi()` on new messages:
+```js
+navigator.requestMIDIAccess().then(access => {
+	for (const input of access.inputs.values()) {
+		input.onmidimessage = msg => {
+			node.midi(msg.data[0], msg.data[1], msg.data[2]);
+		}
+	}
+});
+```
 
 
 Clone and compile code
