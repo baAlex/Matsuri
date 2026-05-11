@@ -31,32 +31,17 @@ Copy the file `matsuri-v2-win.clap` to the folder your DAW expects plugins in. O
 And yes, Linux users, you have many files to choose from. Those suffixed `f42` were compiled on Fedora 42, those with `u24` on Ubuntu 24.04. Grab the correct one for your distro... or, in Linux fashion try any of them regardless of anything, it should work.
 
 ### Using it
-**There is no graphical interface**, at least not a pretty one, your DAW is in charge of displaying parameters. You should find these:
+**There is no uniform/pretty graphical interface**, your DAW is in charge of displaying parameters. You will find something like these:
 
-| Parameter name              | Default value | Minimum | Maximum |
-| --------------------------- | ------------- | ------- | ------- |
-| Volume: Bass drum           | 100           | 0       | 100     |
-| Volume: Snare drum          | 100           | 0       | 100     |
-| Volume: Closed hi-hat       | 65            | 0       | 100     |
-| Volume: Open hi-hat         | 70            | 0       | 100     |
-| Volume: Cymbal              | 80            | 0       | 100     |
-| Volume: Low tom             | 100           | 0       | 100     |
-| Volume: High tom            | 100           | 0       | 100     |
-| Velocity: Volume modulation | 1             | 0       | 1       |
-| Velocity: Tone modulation   | 1             | 0       | 1       |
-| Velocity: Reference         | 0.5           | 0       | 1       |
-| Other: Limiter decay        | 0 ms          | 0 ms    | 1000 ms |
-| Other: Master volume        | 100           | 0       | 100     |
+![](./resources/screenshots.webp)
 
-Limiter is disabled when its decay is set to zero, the default.
-
-Saving and loading presets is supported; however is on your DAW to honour it.
+Aside from typical volume parameters, limiter is disabled when its decay is set to zero, the default. "Velocity reference" is the velocity to converge if there's no modulation. And finally, saving and loading presets is supported.
 
 
 Guide for Web Audio developers
 ------------------------------
 
-For now there's no "automated deployment" of any kind, you have two routes:
+For now there's no automated deployment of any kind, you have two routes:
 - **Download latest release ZIP** (I recommend this), there you will find a precompiled WASM module with its JS companions.
 - Compile the WASM module manually, with `clang`, and `cmake` ([see below](#clone-and-compile-code)).
 
