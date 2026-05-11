@@ -313,7 +313,7 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* 
 	}
 
 	// Post-processing
-	if (self->limiter_c == 0.0f)
+	if (self->limiter_c <= 1.0f / 100.0f)
 	{
 		for (float* sample = out; sample < out + samples; sample += 1)
 		{

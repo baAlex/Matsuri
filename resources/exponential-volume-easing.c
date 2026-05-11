@@ -41,7 +41,7 @@ int main(void)
 		const float b = 6.908754779f / 2.0f; // Half way between proper exponential and cheap
 		                                     // 'y = xx' easing function, which isn't that bad
 
-		x = (float)(i) / (float)(TABLE_LEN - 1);
+		x = (float)(i) / (float)(TABLE_LEN);
 		x = (expf(b * fabsf(x)) - 1.0f) / (expf(b) - 1.0f);
 
 		s_table[i] = x;
@@ -49,7 +49,7 @@ int main(void)
 	}
 
 	s_table[TABLE_LEN] = x;
-	printf("\t%ff};\n", x);
+	printf("\t%ff};\n", 1.0f);
 
 	//
 
