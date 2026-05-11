@@ -34,8 +34,8 @@
 
 			ConnectRangeParameter("range-volume-bass-drum", "volume-bass-drum");
 			ConnectRangeParameter("range-volume-snare-drum", "volume-snare-drum");
-			ConnectRangeParameter("range-volume-closed-hit-hat", "volume-closed-hit-hat");
-			ConnectRangeParameter("range-volume-open-hit-hat", "volume-open-hit-hat");
+			ConnectRangeParameter("range-volume-closed-hi-hat", "volume-closed-hi-hat");
+			ConnectRangeParameter("range-volume-open-hi-hat", "volume-open-hi-hat");
 			ConnectRangeParameter("range-volume-cymbal", "volume-cymbal");
 			ConnectRangeParameter("range-volume-low-tom", "volume-low-tom");
 			ConnectRangeParameter("range-volume-high-tom", "volume-high-tom");
@@ -68,9 +68,9 @@
 					KeyOn(matsuri.MIDI_ACOUSTIC_SNARE_KEY);
 
 				if (event.code == "KeyG")
-					KeyOn(matsuri.MIDI_CLOSED_HIT_HAT_KEY);
+					KeyOn(matsuri.MIDI_CLOSED_HI_HAT_KEY);
 				if (event.code == "KeyJ")
-					KeyOn(matsuri.MIDI_OPEN_HIT_HAT_KEY);
+					KeyOn(matsuri.MIDI_OPEN_HI_HAT_KEY);
 				if (event.code == "KeyL")
 					KeyOn(matsuri.MIDI_CRASH_CYMBAL_KEY);
 
@@ -108,11 +108,11 @@
 		document.querySelector("#button-snare-drum").addEventListener("mousedown", (e) => {
 			KeyOn(matsuri.MIDI_ACOUSTIC_SNARE_KEY);
 		});
-		document.querySelector("#button-closed-hit-hat").addEventListener("mousedown", (e) => {
-			KeyOn(matsuri.MIDI_CLOSED_HIT_HAT_KEY);
+		document.querySelector("#button-closed-hi-hat").addEventListener("mousedown", (e) => {
+			KeyOn(matsuri.MIDI_CLOSED_HI_HAT_KEY);
 		});
-		document.querySelector("#button-open-hit-hat").addEventListener("mousedown", (e) => {
-			KeyOn(matsuri.MIDI_OPEN_HIT_HAT_KEY);
+		document.querySelector("#button-open-hi-hat").addEventListener("mousedown", (e) => {
+			KeyOn(matsuri.MIDI_OPEN_HI_HAT_KEY);
 		});
 		document.querySelector("#button-low-tom").addEventListener("mousedown", (e) => {
 			KeyOn(matsuri.MIDI_LOW_TOM_KEY);
@@ -162,8 +162,8 @@
 		<fieldset>
 			<button id="button-bass-drum">BD</button>
 			<button id="button-snare-drum">SD</button>
-			<button id="button-closed-hit-hat">CH</button>
-			<button id="button-open-hit-hat">OH</button>
+			<button id="button-closed-hi-hat">CH</button>
+			<button id="button-open-hi-hat">OH</button>
 			<button id="button-cymbal">CY</button>
 			<button id="button-low-tom">LT</button>
 			<button id="button-high-tom">HT</button>
@@ -178,11 +178,11 @@
 			<label>Snare drum:
 				<input type="range" id="range-volume-snare-drum" min="0" max="100" value="100"
 					list="marker100" /></label>
-			<label>Closed hit-hat:
-				<input type="range" id="range-volume-closed-hit-hat" min="0" max="100" value="65"
+			<label>Closed hi-hat:
+				<input type="range" id="range-volume-closed-hi-hat" min="0" max="100" value="65"
 					list="marker65" /></label>
-			<label>Open hit-hat:
-				<input type="range" id="range-volume-open-hit-hat" min="0" max="100" value="70"
+			<label>Open hi-hat:
+				<input type="range" id="range-volume-open-hi-hat" min="0" max="100" value="70"
 					list="marker70" /></label>
 			<label>Cymbal:
 				<input type="range" id="range-volume-cymbal" min="0" max="100" value="80" list="marker80" /></label>

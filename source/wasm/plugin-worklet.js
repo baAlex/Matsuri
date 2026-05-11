@@ -27,8 +27,8 @@ class MatsuriV2Processor extends AudioWorkletProcessor {
 		return [
 			{ name: "volume-bass-drum", defaultValue: 1.0, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
 			{ name: "volume-snare-drum", defaultValue: 1.0, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
-			{ name: "volume-closed-hit-hat", defaultValue: 0.65, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
-			{ name: "volume-open-hit-hat", defaultValue: 0.70, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
+			{ name: "volume-closed-hi-hat", defaultValue: 0.65, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
+			{ name: "volume-open-hi-hat", defaultValue: 0.70, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
 			{ name: "volume-cymbal", defaultValue: 0.80, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
 			{ name: "volume-low-tom", defaultValue: 1.0, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
 			{ name: "volume-high-tom", defaultValue: 1.0, minValue: 0.0, maxValue: 100.0, automationRate: "k-rate" },
@@ -93,8 +93,8 @@ class MatsuriV2Processor extends AudioWorkletProcessor {
 		this.m_wasm.Render(
 			parameters["volume-bass-drum"][0],
 			parameters["volume-snare-drum"][0],
-			parameters["volume-closed-hit-hat"][0],
-			parameters["volume-open-hit-hat"][0],
+			parameters["volume-closed-hi-hat"][0],
+			parameters["volume-open-hi-hat"][0],
 			parameters["volume-cymbal"][0],
 			parameters["volume-low-tom"][0],
 			parameters["volume-high-tom"][0],

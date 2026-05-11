@@ -31,8 +31,8 @@ export const MIDI_LOW_MID_TOM_KEY = 47;
 export const MIDI_HIGH_MID_TOM_KEY = 48;
 export const MIDI_HIGH_TOM_KEY = 50;
 
-export const MIDI_CLOSED_HIT_HAT_KEY = 42;
-export const MIDI_OPEN_HIT_HAT_KEY = 46;
+export const MIDI_CLOSED_HI_HAT_KEY = 42;
+export const MIDI_OPEN_HI_HAT_KEY = 46;
 export const MIDI_CRASH_CYMBAL_KEY = 49;
 
 
