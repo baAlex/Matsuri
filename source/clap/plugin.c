@@ -77,20 +77,20 @@ struct ParameterInfo
 };
 
 static const struct ParameterInfo s_parameters_info[PARAMETERS_NO] = {
-    {"", "Bass drum", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {"", "Snare drum", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {"", "Closed hit-hat", 65.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {"", "Open hit-hat", 70.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {"", "Cymbal", 80.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {"", "Low tom", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
-    {"", "High tom", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"Volume", "Bass drum", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"Volume", "Snare drum", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"Volume", "Closed hit-hat", 65.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"Volume", "Open hit-hat", 70.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"Volume", "Cymbal", 80.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"Volume", "Low tom", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"Volume", "High tom", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
 
-    {"", "Velocity-volume modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
-    {"", "Velocity-tone modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
-    {"", "Velocity reference", 0.5f, 0.0f, 1.0f, 65536.0f, "x"},
+    {"Velocity", "Velocity-volume modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
+    {"Velocity", "Velocity-tone modulation", 1.0f, 0.0f, 1.0f, 65536.0f, "x"},
+    {"Velocity", "Velocity reference", 0.5f, 0.0f, 1.0f, 65536.0f, "x"},
 
-    {"", "Limiter decay", 0.0f, 0.0f, 1000.0f, 65.536f, "ms"},
-    {"", "Master", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
+    {"Other", "Limiter decay", 0.0f, 0.0f, 1000.0f, 65.536f, "ms"},
+    {"Other", "Master volume", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
 };
 
 struct MatsuriPlugin

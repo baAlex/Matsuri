@@ -1,6 +1,6 @@
 
-Matsuri
-=======
+Matsuri v2.0
+============
 
 Synthesizer recreating the sound of Roland's TR-606 drum machine. Fast, tiny, and close to original sounds (considering it doesn't emulate circuitry). The project includes:
 
@@ -17,17 +17,50 @@ Synthesizer recreating the sound of Roland's TR-606 drum machine. Fast, tiny, an
 
 Download
 --------
-**Soon**. But in the meantime you can [compile the code](#clone-and-compile-code).
+**Soon**. But in the meantime you can compile the code ([see below](#clone-and-compile-code)).
 
 
-Guide for thr Web Audio node
-----------------------------
+Guide for the CLAP plugin
+-------------------------
+
+### Installing from ZIP file
+Inside ZIP file, go to the correct folder: `windows` or `linux`, depending on your system.
+
+Copy the file `matsuri-v2-win.clap` to the folder your DAW expect plugins in. Often is a configurable directory, so make sure of read the appropriate manual. Once done, tell the DAW to scan for new plugins (some DAWs use "Add", "Search", "Update", between other terms). And done!.
+
+And yes, Linux users, you have many files to choose from. Those suffixed `f42` were compiled on Fedora 42, those with `u24` in Ubuntu 24.04. Grab the correct one for your distro... or, in Linux fashion try any of them regardless or anything, it should work.
+
+### Using it
+**There is no graphical interface**, at least not a pretty one, your DAW is in charge of displaying the parameters. You should find these:
+
+| Parameter name              | Default value | Minimum | Maximum |
+| --------------------------- | ------------- | ------- | ------- |
+| Volume: Bass drum           | 100           | 0       | 100     |
+| Volume: Snare drum          | 100           | 0       | 100     |
+| Volume: Closed hit-hat      | 65            | 0       | 100     |
+| Volume: Open hit-hat        | 70            | 0       | 100     |
+| Volume: Cymbal              | 80            | 0       | 100     |
+| Volume: Low tom             | 100           | 0       | 100     |
+| Volume: High tom            | 100           | 0       | 100     |
+| Velocity: Volume modulation | 1             | 0       | 1       |
+| Velocity: Tone modulation   | 1             | 0       | 1       |
+| Velocity: Reference         | 0.5           | 0       | 1       |
+| Other: Limiter decay        | 0 ms          | 0 ms    | 1000 ms |
+| Other: Master volume        | 100           | 0       | 100     |
+
+Limiter is disabled when its decay is set to zero, the default.
+
+Functionality to save, and load presets is implemented; however is on your DAW to honour it.
+
+
+Guide for Web Audio developers
+------------------------------
 
 For now there's no "automated deployment" of any kind, you have two routes:
-- **Download latest release** (I recommend this), there you will find a precompiled WASM module with its JS companions.
+- **Download latest release ZIP** (I recommend this), there you will find a precompiled WASM module with its JS companions.
 - Compile the WASM module manually, with `clang`, and `cmake` ([see below](#clone-and-compile-code)).
 
-Regardless of which method you choose, your will find a folder containing following stuff:
+Regardless of which method you choose, your will find following stuff:
 
 - `matsuri-v2.wasm`, WASM module, there's not much you can do with it.
 - `matsuri-v2-worklet.js`, glue between JS and WASM, it's a boring file, don't touch it.
@@ -92,8 +125,10 @@ These are available parameters, with their default, minimum, and maximum values:
 | `velocity-volume-modulation` | 1             | 0       | 1       |
 | `velocity-tone-modulation`   | 1             | 0       | 1       |
 | `velocity-reference`         | 0.5           | 0       | 1       |
-| `limiter-decay`              | 0             | 0       | 1000    |
+| `limiter-decay`              | 0 ms          | 0 ms    | 1000 ms |
 | `master-volume`              | 1             | 0       | 100     |
+
+Limiter is disabled when its decay is set to zero, the default.
 
 
 Clone and compile code
@@ -112,6 +147,6 @@ make
 
 License
 -------
-Code under the MPL-2.0 license. Every file includes its respective notice.
+Under the MPL-2.0 license. Code form is "Incompatible With Secondary Licenses".
 
 Samples and audio created from code/programs, under no license, those are yours.
