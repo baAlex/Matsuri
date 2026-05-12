@@ -15,6 +15,12 @@
 		let reference_vel;
 
 		async function InitialiseStuff() {
+			ctx = new AudioContext();
+
+			await matsuri.FetchAndRegister(ctx);
+			node = new matsuri.MatsuriV2Node(ctx);
+			node.connect(ctx.destination);
+
 			function ConnectRangeParameter(range_id, parameter_name) {
 				const range = document.getElementById(range_id);
 				const parameter = node.parameters.get(parameter_name);
@@ -25,12 +31,6 @@
 					parameter.setValueAtTime(parseFloat(range.value), ctx.currentTime);
 				});
 			}
-
-			ctx = new AudioContext();
-
-			await matsuri.FetchAndRegister(ctx);
-			node = new matsuri.MatsuriV2Node(ctx);
-			node.connect(ctx.destination);
 
 			ConnectRangeParameter("range-volume-bass-drum", "volume-bass-drum");
 			ConnectRangeParameter("range-volume-snare-drum", "volume-snare-drum");

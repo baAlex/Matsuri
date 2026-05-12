@@ -1,3 +1,6 @@
+
+// Under public domain, or following license
+
 /*
 
 MIT No Attribution
@@ -39,14 +42,14 @@ export const MIDI_CRASH_CYMBAL_KEY = 49;
 let s_wasm_array = null;
 
 
-export async function FetchAndRegister(audio_context) {
+export async function FetchAndRegister(audio_context, worklet_url = "./matsuri-v2-worklet.js", wasm_url = "./matsuri-v2.wasm") {
 
 	// Fetch worklet code, register it on the context
-	await audio_context.audioWorklet.addModule("./matsuri-v2-worklet.js");
+	await audio_context.audioWorklet.addModule(worklet_url);
 
 	// Fetch WASM blob, make it an array
 	if (s_wasm_array == null) {
-		const response = await fetch("./matsuri-v2.wasm");
+		const response = await fetch(wasm_url);
 		s_wasm_array = await response.arrayBuffer();
 	}
 }

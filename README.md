@@ -33,7 +33,7 @@ And yes, Linux users, you have many files to choose from. Those suffixed `f42` w
 ### Using it
 **There is no uniform/pretty graphical interface**, your DAW is in charge of displaying parameters. You will find something like these:
 
-![](./resources/screenshots.webp)
+![Screenshot of a window showing parameters](./resources/screenshots.webp)
 
 Aside from typical volume parameters, limiter is disabled when its decay is set to zero, the default. "Velocity reference" is the velocity to converge if there's no modulation. And finally, saving and loading presets is supported.
 
@@ -48,8 +48,8 @@ For now there's no automated deployment of any kind, you have two routes:
 Regardless of which method you choose, your will find following files:
 
 - `matsuri-v2.wasm`, WASM module, there's not much you can do with it.
-- `matsuri-v2-worklet.js`, glue between JS and WASM, it's a boring file, don't touch it.
-- `matsuri-v2.js`, **this is the important one**, what may be called the library/module. It defines `MatsuriV2Node` class (a Web Audio node), and it's in charge of fetching and initialise the worklet. **You absolutely should modify this file in order to better integrate it into your framework**, for example the fetching function `FetchAndRegister()` has a hardcoded line of code: `await fetch("./matsuri-v2.wasm")`, that you may want to change. This file is under public domain, so make it yours.
+- `matsuri-v2-worklet.js`, glue between JS and WASM, it's a boring file.
+- `matsuri-v2.js`, **this is the important one**, what may be called the library/module. It defines `MatsuriV2Node` class (a Web Audio node), and it's in charge of fetching and initialise the worklet. **You absolutely should modify this file in order to better integrate it into your framework** (it's under public domain, so it's yours).
 - `test-page-v2.html`, minimal example that showcases the synth, it's ugly but gets things done.
 
 Got the files?, run this command on your terminal:
@@ -71,6 +71,9 @@ let ctx = new AudioContext();
 // Tell the audio context what "Matsuri" is
 await matsuri.FetchAndRegister(ctx);
 
+// Maybe you want to fetch specifying these two:
+// await matsuri.FetchAndRegister(ctx, "./matsuri-v2-worklet.js", "./matsuri-v2.wasm");
+
 // Create and connect a Matsuri node
 let node = new matsuri.MatsuriV2Node(ctx);
 node.connect(ctx.destination);
@@ -90,6 +93,9 @@ node.noteOn(matsuri.MIDI_OPEN_HI_HAT_KEY, 0.5);
 node.noteOn(matsuri.MIDI_CRASH_CYMBAL_KEY, 0.5);
 ```
 
+> [!IMPORTANT]
+> Put any of these under the click of a button, or a key press. Browsers will refuse to play sounds *without user interaction*. Don't send the first note automatically, for example at page loading. After first note tho, any automatization is allowed.
+
 To adjust parameters it follows standard Web Audio API:
 ```js
 let parameter = node.parameters.get("volume-bass-drum");
@@ -100,18 +106,18 @@ These are available parameters, with their default, minimum, and maximum values:
 
 | Parameter name               | Default value | Minimum | Maximum |
 | ---------------------------- | ------------- | ------- | ------- |
-| `volume-bass-drum`           | 1             | 0       | 100     |
-| `volume-snare-drum`          | 1             | 0       | 100     |
-| `volume-closed-hi-hat`       | 0.65          | 0       | 100     |
-| `volume-open-hi-hat`         | 0.7           | 0       | 100     |
-| `volume-cymbal`              | 0.8           | 0       | 100     |
-| `volume-low-tom`             | 1             | 0       | 100     |
-| `volume-high-tom`            | 1             | 0       | 100     |
+| `volume-bass-drum`           | 100           | 0       | 100     |
+| `volume-snare-drum`          | 100           | 0       | 100     |
+| `volume-closed-hi-hat`       | 65            | 0       | 100     |
+| `volume-open-hi-hat`         | 70            | 0       | 100     |
+| `volume-cymbal`              | 80            | 0       | 100     |
+| `volume-low-tom`             | 100           | 0       | 100     |
+| `volume-high-tom`            | 100           | 0       | 100     |
 | `velocity-volume-modulation` | 1             | 0       | 1       |
 | `velocity-tone-modulation`   | 1             | 0       | 1       |
 | `velocity-reference`         | 0.5           | 0       | 1       |
 | `limiter-decay`              | 0 ms          | 0 ms    | 1000 ms |
-| `master-volume`              | 1             | 0       | 100     |
+| `master-volume`              | 100           | 0       | 100     |
 
 Limiter is disabled when its decay is set to zero, the default.
 
