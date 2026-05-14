@@ -2,12 +2,12 @@
 
 Copyright (c) 2026 Alexander Brandt
 
-This Source Code Form is subject to the terms of the Mozilla Public
-License, v. 2.0. If a copy of the MPL was not distributed with this
-file, You can obtain one at https://mozilla.org/MPL/2.0/.
+The contents of this file are subject to the terms of the
+Common Development and Distribution License (the "License").
+You may not use this file except in compliance with the License.
 
-This Source Code Form is "Incompatible With Secondary Licenses", as
-defined by the Mozilla Public License, v. 2.0.
+If a copy of the CDDL was not distributed with this file, You
+can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
 #include "misc.h"

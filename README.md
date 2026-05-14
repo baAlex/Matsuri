@@ -149,6 +149,6 @@ make
 
 License
 -------
-Under the MPL-2.0 license. Code form is "Incompatible With Secondary Licenses".
+Under the CDDL-1.0 license.
 
 Samples and audio created from code/programs, under no license, those are yours.
