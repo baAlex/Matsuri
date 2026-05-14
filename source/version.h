@@ -27,11 +27,11 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #define MATSURI_COPYRIGHT "\
 Copyright (c) 2026 Alexander Brandt\n\
 \n\
-The contents of this file are subject to the terms of the\
-Common Development and Distribution License (the "License").\
-You may not use this file except in compliance with the License.\
+The contents of this file are subject to the terms of the\n\
+Common Development and Distribution License (the \"License\").\n\
+You may not use this file except in compliance with the License.\n\
 \n\
-If a copy of the CDDL was not distributed with this file, You\
+If a copy of the CDDL was not distributed with this file, You\n\
 can obtain one at https://opensource.org/license/CDDL-1.0."
 // clang-format on
 
