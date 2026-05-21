@@ -2,6 +2,9 @@
 /build/
 /build-debug/
 /build-release/
+/build-fedora/
+/build-ubuntu/
+/build-windows/
 
 /dev/
 
@@ -9,3 +12,4 @@
 /.cache/
 
 .clangd
+*.ttf

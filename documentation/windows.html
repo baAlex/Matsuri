@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="author" content="Alexander Brandt">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="style.css">
+
+	<title>Matsuri v2.0 for Windows, User's guide</title>
+</head>
+
+<body>
+	<h1>Matsuri v2.0 for Windows, <br>User's guide</h1>
+	<p>Thank you for downloading Matsuri, a synthesizer recreating the sound of Roland's TR-606 drum machine. Fast,
+		tiny, and faithful to the original sounds (considering it doesn't emulate circuitry). This document will guide
+		you on how to install it, use it, and if you feel lucky, compile it from its source code.</p>
+
+	<p class="LegalFluff">Matsuri has no relation with Roland, all trademarks and copyrights are theirs.</p>
+	<p class="LegalFluff">Company names and product names appearing in this document are registered trademarks or
+		trademarks of their respective owners.</p>
+
+	<h2>Installing the Plug-in</h2>
+	<ol>
+		<li>
+			<p>Check that your DAW supports CLAP plug-ins, and where it expects them to be installed. At the time of
+				writing, a common location is <strong>C:\Program Files\Common Files\CLAP\</strong>.
+			</p>
+		</li>
+		<li>
+			<p>In the ZIP file you will find a file named <strong>matsuri-v2.clap</strong>, copy it into the folder your
+				DAW expects it to be. Restart the DAW, some may require you to explicitly indicate to "Scan" new
+				plug-ins,
+				read its documentation</p>
+		</li>
+		<li>
+			<p>And that's it! You should find <strong>Matsuri v2</strong> as an instrument, and/or a drum machine.</p>
+		</li>
+	</ol>
+
+	<h2>Using It</h2>
+	<figure>
+		<img src="screenshot2.png" alt="REAPER provided interface">
+		<figcaption>
+			Figure 1. REAPER provided interface.
+		</figcaption>
+	</figure>
+
+	<p class="DontBreak">
+		There is no pretty graphical interface, your DAW is in charge of displaying parameters. You will find something
+		like shown in Figure 1.</p>
+
+	<p>Aside from typical volume parameters, a limiter is provided, disabled when decay is set to zero (the default).
+		"Velocity reference" specifies the velocity to converge to if "Velocity-tone modulation" approaches zero. With
+		no "Velocity-volume modulation", volume converges to 100%.</p>
+
+	<p>The synthesizer will respond to notes B1 through C#3 (35-49 following General MIDI standard). All sounds can play
+		simultaneously, however, each one is monophonic when retriggered. Exceptions are the open and closed hi-hat,
+		which silence one another, and crash cymbal which is fully polyphonic.</p>
+
+	<h2>New In This Version</h2>
+	<p>Version 2.0 is the first to provide a CLAP plug-in, a WASM module, proper velocity, documentation, and attempting
+		to be user-friendly. Version 1.0 was more of a hack than anything else.</p>
+
+	<h2>Compile From Source Code</h2>
+	<ol>
+		<li class="DontBreak">
+			<p>You will need a <strong>C11 compiler</strong>, <strong>cmake</strong>, and <strong>git</strong>. Latter
+				two are easy to install, type in the terminal:</p>
+			<p><code class="block">winget install -e --id Kitware.CMake Git.Git</code></p>
+			<p>Now for the compiler, visit <a
+					href="https://visualstudio.microsoft.com/">www.visualstudio.microsoft.com</a>, it can be a rather
+				interesting ride. If that's the case you may find the LLVM/Clang suite easier to install, you can get a
+				installer from <a
+					href="https://github.com/llvm/llvm-project/releases">www.github.com/llvm/llvm-project/releases</a>.
+			<aside><span class="AsideTitle">Note</span> I have to confess, as a Linux user I have no idea how things
+				work on your side of the pond, I only know that Matsuri compiles beautifully once everything is
+				installed.</aside>
+		</li>
+		<li class="DontBreak">
+			<p>Download the code with its dependencies using <strong>git</strong>, and enter the folder using:</p>
+			<p><code class="block">git clone --recurse-submodules https://github.com/baAlex/Matsuri
+			<br>cd Matsuri</code></p>
+		</li>
+		<li class="DontBreak">
+			<p>Once in the folder, it's usual <strong>cmake</strong> stuff:</p>
+			<p><code class="block">mkdir build
+			<br>cd build
+			<br>cmake .. -DCMAKE_BUILD_TYPE=Release
+			<br>cmake --build .</code></p>
+			<aside><span class="AsideTitle">Note</span> You may want to compile without optimizations, for
+				this, remove the argument: <code>-DCMAKE_BUILD_TYPE=Release</code></aside>
+		</li>
+	</ol>
+
+	<h2>Getting Help</h2>
+	<p>You can find more information at <a href="https://github.com/baAlex/Matsuri">www.github.com/baAlex/Matsuri</a>.
+		You can also submit issues/bugs you found, make suggestions, and get access to the source code.</p>
+
+	<h2>License And Terms</h2>
+	<p>Matsuri is free and open source, under Common Development and Distribution License 1.0.</p>
+	<p>If a copy of the CDDL was not distributed with this file (license.txt), you can obtain one at <a
+			href="https://opensource.org/license/CDDL-1.0">www.opensource.org/license/CDDL-1.0</a>.</p>
+	<p>Samples and audio created from code/programs, under no license, those are yours.</p>
+
+	<br>
+
+	<footer>Thanks for reading!<br>Alexander Brandt, 2026.</footer>
+
+</body>
+
+</html>

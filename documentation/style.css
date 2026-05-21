@@ -1,0 +1,158 @@
+/* CSS style mimicking 90s Microsoft's documentation, specifically "Windows 3.1: User's Guide" */
+
+@font-face {
+	/* For some reason Firefox refuses to use Arial, Times and Courier, and instead insists on "Liberation Sans" and similar */
+	font-family: 'ArialNarrowOG';
+	font-style: normal;
+	font-weight: 400;
+	src:
+		local('ArialNarrowOG'),
+		url('arialn.ttf') format('truetype');
+}
+
+@font-face {
+	font-family: 'ArialNarrowOG';
+	font-style: normal;
+	font-weight: 800;
+	src:
+		local('ArialNarrowOG'),
+		url('arialnb.ttf') format('truetype');
+}
+
+@font-face {
+	font-family: 'TimesOg';
+	font-style: normal;
+	font-weight: 400;
+	src:
+		local('TimesOg'),
+		url('times.ttf') format('truetype');
+}
+
+@font-face {
+	font-family: 'TimesOg';
+	font-style: normal;
+	font-weight: 800;
+	src:
+		local('TimesOg'),
+		url('timesbd.ttf') format('truetype');
+}
+
+@font-face {
+	font-family: 'CourierOg';
+	font-style: normal;
+	font-weight: 400;
+	src:
+		local('CourierOg'),
+		url('cour.ttf') format('truetype');
+}
+
+@font-face {
+	font-family: 'CourierOg';
+	font-style: normal;
+	font-weight: 800;
+	src:
+		local('CourierOg'),
+		url('courbd.ttf') format('truetype');
+}
+
+body {
+	font-family: "TimesOG", serif;
+	font-size: 0.9rem;
+	line-height: 1.25;
+}
+
+@page {
+	margin: 1.8cm;
+
+	@bottom-right {
+		font-family: "TimesOG", serif;
+		font-size: 0.9rem;
+		content: counter(page);
+	}
+}
+
+a {
+	color: inherit;
+}
+
+h1 {
+	font-family: "ArialNarrowOG", sans-serif;
+	font-weight: 800;
+	font-size: 2rem;
+	break-after: avoid;
+}
+
+h2 {
+	font-family: "ArialNarrowOG", sans-serif;
+	font-weight: 800;
+	font-size: 1.4rem;
+	break-after: avoid;
+}
+
+aside {
+	border-top: 1px solid black;
+	border-bottom: 1px solid black;
+	padding-top: 0.2rem;
+	padding-bottom: 0.2rem;
+}
+
+.AsideTitle {
+	font-family: "ArialNarrowOG", sans-serif;
+	font-weight: 800;
+}
+
+li p {
+	margin-left: 0;
+}
+
+ol,
+p {
+	margin-left: 5rem;
+}
+
+ol {
+	padding-left: 0;
+}
+
+code {
+	font-family: "CourierOG", monospace;
+	break-inside: avoid;
+	white-space: nowrap;
+}
+
+figure {
+	float: right;
+	margin: 0 0 0.8rem 0.8rem;
+	width: 16rem;
+}
+
+figcaption {
+	font-size: 0.8rem;
+	text-align: right;
+}
+
+img {
+	width: 100%;
+}
+
+code.Block {
+	display: block;
+	break-inside: avoid;
+}
+
+footer {
+	font-size: 0.8rem;
+	text-align: right;
+}
+
+.LegalFluff {
+	font-size: 0.7rem;
+}
+
+.DontBreak {
+	break-inside: avoid;
+}
+
+.Break {
+	break-before: page;
+}
