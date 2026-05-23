@@ -19,7 +19,7 @@
 	<p class="LegalFluff">Company names and product names appearing in this document are registered trademarks or
 		trademarks of their respective owners.</p>
 
-	<h2>Installation</h2>
+	<h2 id="installation">Installation</h2>
 	<p>For the moment being there's no automated deployment of any kind, you have two routes:</p>
 	<ul>
 		<li>Use latest release ZIP (I recommend this, and it seems you are doing it already), you will find a
@@ -314,12 +314,13 @@ navigator.requestMIDIAccess().then(access => {
 		<li>Compatibility with Web Audio API, according to <a
 				href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API">MDN</a> it is the case of
 			mainstream browsers since 2021. It is possible to run the WASM module without this API, however, achieve
-			realtime rendering will be rather hard (if even possible).</li>
+			realtime rendering will be rather hard.</li>
 	</ul>
 
 	<h2>Technical Details</h2>
 	<ul>
-		<li>WASM modules where compiled against WASM32, without vector instructions, the lowest common denominator.</li>
+		<li>WASM modules where compiled against WASM32, without vector instructions (SIMD), the lowest common
+			denominator.</li>
 		<li>No library/framework is required, WASM module is freestanding.</li>
 		<li>Format: Float 32 (IEEE 754 Single Precision), both output, and internal maths.</li>
 		<li>Channels: Fake stereo, it copies a single signal to both left, and right channels.</li>
@@ -332,23 +333,32 @@ navigator.requestMIDIAccess().then(access => {
 	<h2 id="clone-and-compile-code">Compile From Source Code</h2>
 	<ol>
 		<li class="DontBreak">
-			<p>You will need a <strong>C11 compiler</strong>, <strong>cmake</strong>, and <strong>git</strong>. On
-				Ubuntu you can install these by typing in the terminal:</p>
-			<p><code class="Block">sudo apt install gcc cmake git</code></p>
+			<p>You need <strong>clang</strong>, <strong>wasm-ld</strong> (part of <code>lld</code>),
+				<strong>cmake</strong>, and <strong>git</strong>. On Ubuntu you can install these by typing in the
+				terminal:
+			</p>
+			<p><code class="Block">sudo apt install clang lld cmake git</code></p>
 		</li>
 		<li class="DontBreak">
 			<p>Then, download the code with its dependencies using <strong>git</strong>, and enter the folder using:</p>
 			<p><code class="Block">git clone --recurse-submodules https://github.com/baAlex/Matsuri
 			<br>cd Matsuri</code></p>
 		</li>
-		<li class="DontBreak">
-			<p>Once in the folder, it is usual <strong>cmake</strong> stuff:</p>
+		<li>
+			<div class="DontBreak"><p>Once in the folder, it is usual <strong>cmake</strong> stuff with a little extra:</p>
 			<p><code class="Block">mkdir build
 			<br>cd build
-			<br>cmake .. -DCMAKE_BUILD_TYPE=Release
-			<br>cmake --build .</code></p>
+			<br>CC=clang cmake .. -DWASM=Yes -DCMAKE_BUILD_TYPE=Release
+			<br>cmake --build .</code></p></div>
+			<aside><span class="AsideTitle">Note</span> Notice the <code>CC=clang</code> variable, and
+				<code>-DWASM=Yes</code> argument, both are required to compile a WASM32 module.
+			</aside>
 			<aside><span class="AsideTitle">Note</span> You may want to compile without optimizations, for
 				this, remove the argument: <code>-DCMAKE_BUILD_TYPE=Release</code></aside>
+		</li>
+		<li>
+			<p>Output will be placed in a folder named <strong>matsuri-v2-wasm</strong>, it encompass files listed in <a
+					href="#installation">Installation</a> section.</p>
 		</li>
 	</ol>
 

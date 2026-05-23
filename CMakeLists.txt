@@ -26,13 +26,14 @@ add_library("matsuri-library-pic" OBJECT "./source/matsuri-library.c")
 target_compile_options("matsuri-library"     PRIVATE ${MATSURI_CFLAGS})
 target_compile_options("matsuri-library-pic" PRIVATE ${MATSURI_CFLAGS})
 
-set_target_properties("matsuri-library" PROPERTIES C_VISIBILITY_PRESET hidden)
+set_target_properties("matsuri-library"     PROPERTIES C_VISIBILITY_PRESET hidden)
 set_target_properties("matsuri-library-pic" PROPERTIES C_VISIBILITY_PRESET hidden)
 set_target_properties("matsuri-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 
 # Executable "generate-wavs"
 add_executable("generate-wavs" "./source/generate-wavs.c")
+
 target_compile_options("generate-wavs" PRIVATE ${MATSURI_CFLAGS})
 target_link_libraries("generate-wavs" PRIVATE "matsuri-library")
 set_target_properties("generate-wavs" PROPERTIES OUTPUT_NAME "matsuri-v2-generate-wavs")
@@ -56,7 +57,10 @@ set_target_properties("matsuri-clap" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 
 # Plugin, WASM
-if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
+if (WASM AND "${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
+
+	message(STATUS "WASM32 build set")
+
 	set(WASM_SOURCES "${CMAKE_SOURCE_DIR}/source/wasm/plugin.c"
 	                 "${CMAKE_SOURCE_DIR}/source/matsuri-library.c"
 	                 "${CMAKE_SOURCE_DIR}/source/voice-allocator.c"
@@ -120,7 +124,7 @@ if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
 	add_custom_target("wasm-test-page" ALL DEPENDS ${WASM_DIR} ${WASM_TEST_PAGE_DEST})
 	add_custom_target("wasm-js-node" ALL DEPENDS ${WASM_DIR} ${WASM_JS_DEST})
 	add_custom_target("wasm-js-worklet" ALL DEPENDS ${WASM_DIR} ${WASM_JS_WORKLET_DEST})
-endif()
+endif ()
 
 
 #
