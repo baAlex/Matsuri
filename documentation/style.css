@@ -4,7 +4,7 @@
 	/* For some reason Firefox refuses to use Arial, Times and Courier, and instead insists on "Liberation Sans" and similar */
 	font-family: 'ArialNarrowOG';
 	font-style: normal;
-	font-weight: 400;
+	font-weight: normal;
 	src:
 		local('ArialNarrowOG'),
 		url('arialn.ttf') format('truetype');
@@ -13,7 +13,7 @@
 @font-face {
 	font-family: 'ArialNarrowOG';
 	font-style: normal;
-	font-weight: 800;
+	font-weight: bold;
 	src:
 		local('ArialNarrowOG'),
 		url('arialnb.ttf') format('truetype');
@@ -22,7 +22,7 @@
 @font-face {
 	font-family: 'TimesOg';
 	font-style: normal;
-	font-weight: 400;
+	font-weight: normal;
 	src:
 		local('TimesOg'),
 		url('times.ttf') format('truetype');
@@ -31,7 +31,7 @@
 @font-face {
 	font-family: 'TimesOg';
 	font-style: normal;
-	font-weight: 800;
+	font-weight: bold;
 	src:
 		local('TimesOg'),
 		url('timesbd.ttf') format('truetype');
@@ -40,7 +40,7 @@
 @font-face {
 	font-family: 'CourierOg';
 	font-style: normal;
-	font-weight: 400;
+	font-weight: normal;
 	src:
 		local('CourierOg'),
 		url('cour.ttf') format('truetype');
@@ -49,16 +49,19 @@
 @font-face {
 	font-family: 'CourierOg';
 	font-style: normal;
-	font-weight: 800;
+	font-weight: bold;
 	src:
 		local('CourierOg'),
 		url('courbd.ttf') format('truetype');
 }
 
-body {
-	font-family: "TimesOG", serif;
-	font-size: 0.9rem;
-	line-height: 1.25;
+@font-face {
+	font-family: 'CourierOg';
+	font-style: italic;
+	font-weight: normal;
+	src:
+		local('CourierOg'),
+		url('couri.ttf') format('truetype');
 }
 
 @page {
@@ -71,34 +74,59 @@ body {
 	}
 }
 
+body {
+	font-family: "TimesOG", serif;
+	font-size: 0.95rem;
+	line-height: 1.25;
+}
+
 a {
 	color: inherit;
 }
 
-h1 {
+h1,
+h2,
+.AsideTitle {
 	font-family: "ArialNarrowOG", sans-serif;
-	font-weight: 800;
-	font-size: 2rem;
+	font-weight: bold;
+}
+
+h1,
+h2 {
 	break-after: avoid;
+}
+
+h1 {
+	font-size: 2rem;
 }
 
 h2 {
-	font-family: "ArialNarrowOG", sans-serif;
-	font-weight: 800;
 	font-size: 1.4rem;
-	break-after: avoid;
 }
 
 aside {
-	border-top: 1px solid black;
-	border-bottom: 1px solid black;
-	padding-top: 0.2rem;
-	padding-bottom: 0.2rem;
+	border-top: 1px solid #000;
+	border-bottom: 1px solid #000;
+	padding: 0.2rem 0;
+	margin-left: 5rem;
 }
 
-.AsideTitle {
-	font-family: "ArialNarrowOG", sans-serif;
-	font-weight: 800;
+li aside {
+	margin: 1rem 0;
+}
+
+li {
+	margin: 0.25em 0;
+}
+
+td {
+	padding: 0.25em 1rem 0.25em 0;
+	vertical-align: top;
+}
+
+ol,
+ul {
+	padding-left: 0;
 }
 
 li p {
@@ -106,18 +134,52 @@ li p {
 }
 
 ol,
-p {
+ul,
+p,
+table {
 	margin-left: 5rem;
 }
 
-ol {
-	padding-left: 0;
+ul {
+	list-style-type: square;
+}
+
+code,
+.Block,
+.DontBreak {
+	break-inside: avoid;
 }
 
 code {
 	font-family: "CourierOG", monospace;
-	break-inside: avoid;
 	white-space: nowrap;
+	font-size: 0.9rem;
+}
+
+span.Comment {
+	color: #42791d;
+	font-style: italic;
+}
+
+span.Keyword {
+	color: #c0173c;
+}
+
+pre {
+	font-family: "CourierOG", monospace;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+thead {
+	font-weight: bold;
+	border-bottom: 1px solid #000;
+}
+
+.Width25 {
+	width: 25%;
 }
 
 figure {
@@ -126,8 +188,14 @@ figure {
 	width: 16rem;
 }
 
-figcaption {
-	font-size: 0.8rem;
+figcaption,
+footer,
+.LegalFluff {
+	font-size: 0.75rem;
+}
+
+figcaption,
+footer {
 	text-align: right;
 }
 
@@ -135,22 +203,8 @@ img {
 	width: 100%;
 }
 
-code.Block {
+.Block {
 	display: block;
-	break-inside: avoid;
-}
-
-footer {
-	font-size: 0.8rem;
-	text-align: right;
-}
-
-.LegalFluff {
-	font-size: 0.7rem;
-}
-
-.DontBreak {
-	break-inside: avoid;
 }
 
 .Break {

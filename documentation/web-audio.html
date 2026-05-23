@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="author" content="Alexander Brandt">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="style.css">
+
+	<title>Matsuri v2.0 for Web Audio API, Guide to Programming</title>
+</head>
+
+<body>
+	<h1>Matsuri v2.0 for Web Audio API, <br>Guide to Programming</h1>
+	<p>Thank you for downloading Matsuri, a synthesizer recreating the sound of Roland's TR-606 drum machine. Fast,
+		tiny, and faithful to the original sounds (considering it doesn't emulate circuitry).</p>
+
+	<p class="LegalFluff">Matsuri has no relation with Roland, all trademarks and copyrights are theirs.</p>
+	<p class="LegalFluff">Company names and product names appearing in this document are registered trademarks or
+		trademarks of their respective owners.</p>
+
+	<h2>Installation</h2>
+	<p>For the moment being there's no automated deployment of any kind, you have two routes:</p>
+	<ul>
+		<li>Use latest release ZIP (I recommend this, and it seems you are doing it already), you will find a
+			precompiled WebAssembly (WASM) module with its JS companions.
+		</li>
+		<li>Compile the WASM module manually, with <strong>clang</strong>, and <strong>cmake</strong> (<a
+				href="#clone-and-compile-code">see below</a>).
+		</li>
+	</ul>
+	<p>Regardless of which method you choose, your will find yourself with following files:</p>
+
+	<table>
+		<thead>
+			<tr>
+				<td class="Width25">Filename</td>
+				<td>Function</td>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td>matsuri-v2.wasm</td>
+				<td>WASM module, there is not much you can do with it.</td>
+			</tr>
+			<tr>
+				<td>matsuri-v2-worklet.js</td>
+				<td>Glue between JS and WASM, a boring file.</td>
+			</tr>
+			<tr>
+				<td>matsuri-v2.js</td>
+				<td><strong>This is the important one</strong>, what may be called the library/module. It defines
+					<code>MatsuriV2Node</code> class (a Web Audio node), and it is in charge of fetching and initialise
+					the
+					worklet. <strong>You absolutely should modify this file in order to better integrate it into your
+						framework</strong> (it is under public domain).
+				</td>
+			</tr>
+			<tr>
+				<td>test-page-v2.html</td>
+				<td>Minimal example that showcases the synth, ugly but gets things done.</td>
+			</tr>
+		</tbody>
+	</table>
+
+	<h2>Quick Test</h2>
+	<p>Got the files?, run this command in your terminal:</p>
+	<p><code class="Block">python3 -m http.server 8000 --directory [FOLDER WITH ABOVE FILES]</code></p>
+	<p>Then go into your browser, usually at address <a href="http://0.0.0.0:8000/">http://0.0.0.0:8000/</a> (this
+		information should be in the terminal). Choose the test page and everything should work, use the buttons on
+		screen, or keys Z, X, N, M, G, J, L; or connect your MIDI keyboard.</p>
+
+	<aside><span class="AsideTitle">Warning</span> Do not simply double click the HTML file, your browser will refuse to
+		fetch required files. You need to set a local server.</aside>
+
+	<h2 class="Break">Common operations</h2>
+	<ul>
+		<li><strong>Initialisation</strong> is:
+			<code class="Block"><pre>
+<span class="Keyword">import</span> * as matsuri from "./matsuri-v2.js";
+
+<span class="Keyword">let</span> ctx = <span class="Keyword">new</span> AudioContext();
+
+<span class="Comment">// Tell the audio context what Matsuri is</span>
+<span class="Keyword">await</span> matsuri.FetchAndRegister(ctx);
+
+<span class="Comment">// Maybe you want to fetch specifying these two:
+// await matsuri.FetchAndRegister(ctx,
+//                                "./matsuri-v2-worklet.js",
+//                                "./matsuri-v2.wasm");</span>
+
+<span class="Comment">// Create and connect a Matsuri node</span>
+<span class="Keyword">let</span> node = <span class="Keyword">new</span> matsuri.MatsuriV2Node(ctx);
+node.connect(ctx.destination);
+
+<span class="Comment">// Node will start playing, but in silence, as no note has been sent</span></pre></code>
+		</li>
+
+		<li>To <strong>send a note:</strong>
+			<code class="Block"><pre>
+<span class="Comment">// Any of them (or all of them, to test polyphony):
+// 0.5 = Velocity, use range [0, 1]</span>
+node.noteOn(matsuri.MIDI_BASS_DRUM_KEY, 0.5);
+node.noteOn(matsuri.MIDI_ACOUSTIC_SNARE_KEY, 0.5);
+node.noteOn(matsuri.MIDI_LOW_FLOOR_TOM_KEY, 0.5);
+node.noteOn(matsuri.MIDI_LOW_MID_TOM_KEY, 0.5);
+node.noteOn(matsuri.MIDI_CLOSED_HI_HAT_KEY, 0.5);
+node.noteOn(matsuri.MIDI_OPEN_HI_HAT_KEY, 0.5);
+node.noteOn(matsuri.MIDI_CRASH_CYMBAL_KEY, 0.5);</pre></code>
+
+			<aside><span class="AsideTitle">Important</span> Put any of these under the click of a button, or a key
+				press. Browsers will refuse to play sounds without user interaction. Do not send the first note
+				automatically, for example at page loading. After first note tho, any automatization is allowed.</aside>
+		</li>
+
+		<li>To <strong>adjust parameters</strong> it follows standard Web Audio API:
+			<code class="Block"><pre>
+<span class="Keyword">let</span> parameter = node.parameters.get("volume-bass-drum");
+parameter.setValueAtTime(value, ctx.currentTime);</pre></code>
+		</li>
+
+		<li>You can send MIDI messages directly (follows General MIDI standard), so wiring with Web
+			MIDI API is as simple as call <code>node.midi()</code> on new messages:</strong>
+			<code class="Block"><pre>
+navigator.requestMIDIAccess().then(access => {
+  <span class="Keyword">for</span> (<span class="Keyword">const</span> input <span class="Keyword">of</span> access.inputs.values()) {
+    input.onmidimessage = msg => {
+      node.midi(msg.data[0], msg.data[1], msg.data[2]);
+    }
+  }
+});</pre></code>
+		</li>
+	</ul>
+
+	<h2>Usage</h2>
+	<p>These are available parameters, with their default, minimum, and maximum values:</p>
+
+	<table>
+		<thead>
+			<tr>
+				<td>Parameter string</td>
+				<td>Default value</td>
+				<td>Minimum</td>
+				<td>Maximum</td>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td><code>volume-bass-drum</code></td>
+				<td>100</td>
+				<td>0</td>
+				<td>100</td>
+			</tr>
+			<tr>
+				<td><code>volume-snare-drum</code></td>
+				<td>100</td>
+				<td>0</td>
+				<td>100</td>
+			</tr>
+			<tr>
+				<td><code>volume-closed-hi-hat</code></td>
+				<td>65</td>
+				<td>0</td>
+				<td>100</td>
+			</tr>
+			<tr>
+				<td><code>volume-open-hi-hat</code></td>
+				<td>70</td>
+				<td>0</td>
+				<td>100</td>
+			</tr>
+			<tr>
+				<td><code>volume-cymbal</code></td>
+				<td>80</td>
+				<td>0</td>
+				<td>100</td>
+			</tr>
+			<tr>
+				<td><code>volume-low-tom</code></td>
+				<td>100</td>
+				<td>0</td>
+				<td>100</td>
+			</tr>
+			<tr>
+				<td><code>volume-high-tom</code></td>
+				<td>100</td>
+				<td>0</td>
+				<td>100</td>
+			</tr>
+			<tr>
+				<td><code>velocity-volume-modulation</code></td>
+				<td>1</td>
+				<td>0</td>
+				<td>1</td>
+			</tr>
+			<tr>
+				<td><code>velocity-tone-modulation</code></td>
+				<td>1</td>
+				<td>0</td>
+				<td>1</td>
+			</tr>
+			<tr>
+				<td><code>velocity-reference</code></td>
+				<td>0.5</td>
+				<td>0</td>
+				<td>1</td>
+			</tr>
+			<tr>
+				<td><code>limiter-decay</code></td>
+				<td>0 ms</td>
+				<td>0 ms</td>
+				<td>1000 ms</td>
+			</tr>
+			<tr>
+				<td><code>master-volume</code></td>
+				<td>100</td>
+				<td>0</td>
+				<td>100</td>
+			</tr>
+		</tbody>
+	</table>
+
+	<p>Aside from typical volume parameters, a limiter is provided, disabled when decay is set to zero (the default).
+		<code>velocity-reference</code> specifies the velocity to converge to if <code>velocity-tone-modulation</code>
+		approaches zero. With no <code>velocity-volume-modulation</code>, volume converges to 100%.
+	</p>
+
+	<p>Following sounds are recognized by <code>noteOn</code>, numerical values follow General MIDI standard, a "-"
+		indicates that sound is the same as previous line:</p>
+
+	<table>
+		<thead>
+			<tr>
+				<td>Constant</td>
+				<td>Numerical value</td>
+				<td>Sound</td>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td><code>MIDI_ACOUSTIC_BASS_DRUM_KEY</code></td>
+				<td>35</td>
+				<td>Bass drum/Kick</td>
+			</tr>
+			<tr>
+				<td><code>MIDI_BASS_DRUM_KEY</code></td>
+				<td>36</td>
+				<td>-</td>
+			</tr>
+			<tr>
+				<td><code>MIDI_ACOUSTIC_SNARE_KEY</code></td>
+				<td>38</td>
+				<td>Snare</td>
+			</tr>
+			<tr>
+				<td><code>MIDI_ELECTRIC_SNARE_KEY</code></td>
+				<td>40</td>
+				<td>-</td>
+			</tr>
+			<tr>
+				<td><code>MIDI_LOW_FLOOR_TOM_KEY</code></td>
+				<td>41</td>
+				<td>Low tom/Phil Collins favourite thing</td>
+			</tr>
+			<tr>
+				<td><code>MIDI_HIGH_FLOOR_TOM_KEY</code></td>
+				<td>43</td>
+				<td>-</td>
+			</tr>
+			<tr>
+				<td><code>MIDI_LOW_TOM_KEY</code></td>
+				<td>45</td>
+				<td>-</td>
+			</tr>
+			<tr>
+				<td><code>MIDI_LOW_MID_TOM_KEY</code></td>
+				<td>47</td>
+				<td>High tom/Phil Collins second favourite thing</td>
+			</tr>
+			<tr>
+				<td><code>MIDI_HIGH_MID_TOM_KEY</code></td>
+				<td>48</td>
+				<td>-</td>
+			</tr>
+			<tr>
+				<td><code>MIDI_HIGH_TOM_KEY</code></td>
+				<td>50</td>
+				<td>-</td>
+			</tr>
+			<tr>
+				<td><code>MIDI_CLOSED_HI_HAT_KEY</code></td>
+				<td>42</td>
+				<td>Closed hi-hat</td>
+			</tr>
+			<tr>
+				<td><code>MIDI_OPEN_HI_HAT_KEY</code></td>
+				<td>46</td>
+				<td>Open hi-hat</td>
+			</tr>
+			<tr>
+				<td><code>MIDI_CRASH_CYMBAL_KEY</code></td>
+				<td>49</td>
+				<td>Crash cymbal</td>
+			</tr>
+		</tbody>
+	</table>
+
+	<p>All sounds can play simultaneously, however, each one is monophonic when retriggered. Exceptions are the open and
+		closed hi-hat, which silence one another, and crash cymbal which is fully polyphonic.</p>
+
+	<h2>Requirements</h2>
+	<ul>
+		<li>Compatibility with WASM, at the time of writing all mainstream browsers support it.</li>
+		<li>Compatibility with Web Audio API, according to <a
+				href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API">MDN</a> it is the case of
+			mainstream browsers since 2021. It is possible to run the WASM module without this API, however, achieve
+			realtime rendering will be rather hard (if even possible).</li>
+	</ul>
+
+	<h2>Technical Details</h2>
+	<ul>
+		<li>WASM modules where compiled against WASM32, without vector instructions, the lowest common denominator.</li>
+		<li>No library/framework is required, WASM module is freestanding.</li>
+		<li>Format: Float 32 (IEEE 754 Single Precision), both output, and internal maths.</li>
+		<li>Channels: Fake stereo, it copies a single signal to both left, and right channels.</li>
+		<li>Output will normally be in the -1,+1 range, exceeding it if sounds overlap. A normal behaviour as actual
+			decibels and clipping depends on the browser. If needed, provided limiter will enforce a strict -1,+1 range.
+		</li>
+		<li>No noise/dither of any kind is added, no internal step suffer from quantisation.</li>
+	</ul>
+
+	<h2 id="clone-and-compile-code">Compile From Source Code</h2>
+	<ol>
+		<li class="DontBreak">
+			<p>You will need a <strong>C11 compiler</strong>, <strong>cmake</strong>, and <strong>git</strong>. On
+				Ubuntu you can install these by typing in the terminal:</p>
+			<p><code class="Block">sudo apt install gcc cmake git</code></p>
+		</li>
+		<li class="DontBreak">
+			<p>Then, download the code with its dependencies using <strong>git</strong>, and enter the folder using:</p>
+			<p><code class="Block">git clone --recurse-submodules https://github.com/baAlex/Matsuri
+			<br>cd Matsuri</code></p>
+		</li>
+		<li class="DontBreak">
+			<p>Once in the folder, it is usual <strong>cmake</strong> stuff:</p>
+			<p><code class="Block">mkdir build
+			<br>cd build
+			<br>cmake .. -DCMAKE_BUILD_TYPE=Release
+			<br>cmake --build .</code></p>
+			<aside><span class="AsideTitle">Note</span> You may want to compile without optimizations, for
+				this, remove the argument: <code>-DCMAKE_BUILD_TYPE=Release</code></aside>
+		</li>
+	</ol>
+
+	<h2>New In This Version</h2>
+	<p>Version 2.0 is the first to provide a CLAP plug-in, a WASM module, proper velocity, documentation, and attempting
+		to be user-friendly. Version 1.0 was more of a hack than anything else.</p>
+
+	<h2>Getting Help</h2>
+	<p>You can find more information at <a href="https://github.com/baAlex/Matsuri">www.github.com/baAlex/Matsuri</a>.
+		You can also submit issues/bugs you found, make suggestions, and get access to the source code.</p>
+
+	<h2>License And Terms</h2>
+	<p>Matsuri is free and open source, under Common Development and Distribution License 1.0.</p>
+	<p>If a copy of the CDDL was not distributed with this file (license.txt), you can obtain one at <a
+			href="https://opensource.org/license/CDDL-1.0">www.opensource.org/license/CDDL-1.0</a>.</p>
+	<p>Samples and audio created from code/programs, under no license, those are yours.</p>
+
+	<br>
+
+	<footer>Thanks for reading!<br>Alexander Brandt, 2026.</footer>
+
+</body>
+
+</html>
