@@ -16,7 +16,7 @@ Synthesizer recreating the sound of Roland's TR-606 drum machine. Fast, tiny, an
 
 Download
 --------
-**Soon**. But in the meantime you can compile the code ([see below](#clone-and-compile-code)).
+[Here the latest release](https://github.com/baAlex/Matsuri/releases/latest)
 
 
 Guide for CLAP Plug-in
