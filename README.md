@@ -1,22 +1,26 @@
 
-Matsuri v2.0
-============
+Matsuri
+=======
 
 Synthesizer recreating the sound of Roland's TR-606 drum machine. Fast, tiny, and faithful to the original sounds (considering that it doesn't emulate circuitry). The project includes:
 
 - CLAP plug-in
 	- With velocity affecting both volume and timbre (configurable), optional limiter, volume controls, choking between hats, and each sound being unique.
-- Web Audio/WebAssembly [AudioNode](https://developer.mozilla.org/en-US/docs/Web/API/AudioNode)
-	- Same capabilities as CLAP plug-in. It also works lovely with [Web MIDI API](https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API).
-- FLAC samples with an SFZ definition
-	- For old-school musicians, they are more rigid: 4 velocities only. SFZ definition implements volume controls, and choking.
+- Web Audio/WebAssembly module
+	- Same capabilities as CLAP plug-in. Follows [AudioNode](https://developer.mozilla.org/en-US/docs/Web/API/AudioNode) interface, and works lovely with [Web MIDI API](https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API).
+- Rendered samples with an SFZ definition
+	- For old-school musicians, they are more rigid: 3 velocities only. SFZ definition implements volume controls and mute groups.
 
 [*] Matsuri has no relation with Roland, all trademarks and copyrights are theirs.
 
 
 Download
 --------
-[Here the latest release](https://github.com/baAlex/Matsuri/releases/latest)
+- CLAP plug-in: [For Windows](https://github.com/baAlex/Matsuri/releases/download/v2.0/matsuri-v2.0-windows.zip), [For Linux](https://github.com/baAlex/Matsuri/releases/download/v2.0/matsuri-v2.0-linux.zip)
+- [Web Audio/WebAssembly module](https://github.com/baAlex/Matsuri/releases/download/v2.0/matsuri-v2.0-webaudio.zip)
+- [Rendered samples + SFZ](https://github.com/baAlex/Matsuri/releases/download/v2.0/matsuri-v2.0-samples.zip)
+
+Latest version is 2.0. Guides in PDF format are provided.
 
 
 Guide for CLAP Plug-in
