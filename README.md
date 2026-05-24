@@ -6,7 +6,7 @@ Synthesizer recreating the sound of Roland's TR-606 drum machine. Fast, tiny, an
 
 - CLAP plug-in
 	- With velocity affecting both volume and timbre (configurable), optional limiter, volume controls, choking between hats, and each sound being unique.
-- Web Audio / WebAssembly [AudioNode](https://developer.mozilla.org/en-US/docs/Web/API/AudioNode)
+- Web Audio/WebAssembly [AudioNode](https://developer.mozilla.org/en-US/docs/Web/API/AudioNode)
 	- Same capabilities as CLAP plug-in. It also works lovely with [Web MIDI API](https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API).
 - FLAC samples with an SFZ definition
 	- For old-school musicians, they are more rigid: 4 velocities only. SFZ definition implements volume controls, and choking.
