@@ -13,14 +13,14 @@
 <body>
 	<h1>Matsuri v2.0 for Web Audio API, <br>Guide to Programming</h1>
 	<p>Thank you for downloading Matsuri, a synthesizer recreating the sound of Roland's TR-606 drum machine. Fast,
-		tiny, and faithful to the original sounds (considering it doesn't emulate circuitry).</p>
+		tiny, and faithful to the original sounds (considering that it doesn't emulate circuitry).</p>
 
 	<p class="LegalFluff">Matsuri has no relation with Roland, all trademarks and copyrights are theirs.</p>
 	<p class="LegalFluff">Company names and product names appearing in this document are registered trademarks or
 		trademarks of their respective owners.</p>
 
 	<h2 id="installation">Installation</h2>
-	<p>For the moment being there's no automated deployment of any kind, you have two routes:</p>
+	<p>For the moment there's no automated deployment of any kind, you have two options:</p>
 	<ul>
 		<li>Use latest release ZIP (I recommend this, and it seems you are doing it already), you will find a
 			precompiled WebAssembly (WASM) module with its JS companions.
@@ -29,7 +29,7 @@
 				href="#clone-and-compile-code">see below</a>).
 		</li>
 	</ul>
-	<p>Regardless of which method you choose, your will find yourself with following files:</p>
+	<p>Regardless of which method you choose, you will find yourself with following files:</p>
 
 	<table>
 		<thead>
@@ -49,7 +49,7 @@
 			</tr>
 			<tr>
 				<td>matsuri-v2.js</td>
-				<td><strong>This is the important one</strong>, what may be called the library/module. It defines
+				<td><strong>This is the important one</strong>, what might be called the library/module. It defines
 					<code>MatsuriV2Node</code> class (a Web Audio node), and it is in charge of fetching and initialise
 					the
 					worklet. <strong>You absolutely should modify this file in order to better integrate it into your
@@ -64,7 +64,7 @@
 	</table>
 
 	<h2>Quick Test</h2>
-	<p>Got the files?, run this command in your terminal:</p>
+	<p>Got the files? run this command in your terminal:</p>
 	<p><code class="Block">python3 -m http.server 8000 --directory [FOLDER WITH ABOVE FILES]</code></p>
 	<p>Then go into your browser, usually at address <a href="http://0.0.0.0:8000/">http://0.0.0.0:8000/</a> (this
 		information should be in the terminal). Choose the test page and everything should work, use the buttons on
@@ -108,12 +108,12 @@ node.noteOn(matsuri.MIDI_CLOSED_HI_HAT_KEY, 0.5);
 node.noteOn(matsuri.MIDI_OPEN_HI_HAT_KEY, 0.5);
 node.noteOn(matsuri.MIDI_CRASH_CYMBAL_KEY, 0.5);</pre></code>
 
-			<aside><span class="AsideTitle">Important</span> Put any of these under the click of a button, or a key
+			<aside><span class="AsideTitle">Warning</span> Put any of these under the click of a button, or a key
 				press. Browsers will refuse to play sounds without user interaction. Do not send the first note
-				automatically, for example at page loading. After first note tho, any automatization is allowed.</aside>
+				automatically, for example at page loading. After first note tho, any automation is allowed.</aside>
 		</li>
 
-		<li>To <strong>adjust parameters</strong> it follows standard Web Audio API:
+		<li>To <strong>adjust parameters</strong> it follows Web Audio API:
 			<code class="Block"><pre>
 <span class="Keyword">let</span> parameter = node.parameters.get("volume-bass-drum");
 parameter.setValueAtTime(value, ctx.currentTime);</pre></code>
@@ -222,7 +222,7 @@ navigator.requestMIDIAccess().then(access => {
 
 	<p>Aside from typical volume parameters, a limiter is provided, disabled when decay is set to zero (the default).
 		<code>velocity-reference</code> specifies the velocity to converge to if <code>velocity-tone-modulation</code>
-		approaches zero. With no <code>velocity-volume-modulation</code>, volume converges to 100%.
+		approaches zero. With no <code>velocity-volume-modulation</code> volume converges to 100%.
 	</p>
 
 	<p>Following sounds are recognized by <code>noteOn</code>, numerical values follow General MIDI standard, a "-"
@@ -314,7 +314,7 @@ navigator.requestMIDIAccess().then(access => {
 		<li>Compatibility with Web Audio API, according to <a
 				href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API">MDN</a> it is the case of
 			mainstream browsers since 2021. It is possible to run the WASM module without this API, however, achieve
-			realtime rendering will be rather hard.</li>
+			real-time rendering will be rather hard.</li>
 	</ul>
 
 	<h2>Technical Details</h2>
@@ -322,12 +322,12 @@ navigator.requestMIDIAccess().then(access => {
 		<li>WASM modules where compiled against WASM32, without vector instructions (SIMD), the lowest common
 			denominator.</li>
 		<li>No library/framework is required, WASM module is freestanding.</li>
-		<li>Format: Float 32 (IEEE 754 Single Precision), both output, and internal maths.</li>
+		<li>Format: Float 32 (IEEE 754 Single Precision), both output and internal maths.</li>
 		<li>Channels: Fake stereo, it copies a single signal to both left, and right channels.</li>
-		<li>Output will normally be in the -1,+1 range, exceeding it if sounds overlap. A normal behaviour as actual
+		<li>Output will normally be in the -1,+1 range, exceeding it if sounds overlap. Normal behaviour, as actual
 			decibels and clipping depends on the browser. If needed, provided limiter will enforce a strict -1,+1 range.
 		</li>
-		<li>No noise/dither of any kind is added, no internal step suffer from quantisation.</li>
+		<li>No noise/dither of any kind is added, no internal step suffers from quantisation.</li>
 	</ul>
 
 	<h2 id="clone-and-compile-code">Compile From Source Code</h2>
@@ -345,15 +345,17 @@ navigator.requestMIDIAccess().then(access => {
 			<br>cd Matsuri</code></p>
 		</li>
 		<li>
-			<div class="DontBreak"><p>Once in the folder, it is usual <strong>cmake</strong> stuff with a little extra:</p>
-			<p><code class="Block">mkdir build
+			<div class="DontBreak">
+				<p>Once in the folder, it is usual <strong>cmake</strong> stuff with a little extra:</p>
+				<p><code class="Block">mkdir build
 			<br>cd build
 			<br>CC=clang cmake .. -DWASM=Yes -DCMAKE_BUILD_TYPE=Release
-			<br>cmake --build .</code></p></div>
+			<br>cmake --build .</code></p>
+			</div>
 			<aside><span class="AsideTitle">Note</span> Notice the <code>CC=clang</code> variable, and
 				<code>-DWASM=Yes</code> argument, both are required to compile a WASM32 module.
 			</aside>
-			<aside><span class="AsideTitle">Note</span> You may want to compile without optimizations, for
+			<aside><span class="AsideTitle">Note</span> You may want to compile without optimisations, for
 				this, remove the argument: <code>-DCMAKE_BUILD_TYPE=Release</code></aside>
 		</li>
 		<li>
@@ -363,7 +365,7 @@ navigator.requestMIDIAccess().then(access => {
 	</ol>
 
 	<h2>New In This Version</h2>
-	<p>Version 2.0 is the first to provide a CLAP plug-in, a WASM module, proper velocity, documentation, and attempting
+	<p>Version 2.0 is the first providing a CLAP plug-in, a WASM module, proper velocity, documentation, and attempting
 		to be user-friendly. Version 1.0 was more of a hack than anything else.</p>
 
 	<h2>Getting Help</h2>

@@ -2,12 +2,12 @@
 Matsuri v2.0
 ============
 
-Synthesizer recreating the sound of Roland's TR-606 drum machine. Fast, tiny, and faithful to the original sounds (considering it doesn't emulate circuitry). The project includes:
+Synthesizer recreating the sound of Roland's TR-606 drum machine. Fast, tiny, and faithful to the original sounds (considering that it doesn't emulate circuitry). The project includes:
 
-- CLAP plugin
+- CLAP plug-in
 	- With velocity affecting both volume and timbre (configurable), optional limiter, volume controls, choking between hats, and each sound being unique.
 - Web Audio / WebAssembly [AudioNode](https://developer.mozilla.org/en-US/docs/Web/API/AudioNode)
-	- Same capabilities as CLAP plugin. It also works lovely with [Web MIDI API](https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API).
+	- Same capabilities as CLAP plug-in. It also works lovely with [Web MIDI API](https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API).
 - FLAC samples with an SFZ definition
 	- For old-school musicians, they are more rigid: 4 velocities only. SFZ definition implements volume controls, and choking.
 
@@ -26,9 +26,9 @@ Guide for CLAP Plug-in
 
 1 - Check that your DAW supports CLAP plug-ins, and where it expects them to be installed. At the time of writing, a common location on Windows is *'C:\Program Files\Common Files\CLAP\'*, on Linux *'~/.clap/'* (yes, with a dot).
 
-2a - **Windows users**, in the ZIP file you will find a file named *matsuri-v2.clap*, copy it into the folder your DAW expects it. Restart the DAW, some may require you to explicitly indicate to "Scan" new plug-ins, read its documentation
+2a - **Windows users**, in the ZIP file you will find a file named *'matsuri-v2.clap'*, copy it into the folder your DAW expects it. Restart the DAW, some may require you to explicitly indicate to "Scan" new plug-ins; read its documentation
 
-2b - **Linux users**, in the ZIP file you will find *matsuri-v2-fedora.clap* and *matsuri-v2-ubuntu.clap*, these files were compiled in Fedora 44 and Ubuntu 24.04 LTS respectively, choose one according to your distro. Are you using something different? Chances are that either of them will do the job. Copy it into the folder your DAW expects it. Restart the DAW, some may require you to explicitly indicate to "Scan" new plug-ins, read its documentation
+2b - **Linux users**, in the ZIP file you will find *'matsuri-v2-fedora.clap'* and *'matsuri-v2-ubuntu.clap'*, these files were compiled in Fedora 44 and Ubuntu 24.04 LTS respectively, choose one according to your distro. Are you using something different? Chances are that either of them will do the job. Copy it into the folder your DAW expects it. Restart the DAW, some may require you to explicitly indicate to "Scan" new plug-ins; read its documentation
 
 3 - And that is it! You should find *Matsuri v2* as an instrument, and/or a drum machine.
 
@@ -49,18 +49,18 @@ Guide for Web Audio
 
 ### Installation
 
-For the moment being there's no automated deployment of any kind, you have two routes:
+For the moment there's no automated deployment of any kind, you have two options:
 
 - Use latest release ZIP (I recommend this), you will find a precompiled WASM module with its JS companions.
 - Compile the WASM module manually, with *clang*, and *cmake*.
 
-Regardless of which method you choose, your will find yourself with following files:
+Regardless of which method you choose, you will find yourself with following files:
 
 | Filename                | Function |
 | ----------------------- | - |
 | matsuri-v2.wasm         | WASM module, there is not much you can do with it. |
 | matsuri-v2-worklet.js   | Glue between JS and WASM, a boring file. |
-| matsuri-v2.js           | *This is the important one*, what may be called the library/module. It defines `MatsuriV2Node` class (a Web Audio node), and it is in charge of fetching and initialise the worklet. *You absolutely should modify this file in order to better integrate it into your framework* (it is under public domain). |
+| matsuri-v2.js           | *This is the important one*, what might be called the library/module. It defines `MatsuriV2Node` class (a Web Audio node), and it is in charge of fetching and initialise the worklet. *You absolutely should modify this file in order to better integrate it into your framework* (it is under public domain). |
 | test-page-v2.html       | Minimal example that showcases the synth, ugly but gets things done. |
 
 
@@ -112,10 +112,10 @@ node.noteOn(matsuri.MIDI_OPEN_HI_HAT_KEY, 0.5);
 node.noteOn(matsuri.MIDI_CRASH_CYMBAL_KEY, 0.5);
 ```
 
-> [!IMPORTANT]
-> Put any of these under the click of a button, or a key press. Browsers will refuse to play sounds without user interaction. Do not send the first note automatically, for example at page loading. After first note tho, any automatization is allowed.
+> [!WARNING]
+> Put any of these under the click of a button, or a key press. Browsers will refuse to play sounds without user interaction. Do not send the first note automatically, for example at page loading. After first note tho, any automation is allowed.
 
-To **adjust parameters** it follows standard Web Audio API:
+To **adjust parameters** it follows Web Audio API:
 ```js
 let parameter = node.parameters.get("volume-bass-drum");
 parameter.setValueAtTime(value, ctx.currentTime);
@@ -134,7 +134,7 @@ navigator.requestMIDIAccess().then(access => {
 
 ### Using It
 
-These are available parameters, with their default, minimum, and maximum values. They behave identical to native plug-in:
+These are available parameters, with their default, minimum, and maximum values. They behave identically to the native plug-in:
 
 | Parameter name               | Default value | Minimum | Maximum |
 | ---------------------------- | ------------- | ------- | ------- |
@@ -155,7 +155,7 @@ These are available parameters, with their default, minimum, and maximum values.
 Requirements
 ------------
 
-### For the plugin
+### For the Plug-in
 - Processor: Intel/AMD x86-64 or compatible.
 - OS: Windows 10, 11, or compatible (Wine works lovely); Fedora 44, Ubuntu 24.04, or compatible (some offer a Linux layer).
 
@@ -163,15 +163,15 @@ This thing runs on a potato, however if you want to run it on older Windows vers
 
 ### For Web Audio
 - Compatibility with WASM, at the time of writing all mainstream browsers support it.
-- Compatibility with Web Audio API, according to [MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API) it is the case of mainstream browsers since 2021. It is possible to run the WASM module without this API, however, achieve realtime rendering will be rather hard.
+- Compatibility with Web Audio API, according to [MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API) it is the case of mainstream browsers since 2021. It is possible to run the WASM module without this API, however, achieve real-time rendering will be rather hard.
 
 
 Technical Details
 -----------------
-- Format: Float 32 (IEEE 754 Single Precision), both output, and internal maths.
+- Format: Float 32 (IEEE 754 Single Precision), both output and internal maths.
 - Channels: Fake stereo, it copies a single signal to both left, and right channels. This is in order to support DAWs that only handle stereo.
 - Output will normally be in the -1,+1 range, exceeding it if sounds overlap. A normal behaviour as actual decibels and clipping depends on your DAW or browser. If needed, provided limiter will enforce a strict -1,+1 range.
-- No noise/dither of any kind is added, no internal step suffer from quantisation. Your DAW should add it if required (when doing a 16-bits mix for example).
+- No noise/dither of any kind is added, no internal step suffers from quantisation. Your DAW should add it if required (when doing a 16-bits mix for example).
 
 
 Compile From Source Code
@@ -207,7 +207,7 @@ cmake --build .
 ```
 
 > [!NOTE]
-> You may want to compile without optimizations, for this, remove the argument: `-DCMAKE_BUILD_TYPE=Release`
+> You may want to compile without optimisations, for this, remove the argument: `-DCMAKE_BUILD_TYPE=Release`
 
 
 License And Terms
