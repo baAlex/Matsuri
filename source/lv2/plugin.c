@@ -26,18 +26,34 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include "../voice-allocator.h"
 
 
+// https://lv2plug.in/book/
+
+
 struct Matsuri
 {
 	// Ports buffers
 	const LV2_Atom_Sequence* control;
+
 	float* out[2];
+	float* volume_bass_drum;
+	float* volume_snare_drum;
+	float* volume_closed_hat;
+	float* volume_open_hat;
+	float* volume_cymbal;
+	float* volume_low_tom;
+	float* volume_high_tom;
+	float* velocity_volume_modulation;
+	float* velocity_tone_modulation;
+	float* velocity_reference;
+	float* limiter_decay;
+	float* master_volume;
 
 	// Features
 	LV2_URID_Map* map;
 	LV2_Log_Logger logger;
 
 	// Uris
-	LV2_URID midi_type_thingie;
+	LV2_URID midi_event_thingie;
 
 	// ####
 
@@ -71,7 +87,7 @@ static LV2_Handle sInitialize(const LV2_Descriptor* descriptor, double rate, con
 		return NULL;
 	}
 
-	plugin->midi_type_thingie = plugin->map->map(plugin->map->handle, LV2_MIDI__MidiEvent);
+	plugin->midi_event_thingie = plugin->map->map(plugin->map->handle, LV2_MIDI__MidiEvent);
 
 	// Bye!
 	return (LV2_Handle*)(plugin);
@@ -100,6 +116,21 @@ static void sConnectPort(LV2_Handle instance, uint32_t port, void* data)
 	case 0: plugin->control = (const LV2_Atom_Sequence*)(data); break;
 	case 1: plugin->out[0] = (float*)(data); break;
 	case 2: plugin->out[1] = (float*)(data); break;
+
+	case 3: plugin->volume_bass_drum = (float*)(data); break;
+	case 4: plugin->volume_snare_drum = (float*)(data); break;
+	case 5: plugin->volume_closed_hat = (float*)(data); break;
+	case 6: plugin->volume_open_hat = (float*)(data); break;
+	case 7: plugin->volume_cymbal = (float*)(data); break;
+	case 8: plugin->volume_low_tom = (float*)(data); break;
+	case 9: plugin->volume_high_tom = (float*)(data); break;
+
+	case 10: plugin->velocity_volume_modulation = (float*)(data); break;
+	case 11: plugin->velocity_tone_modulation = (float*)(data); break;
+	case 12: plugin->velocity_reference = (float*)(data); break;
+
+	case 13: plugin->limiter_decay = (float*)(data); break;
+	case 14: plugin->master_volume = (float*)(data); break;
 	default: break;
 	}
 }
@@ -113,10 +144,29 @@ static void sRun(LV2_Handle instance, uint32_t frames)
 {
 	struct Matsuri* plugin = (struct Matsuri*)(instance);
 
+	VoiceAllocatorConfigure(&plugin->allocator, *plugin->velocity_volume_modulation, *plugin->velocity_tone_modulation,
+	                        *plugin->velocity_reference, *plugin->limiter_decay,
+	                        ExponentialVolumeEasing(*plugin->master_volume / 100.0f));
+
+	VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_KICK,
+	                             ExponentialVolumeEasing(*plugin->volume_bass_drum / 100.0f));
+	VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_SNARE,
+	                             ExponentialVolumeEasing(*plugin->volume_snare_drum / 100.0f));
+	VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CLOSED_HAT,
+	                             ExponentialVolumeEasing(*plugin->volume_closed_hat / 100.0f));
+	VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_OPEN_HAT,
+	                             ExponentialVolumeEasing(*plugin->volume_open_hat / 100.0f));
+	VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CYMBAL,
+	                             ExponentialVolumeEasing(*plugin->volume_cymbal / 100.0f));
+	VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_LOW_TOM,
+	                             ExponentialVolumeEasing(*plugin->volume_low_tom / 100.0f));
+	VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_HIGH_TOM,
+	                             ExponentialVolumeEasing(*plugin->volume_high_tom / 100.0f));
+
 	// Handle input
-	LV2_ATOM_SEQUENCE_FOREACH(plugin->control, ev) // Nasty, nasty, DEFINE garbage
+	LV2_ATOM_SEQUENCE_FOREACH(plugin->control, ev)
 	{
-		if (ev->body.type == plugin->midi_type_thingie)
+		if (ev->body.type == plugin->midi_event_thingie)
 		{
 			const uint8_t* msg = (const uint8_t*)(ev + 1);
 			VoiceAllocatorMidi(&plugin->allocator, *(msg + 0), *(msg + 1), *(msg + 2));
@@ -136,14 +186,9 @@ static const void* sExtensionData(const char* uri)
 }
 
 
-static const LV2_Descriptor descriptor = {"https://github.com/baAlex/Matsuri",
-                                          sInitialize,
-                                          sConnectPort,
-                                          sActivate,
-                                          sRun,
-                                          sDeinitialize,
-                                          sClean,
-                                          sExtensionData};
+// MATSURI_URL, not MATSURI_URI, Carla doesn't like it
+static const LV2_Descriptor descriptor = {MATSURI_URL, sInitialize,   sConnectPort, sActivate,
+                                          sRun,        sDeinitialize, sClean,       sExtensionData};
 
 LV2_SYMBOL_EXPORT
 const LV2_Descriptor* lv2_descriptor(uint32_t index)

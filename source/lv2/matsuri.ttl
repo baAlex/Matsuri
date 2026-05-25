@@ -1,17 +1,32 @@
 
-@prefix atom: <http://lv2plug.in/ns/ext/atom#>.
-@prefix doap: <http://usefulinc.com/ns/doap#>.
-@prefix lv2:  <http://lv2plug.in/ns/lv2core#>.
-@prefix midi: <http://lv2plug.in/ns/ext/midi#>.
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
-@prefix urid: <http://lv2plug.in/ns/ext/urid#>.
-@prefix epp: <http://lv2plug.in/ns/ext/port-props#>.
-@prefix ue: <http://lv2plug.in/ns/extensions/units#>.
+@prefix atom:  <http://lv2plug.in/ns/ext/atom#>.
+@prefix doap:  <http://usefulinc.com/ns/doap#>.
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#>.
+@prefix midi:  <http://lv2plug.in/ns/ext/midi#>.
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix urid:  <http://lv2plug.in/ns/ext/urid#>.
+@prefix epp:   <http://lv2plug.in/ns/ext/port-props#>.
+@prefix ue:    <http://lv2plug.in/ns/extensions/units#>.
+@prefix units: <http://lv2plug.in/ns/extensions/units#>.
+@prefix foaf:  <http://xmlns.com/foaf/0.1/>.
+
 
 <https://github.com/baAlex/Matsuri> a lv2:Plugin, lv2:InstrumentPlugin;
-	lv2:binary <matsuri.so>;
+	lv2:binary <matsuri.lv2>;
+	lv2:minorVersion 1;
+	lv2:optionalFeature lv2:hardRTCapable;
+
 	doap:name "Matsuri v2";
 	doap:license <https://opensource.org/license/CDDL-1.0>;
+	doap:developer [
+		foaf:name     "Alexander Brandt";
+		foaf:homepage <https://github.com/baAlex>;
+	];
+	doap:maintainer [
+		foaf:name     "Alexander Brandt";
+		foaf:homepage <https://github.com/baAlex>;
+	];
+	rdfs:comment "TR-606 Synthesizer";
 
 	lv2:port [
 		a lv2:InputPort, atom:AtomPort;
@@ -19,18 +34,90 @@
 		atom:supports midi:MidiEvent;
 		lv2:designation lv2:control;
 		lv2:index 0;
-		lv2:symbol "control";
-		lv2:name "Control"
+		lv2:symbol "control"; lv2:name "Control"
 	],
 	[
 		a lv2:AudioPort, lv2:OutputPort;
 		lv2:index 1;
-		lv2:symbol "out0";
-		lv2:name "Out0"
+		lv2:symbol "out_l"; lv2:name "Output left"
 	],
 	[
 		a lv2:AudioPort, lv2:OutputPort;
 		lv2:index 2;
-		lv2:symbol "out1";
-		lv2:name "Out1"
+		lv2:symbol "out_r"; lv2:name "Output right"
+	],
+
+	# Volume
+	[
+		a lv2:InputPort, lv2:ControlPort; lv2:index 3;
+		lv2:symbol "volume_bass_drum"; lv2:name "Bass drum";
+		lv2:default 100; lv2:minimum 0; lv2:maximum 100;
+		units:unit units:pc
+	],
+	[
+		a lv2:InputPort, lv2:ControlPort; lv2:index 4;
+		lv2:symbol "volume_snare_drum"; lv2:name "Snare drum";
+		lv2:default 100; lv2:minimum 0; lv2:maximum 100;
+		units:unit units:pc
+	],
+	[
+		a lv2:InputPort, lv2:ControlPort; lv2:index 5;
+		lv2:symbol "volume_closed_hat"; lv2:name "Closed hi-hat";
+		lv2:default 65; lv2:minimum 0; lv2:maximum 100;
+		units:unit units:pc
+	],
+	[
+		a lv2:InputPort, lv2:ControlPort; lv2:index 6;
+		lv2:symbol "volume_open_hat"; lv2:name "Open hi-hat";
+		lv2:default 70; lv2:minimum 0; lv2:maximum 100;
+		units:unit units:pc
+	],
+	[
+		a lv2:InputPort, lv2:ControlPort; lv2:index 7;
+		lv2:symbol "volume_cymbal"; lv2:name "Cymbal";
+		lv2:default 80; lv2:minimum 0; lv2:maximum 100;
+		units:unit units:pc
+	],
+	[
+		a lv2:InputPort, lv2:ControlPort; lv2:index 8;
+		lv2:symbol "volume_low_tom"; lv2:name "Low tom";
+		lv2:default 100; lv2:minimum 0; lv2:maximum 100;
+		units:unit units:pc
+	],
+	[
+		a lv2:InputPort, lv2:ControlPort; lv2:index 9;
+		lv2:symbol "volume_high_tom"; lv2:name "High tom";
+		lv2:default 100; lv2:minimum 0; lv2:maximum 100;
+		units:unit units:pc
+	],
+
+	# Velocity
+	[
+		a lv2:InputPort, lv2:ControlPort; lv2:index 10;
+		lv2:symbol "velocity_volume_modulation"; lv2:name "Velocity-Volume modulation";
+		lv2:default 1.0; lv2:minimum 0.0; lv2:maximum 1.0;
+	],
+	[
+		a lv2:InputPort, lv2:ControlPort; lv2:index 11;
+		lv2:symbol "velocity_tone_modulation"; lv2:name "Velocity-Tone modulation";
+		lv2:default 1.0; lv2:minimum 0.0; lv2:maximum 1.0;
+	],
+	[
+		a lv2:InputPort, lv2:ControlPort; lv2:index 12;
+		lv2:symbol "velocity_reference"; lv2:name "Velocity reference";
+		lv2:default 0.5; lv2:minimum 0.0; lv2:maximum 1.0;
+	],
+
+	# Other
+	[
+		a lv2:InputPort, lv2:ControlPort; lv2:index 13;
+		lv2:symbol "limiter_decay"; lv2:name "Limiter decay";
+		lv2:default 0; lv2:minimum 0; lv2:maximum 1000;
+		units:unit units:ms
+	],
+	[
+		a lv2:InputPort, lv2:ControlPort; lv2:index 14;
+		lv2:symbol "master_volume"; lv2:name "Master volume";
+		lv2:default 100; lv2:minimum 0; lv2:maximum 100;
+		units:unit units:pc
 	].

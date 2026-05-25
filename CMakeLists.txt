@@ -72,6 +72,7 @@ target_include_directories("matsuri-lv2" PRIVATE "./source/thirdparty/lv2/includ
 
 set_target_properties("matsuri-lv2" PROPERTIES PREFIX "")
 set_target_properties("matsuri-lv2" PROPERTIES OUTPUT_NAME "matsuri")
+set_target_properties("matsuri-lv2" PROPERTIES SUFFIX ".lv2")
 set_target_properties("matsuri-lv2" PROPERTIES C_VISIBILITY_PRESET hidden)
 set_target_properties("matsuri-lv2" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 set_target_properties("matsuri-lv2" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/matsuri-lv2")
