@@ -36,7 +36,6 @@ add_executable("generate-wavs" "./source/generate-wavs.c")
 
 target_compile_options("generate-wavs" PRIVATE ${MATSURI_CFLAGS})
 target_link_libraries("generate-wavs" PRIVATE "matsuri-library")
-set_target_properties("generate-wavs" PROPERTIES OUTPUT_NAME "matsuri-v2-generate-wavs")
 
 
 # Plugin, CLAP
@@ -49,11 +48,61 @@ add_library("matsuri-clap" MODULE ${CLAP_SOURCES})
 target_compile_options("matsuri-clap" PRIVATE ${MATSURI_CFLAGS})
 target_link_libraries("matsuri-clap" PRIVATE "matsuri-library-pic")
 
+target_include_directories("matsuri-clap" PRIVATE "./source/thirdparty/clap/include")
+
 set_target_properties("matsuri-clap" PROPERTIES PREFIX "")
-set_target_properties("matsuri-clap" PROPERTIES OUTPUT_NAME "matsuri-v2")
+set_target_properties("matsuri-clap" PROPERTIES OUTPUT_NAME "matsuri")
 set_target_properties("matsuri-clap" PROPERTIES SUFFIX ".clap")
 set_target_properties("matsuri-clap" PROPERTIES C_VISIBILITY_PRESET hidden)
 set_target_properties("matsuri-clap" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+set_target_properties("matsuri-clap" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/matsuri-clap")
+
+
+# Plugin, LV2
+set(LV2_SOURCES "./source/lv2/plugin.c"
+                "./source/voice-allocator.c"
+                "./source/misc.c"
+)
+
+add_library("matsuri-lv2" MODULE ${LV2_SOURCES})
+target_compile_options("matsuri-lv2" PRIVATE ${MATSURI_CFLAGS})
+target_link_libraries("matsuri-lv2" PRIVATE "matsuri-library-pic")
+
+target_include_directories("matsuri-lv2" PRIVATE "./source/thirdparty/lv2/include")
+
+set_target_properties("matsuri-lv2" PROPERTIES PREFIX "")
+set_target_properties("matsuri-lv2" PROPERTIES OUTPUT_NAME "matsuri")
+set_target_properties("matsuri-lv2" PROPERTIES C_VISIBILITY_PRESET hidden)
+set_target_properties("matsuri-lv2" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+set_target_properties("matsuri-lv2" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/matsuri-lv2")
+
+
+set(LV2_DIR "${CMAKE_CURRENT_BINARY_DIR}/matsuri-lv2")
+set(LV2_MANIFEST_SRC "${CMAKE_SOURCE_DIR}/source/lv2/manifest.ttl")
+set(LV2_MANIFEST_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-lv2/manifest.ttl")
+
+set(LV2_TTL_SRC "${CMAKE_SOURCE_DIR}/source/lv2/matsuri.ttl")
+set(LV2_TTL_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-lv2/matsuri.ttl")
+
+add_custom_command(
+	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/matsuri-lv2"
+	COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/matsuri-lv2"
+)
+
+add_custom_command(
+	OUTPUT ${LV2_MANIFEST_DEST}
+	COMMAND ${CMAKE_COMMAND} -E copy ${LV2_MANIFEST_SRC} ${LV2_MANIFEST_DEST}
+	DEPENDS ${LV2_MANIFEST_SRC}
+)
+
+add_custom_command(
+	OUTPUT ${LV2_TTL_DEST}
+	COMMAND ${CMAKE_COMMAND} -E copy ${LV2_TTL_SRC} ${LV2_TTL_DEST}
+	DEPENDS ${LV2_TTL_SRC}
+)
+
+add_custom_target("lv2-manifest" ALL DEPENDS ${LV2_DIR} ${LV2_MANIFEST_DEST})
+add_custom_target("lv2-ttl" ALL DEPENDS ${LV2_DIR} ${LV2_TTL_DEST})
 
 
 # Plugin, WASM
@@ -67,26 +116,25 @@ if (WASM AND "${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
 	                 "${CMAKE_SOURCE_DIR}/source/misc.c"
 	)
 
-	set(WASM_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/matsuri-v2-wasm/matsuri-v2.wasm")
-
-	set(WASM_DIR "${CMAKE_CURRENT_BINARY_DIR}/matsuri-v2-wasm")
+	set(WASM_DIR "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm")
+	set(WASM_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm/matsuri.wasm")
 
 	set(WASM_TEST_PAGE_SRC "${CMAKE_SOURCE_DIR}/source/wasm/test-page.html")
-	set(WASM_TEST_PAGE_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-v2-wasm/test-page-v2.html")
+	set(WASM_TEST_PAGE_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm/test-page.html")
 
 	set(WASM_JS_SRC "${CMAKE_SOURCE_DIR}/source/wasm/plugin.js")
-	set(WASM_JS_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-v2-wasm/matsuri-v2.js")
+	set(WASM_JS_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm/matsuri.js")
 
 	set(WASM_JS_WORKLET_SRC "${CMAKE_SOURCE_DIR}/source/wasm/plugin-worklet.js")
-	set(WASM_JS_WORKLET_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-v2-wasm/matsuri-v2-worklet.js")
+	set(WASM_JS_WORKLET_DEST "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm/matsuri-worklet.js")
 
 	if (CMAKE_BUILD_TYPE STREQUAL "Release")
 		set(MATSURI_WASM_CFLAGS -O3 -flto -DNDEBUG)
 	endif ()
 
 	add_custom_command(
-		OUTPUT ${WASM_DIR}
-		COMMAND ${CMAKE_COMMAND} -E make_directory ${WASM_DIR}
+		OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm"
+		COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/matsuri-wasm"
 	)
 
 	add_custom_command(
@@ -133,4 +181,5 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
 	set_target_properties("matsuri-library-pic" PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("generate-wavs"       PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("matsuri-clap"        PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+	set_target_properties("matsuri-lv2"         PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif ()

@@ -1,3 +1,6 @@
 [submodule "source/thirdparty/clap"]
 	path = source/thirdparty/clap
 	url = https://github.com/free-audio/clap
+[submodule "source/thirdparty/lv2"]
+	path = source/thirdparty/lv2
+	url = https://github.com/lv2/lv2

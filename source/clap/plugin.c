@@ -17,7 +17,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include <stdlib.h>
 #include <string.h>
 
-#include "../thirdparty/clap/include/clap/clap.h" // IWYU pragma: keep
+#include "clap/clap.h" // IWYU pragma: keep
 
 #include "../misc.h"
 #include "../version.h"
@@ -108,14 +108,10 @@ struct MatsuriPlugin
 
 
 static int sFloatToFixed(float v, float conversion)
-{
-	return (int)(v * conversion);
-}
+{ return (int)(v * conversion); }
 
 static float sFixedToFloat(int v, float conversion)
-{
-	return (float)(v) / conversion;
-}
+{ return (float)(v) / conversion; }
 
 static float sParameter(const struct MatsuriPlugin* plugin, int index)
 {
@@ -466,9 +462,7 @@ static bool sPluginActivate(const struct clap_plugin* plugin_, double sampling_f
 }
 
 static void sPluginDeactivate(const struct clap_plugin* plugin_)
-{
-	(void)plugin_;
-}
+{ (void)plugin_; }
 
 static bool sPluginStartProcessing(const struct clap_plugin* plugin_)
 {
@@ -477,9 +471,7 @@ static bool sPluginStartProcessing(const struct clap_plugin* plugin_)
 }
 
 static void sPluginStopProcessing(const struct clap_plugin* plugin_)
-{
-	(void)plugin_;
-}
+{ (void)plugin_; }
 
 static void sPluginReset(const struct clap_plugin* plugin_)
 {
@@ -650,9 +642,7 @@ static const void* sPluginGetExtension(const struct clap_plugin* plugin, const c
 }
 
 static void sPluginOnMainThread(const struct clap_plugin* plugin_)
-{
-	(void)plugin_;
-}
+{ (void)plugin_; }
 
 static const clap_plugin_t s_plugin_class = {
     .desc = &s_descriptor,
@@ -724,9 +714,7 @@ static bool sEntryInitialisation(const char* path)
 static void sEntryDeinitialisation(void) {}
 
 static const void* sEntryGetFactory(const char* factory_id)
-{
-	return (strcmp(factory_id, CLAP_PLUGIN_FACTORY_ID) == 0) ? &s_factory : NULL;
-}
+{ return (strcmp(factory_id, CLAP_PLUGIN_FACTORY_ID) == 0) ? &s_factory : NULL; }
 
 EXPORT const clap_plugin_entry_t clap_entry = {
     .clap_version = CLAP_VERSION_INIT,
