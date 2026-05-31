@@ -19,6 +19,10 @@ endif ()
 ####
 
 
+# Research stuff
+add_subdirectory("source/research/" "research")
+
+
 # Matsuri library
 add_library("matsuri-library"     OBJECT "./source/matsuri-library.c")
 add_library("matsuri-library-pic" OBJECT "./source/matsuri-library.c")
