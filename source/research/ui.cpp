@@ -19,6 +19,12 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #define I_DO_NOT_WANT_MY_STACK_TO_BE_DESTROYED // Undefine it for debuging (or curiosity) purposes
                                                // (EDIT: funny name, but it's somewhat outdated)
 
+#if 1
+#define DEBUGPRINT(...) // Empty
+#else
+#define DEBUGPRINT(...) __builtin_printf(__VA_ARGS__)
+#endif
+
 
 // ================================
 // Window
@@ -69,7 +75,7 @@ Size Ui::Window::UpdateLayout()
 #endif
 
 	// Re-calculate layout
-	__builtin_printf("%p Window::UpdateLayout()\n", reinterpret_cast<void*>(this));
+	DEBUGPRINT("%p Window::UpdateLayout()\n", reinterpret_cast<void*>(this));
 
 	if (m_content != nullptr)
 		m_natural_size = m_content->UpdateLayout();
@@ -184,7 +190,7 @@ Size Ui::Box::UpdateLayout()
 #endif
 
 	// Re-calculate layout
-	__builtin_printf("%p Box::UpdateLayout()\n", reinterpret_cast<void*>(this));
+	DEBUGPRINT("%p Box::UpdateLayout()\n", reinterpret_cast<void*>(this));
 
 	m_natural_size = {};
 	switch (m_direction)
@@ -310,7 +316,7 @@ Size Ui::Text::UpdateLayout()
 #endif
 
 	// Re-calculate layout
-	__builtin_printf("%p Text::UpdateLayout()\n", reinterpret_cast<void*>(this));
+	DEBUGPRINT("%p Text::UpdateLayout()\n", reinterpret_cast<void*>(this));
 
 	if (m_text != nullptr)
 	{
@@ -400,7 +406,7 @@ Size Ui::Button::UpdateLayout()
 #endif
 
 	// Re-calculate layout
-	__builtin_printf("%p Button::UpdateLayout()\n", reinterpret_cast<void*>(this));
+	DEBUGPRINT("%p Button::UpdateLayout()\n", reinterpret_cast<void*>(this));
 
 	if (m_content != nullptr)
 		m_natural_size = m_content->UpdateLayout();
