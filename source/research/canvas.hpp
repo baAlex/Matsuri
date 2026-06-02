@@ -43,7 +43,10 @@ class Canvas
 	const uint16_t* GetBuffer() const;
 
 	void DrawRectangle(Rect rect, Colour16 colour);
+	void DrawText(Position pos, const char* text, Colour16 colour);
 	void Draw3dBevel(Rect rect);
+
+	Size GetTextSize(const char* text) const;
 
   protected:
 	Canvas(int width, int height, float em_scale);

@@ -10,10 +10,8 @@ If a copy of the CDDL was not distributed with this file, You
 can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
-#include <assert.h>
-#include <string.h>
-
 #include "ui.hpp"
+#include <assert.h>
 
 
 #define I_DO_NOT_WANT_MY_STACK_TO_BE_DESTROYED // Undefine it for debuging (or curiosity) purposes
@@ -30,9 +28,16 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 // Window
 // ================================
 
-Ui::Window* Ui::Window::Create()
+Ui::Window* Ui::Window::Create(DrawAPI* draw_api)
 {
-	return new Window;
+	assert(draw_api != nullptr);
+	return new Window(draw_api);
+}
+
+Ui::Window::Window(DrawAPI* draw_api) : Wrapper(nullptr, nullptr)
+{
+	m_draw_api = draw_api;
+	m_content = nullptr;
 }
 
 Ui::Widget* Ui::Window::GetChild(int no, Delta* layout_delta_out, Size* size_out)
@@ -86,14 +91,14 @@ Size Ui::Window::UpdateLayout()
 	return m_natural_size;
 }
 
-void Ui::Window::Draw(Position pos, Ui::DrawAPI* api) const
+void Ui::Window::Draw(Position pos) const
 {
-	api->Draw3dBevel({pos, m_natural_size});
+	m_draw_api->Draw3dBevel({pos, m_natural_size});
 }
 
-Ui::Window::Window() : Wrapper(nullptr, nullptr)
+Ui::DrawAPI* Ui::Window::GetDrawApi() const
 {
-	m_content = nullptr;
+	return m_draw_api;
 }
 
 
@@ -111,6 +116,15 @@ Ui::Box* Ui::Box::Create(Wrapper* parent, Direction direction)
 {
 	assert(parent != nullptr);
 	return new Box(nullptr, parent, direction);
+}
+
+Ui::Box::Box(Container* container_parent, Wrapper* wrapper_parent, Direction direction)
+    : Container(container_parent, wrapper_parent)
+{
+	assert(container_parent != nullptr || wrapper_parent != nullptr);
+
+	m_direction = direction;
+	m_children_no = 0;
 }
 
 int Ui::Box::GetChildrenNo() const
@@ -217,15 +231,6 @@ Size Ui::Box::UpdateLayout()
 	return m_natural_size;
 }
 
-Ui::Box::Box(Container* container_parent, Wrapper* wrapper_parent, Direction direction)
-    : Container(container_parent, wrapper_parent)
-{
-	assert(container_parent != nullptr || wrapper_parent != nullptr);
-
-	m_direction = direction;
-	m_children_no = 0;
-}
-
 
 // ================================
 // HBox
@@ -277,6 +282,13 @@ Ui::Text* Ui::Text::Create(Wrapper* parent, const char* text)
 	return new Text(nullptr, parent, text);
 }
 
+Ui::Text::Text(Container* container_parent, Wrapper* wrapper_parent, const char* text)
+    : Widget(container_parent, wrapper_parent)
+{
+	assert(container_parent != nullptr || wrapper_parent != nullptr);
+	m_text = text;
+}
+
 int Ui::Text::GetChildrenNo() const
 {
 	return 0;
@@ -308,6 +320,9 @@ const char* Ui::Text::GetPrintableInformation() const
 	return m_text;
 }
 
+
+static constexpr float MARGIN = 1.0f / 5.0f; // TODO, hardcoded for now
+
 Size Ui::Text::UpdateLayout()
 {
 #ifdef I_DO_NOT_WANT_MY_STACK_TO_BE_DESTROYED
@@ -319,34 +334,26 @@ Size Ui::Text::UpdateLayout()
 	DEBUGPRINT("%p Text::UpdateLayout()\n", reinterpret_cast<void*>(this));
 
 	if (m_text != nullptr)
-	{
-		// TODO, hardcoded 0.6, proper fix is to ask the RenderAPI
-		m_natural_size.w = static_cast<float>(strlen(m_text)) * 0.6f;
-		m_natural_size.h = 1.0f;
-	}
+		m_natural_size = m_parent->GetDrawApi()->GetTextSize(m_text);
 	else
-	{
 		m_natural_size = {};
-	}
+
+	m_natural_size.w += MARGIN * 2.0f;
+	m_natural_size.h += MARGIN * 2.0f;
 
 	m_dirty = false;
 	return m_natural_size;
 }
 
-void Ui::Text::Draw(Position pos, Ui::DrawAPI* api) const
+void Ui::Text::Draw(Position pos) const
 {
 	if (m_text == nullptr)
 		return;
 
-	pos.y += 1.0f;
-	api->DrawText(pos, m_text);
-}
+	pos.x += MARGIN;
+	pos.y += MARGIN;
 
-Ui::Text::Text(Container* container_parent, Wrapper* wrapper_parent, const char* text)
-    : Widget(container_parent, wrapper_parent)
-{
-	assert(container_parent != nullptr || wrapper_parent != nullptr);
-	m_text = text;
+	m_parent->GetDrawApi()->DrawText(pos, m_text);
 }
 
 
@@ -364,6 +371,17 @@ Ui::Button* Ui::Button::Create(Wrapper* parent, const char* text)
 {
 	assert(parent != nullptr);
 	return new Button(nullptr, parent, text);
+}
+
+Ui::Button::Button(Container* container_parent, Wrapper* wrapper_parent, const char* text)
+    : Wrapper(container_parent, wrapper_parent)
+{
+	assert(container_parent != nullptr || wrapper_parent != nullptr);
+
+	if (text != nullptr)
+		Text::Create(this, text); // Calls SetChild() already
+	else
+		m_content = nullptr;
 }
 
 Ui::Widget* Ui::Button::GetChild(int no, Delta* layout_delta_out, Size* size_out)
@@ -417,20 +435,9 @@ Size Ui::Button::UpdateLayout()
 	return m_natural_size;
 }
 
-void Ui::Button::Draw(Position pos, Ui::DrawAPI* api) const
+void Ui::Button::Draw(Position pos) const
 {
-	api->Draw3dBevel({pos, m_natural_size});
-}
-
-Ui::Button::Button(Container* container_parent, Wrapper* wrapper_parent, const char* text)
-    : Wrapper(container_parent, wrapper_parent)
-{
-	assert(container_parent != nullptr || wrapper_parent != nullptr);
-
-	if (text != nullptr)
-		Text::Create(this, text); // Calls SetChild() already
-	else
-		m_content = nullptr;
+	m_parent->GetDrawApi()->Draw3dBevel({pos, m_natural_size});
 }
 
 

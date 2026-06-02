@@ -23,6 +23,7 @@ class DrawAPI
   public:
 	virtual void Draw3dBevel(Rect rect) = 0;
 	virtual void DrawText(Position pos, const char* text) = 0;
+	virtual Size GetTextSize(const char* text) const = 0;
 };
 
 
@@ -49,10 +50,15 @@ class Widget
 		return nullptr;
 	}
 
-	virtual void Draw(Position pos, DrawAPI* api) const
+	virtual void Draw(Position pos) const
 	{
 		(void)pos;
-		(void)api;
+	}
+
+	virtual DrawAPI* GetDrawApi() const
+	{
+		// Is not that bad to traverse upwards
+		return (m_parent != nullptr) ? m_parent->GetDrawApi() : nullptr;
 	}
 
   protected:
@@ -97,7 +103,7 @@ class Wrapper : public Widget
 class Window : public Wrapper
 {
   public:
-	static Window* Create();
+	static Window* Create(DrawAPI* draw_api);
 
 	Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) override;
 	const Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) const override;
@@ -105,11 +111,13 @@ class Window : public Wrapper
 	const char* GetType() const override;
 
 	Size UpdateLayout() override;
-	void Draw(Position pos, DrawAPI* api) const override;
+	void Draw(Position pos) const override;
+	DrawAPI* GetDrawApi() const override;
 
   private:
-	Window();
+	Window(DrawAPI* draw_api);
 	Widget* m_content;
+	DrawAPI* m_draw_api;
 };
 
 
@@ -183,7 +191,7 @@ class Text : public Widget
 	const char* GetPrintableInformation() const override;
 
 	Size UpdateLayout() override;
-	void Draw(Position pos, DrawAPI* api) const override;
+	void Draw(Position pos) const override;
 
   protected:
 	Text(Container* container, Wrapper* wrapper, const char* text);
@@ -205,7 +213,7 @@ class Button : public Wrapper
 	const char* GetType() const override;
 
 	Size UpdateLayout() override;
-	void Draw(Position pos, DrawAPI* api) const override;
+	void Draw(Position pos) const override;
 
   protected:
 	Button(Container* container, Wrapper* wrapper, const char* text);

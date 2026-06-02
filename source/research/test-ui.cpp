@@ -20,29 +20,6 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 using namespace Ui;
 
 
-class DrawAPIImplementation : public DrawAPI
-{
-	Canvas* m_canvas;
-
-  public:
-	DrawAPIImplementation(Canvas* canvas)
-	{
-		m_canvas = canvas;
-	}
-
-	void Draw3dBevel(Rect rect) override
-	{
-		m_canvas->Draw3dBevel(rect);
-	}
-
-	void DrawText(Position pos, const char* text) override
-	{
-		(void)pos;
-		(void)text;
-	}
-};
-
-
 struct StackEntry
 {
 	const Widget* widget;
@@ -83,11 +60,8 @@ static void sPrint(const StackEntry* entry)
 	}
 }
 
-static void sRender(const Widget* root, Canvas* canvas)
+static void sRender(const Widget* root)
 {
-	auto draw_api = DrawAPIImplementation(canvas);
-	canvas->DrawRectangle({{0.0f, 0.0f}, {640.0f, 480.0f}}, COLOUR16_GREY);
-
 	constexpr int STACK_LEN = 64;
 	StackEntry stack[STACK_LEN];
 	int cursor = 0;
@@ -100,7 +74,7 @@ static void sRender(const Widget* root, Canvas* canvas)
 		const StackEntry* current = stack + cursor;
 
 		// Draw
-		current->widget->Draw(current->pos, &draw_api);
+		current->widget->Draw(current->pos);
 		sPrint(current);
 
 		// Stack children
@@ -176,10 +150,42 @@ static void sUpdateLayout(Widget* root)
 }
 
 
+class DrawAPIImplementation : public DrawAPI
+{
+	Canvas* m_canvas;
+
+  public:
+	DrawAPIImplementation(Canvas* canvas)
+	{
+		m_canvas = canvas;
+	}
+
+	void Draw3dBevel(Rect rect) override
+	{
+		m_canvas->Draw3dBevel(rect);
+	}
+
+	void DrawText(Position pos, const char* text) override
+	{
+		m_canvas->DrawText(pos, text, COLOUR16_RED);
+	}
+
+	Size GetTextSize(const char* text) const override
+	{
+		return m_canvas->GetTextSize(text);
+	}
+};
+
+
 int main()
 {
+	auto canvas = Canvas::Create(640, 480, 20.0f);
+
+	auto draw_api = DrawAPIImplementation(canvas);
+	canvas->DrawRectangle({{0.0f, 0.0f}, {640.0f, 480.0f}}, COLOUR16_GREY);
+
 	// Creating something somewhat complex, yet simple (I don't have many widgets yet)
-	auto window = Window::Create();
+	auto window = Window::Create(&draw_api);
 	{
 		auto vbox = VBox::Create(window);
 		{
@@ -237,10 +243,8 @@ int main()
 		}
 	}
 
-	auto canvas = Canvas::Create(640, 480, 24.0f);
-
 	sUpdateLayout(window);
-	sRender(window, canvas);
+	sRender(window);
 
 	SaveBMP16("test.bmp", 640, 480, canvas->GetBuffer());
 
