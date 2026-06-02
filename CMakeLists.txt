@@ -1,9 +1,10 @@
 
 cmake_minimum_required(VERSION 3.16)
-project("Matsuri" C)
+project("Matsuri" C CXX)
 
 
 set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 11)
 
 
 ####
@@ -17,10 +18,6 @@ if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES
 	set(MATSURI_CFLAGS -Wall -Wextra -Wconversion -pedantic)
 endif ()
 ####
-
-
-# Research stuff
-add_subdirectory("source/research/" "research")
 
 
 # Matsuri library
@@ -40,6 +37,75 @@ add_executable("generate-wavs" "./source/generate-wavs.c")
 
 target_compile_options("generate-wavs" PRIVATE ${MATSURI_CFLAGS})
 target_link_libraries("generate-wavs" PRIVATE "matsuri-library")
+
+
+# Freetype library
+set(FREETYPE_SOURCES "./source/thirdparty/freetype/src/base/ftbase.c"
+                     "./source/thirdparty/freetype/src/base/ftbbox.c"
+                     "./source/thirdparty/freetype/src/base/ftbdf.c"
+                     "./source/thirdparty/freetype/src/base/ftbitmap.c"
+                     "./source/thirdparty/freetype/src/base/ftcid.c"
+                     "./source/thirdparty/freetype/src/base/ftdebug.c"
+                     "./source/thirdparty/freetype/src/base/ftfstype.c"
+                     "./source/thirdparty/freetype/src/base/ftgasp.c"
+                     "./source/thirdparty/freetype/src/base/ftglyph.c"
+                     "./source/thirdparty/freetype/src/base/ftgxval.c"
+                     "./source/thirdparty/freetype/src/base/ftinit.c"
+                     "./source/thirdparty/freetype/src/base/ftmm.c"
+                     "./source/thirdparty/freetype/src/base/ftotval.c"
+                     "./source/thirdparty/freetype/src/base/ftpatent.c"
+                     "./source/thirdparty/freetype/src/base/ftpfr.c"
+                     "./source/thirdparty/freetype/src/base/ftstroke.c"
+                     "./source/thirdparty/freetype/src/base/ftsynth.c"
+                     "./source/thirdparty/freetype/src/base/fttype1.c"
+                     "./source/thirdparty/freetype/src/base/ftwinfnt.c"
+
+                     # Configured modules:
+                     "./source/thirdparty/freetype/src/autofit/autofit.c"
+                     "./source/thirdparty/freetype/src/cff/cff.c"
+                     "./source/thirdparty/freetype/src/raster/raster.c"
+                     "./source/thirdparty/freetype/src/smooth/smooth.c"
+                     "./source/thirdparty/freetype/src/svg/svg.c"
+                     "./source/thirdparty/freetype/src/truetype/truetype.c"
+)
+
+if (WIN32)
+	list(APPEND FREETYPE_SOURCES "./source/thirdparty/freetype/builds/windows/ftsystem.c")
+elseif (UNIX)
+	list(APPEND FREETYPE_SOURCES "./source/thirdparty/freetype/builds/unix/ftsystem.c")
+else ()
+	# This one is ANSI C
+	list(APPEND FREETYPE_SOURCES "./source/thirdparty/freetype/src/base/ftsystem.c")
+endif ()
+
+add_library("freetype-library-pic" OBJECT ${FREETYPE_SOURCES})
+
+target_compile_definitions("freetype-library-pic" PRIVATE
+	FT2_BUILD_LIBRARY # Needed
+	FT_CONFIG_MODULES_H="${CMAKE_SOURCE_DIR}/source/thirdparty/freetype-custom/ftmodule.h"
+	FT_CONFIG_OPTIONS_H="${CMAKE_SOURCE_DIR}/source/thirdparty/freetype-custom/ftoption.h")
+
+set_target_properties("freetype-library-pic" PROPERTIES C_VISIBILITY_PRESET hidden)
+set_target_properties("freetype-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+
+target_include_directories("freetype-library-pic" PRIVATE "./source/thirdparty/freetype/include")
+
+if (UNIX)
+	# It's 2026, it's illegal to a non-POSIX UNIX (ewww... all caps acronyms) to even exist
+	target_compile_definitions("freetype-library-pic" PRIVATE HAVE_UNISTD_H)
+	target_compile_definitions("freetype-library-pic" PRIVATE HAVE_FCNTL_H)
+endif ()
+
+
+# Research stuff
+add_executable(research-ui "./source/research/test-ui.cpp" "./source/research/ui.cpp" "./source/research/canvas.cpp" "./source/research/misc.cpp")
+add_executable(research-canvas "./source/research/test-canvas.cpp" "./source/research/canvas.cpp" "./source/research/misc.cpp")
+
+target_compile_options("research-ui" PRIVATE ${MATSURI_CFLAGS})
+target_compile_options("research-canvas" PRIVATE ${MATSURI_CFLAGS})
+
+target_link_libraries("research-ui" PRIVATE "freetype-library-pic")
+target_link_libraries("research-canvas" PRIVATE "freetype-library-pic")
 
 
 # Plugin, CLAP

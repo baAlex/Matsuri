@@ -4,3 +4,6 @@
 [submodule "source/thirdparty/lv2"]
 	path = source/thirdparty/lv2
 	url = https://github.com/lv2/lv2
+[submodule "source/thirdparty/freetype"]
+	path = source/thirdparty/freetype
+	url = https://gitlab.freedesktop.org/freetype/freetype
