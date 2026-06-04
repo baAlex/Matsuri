@@ -69,13 +69,15 @@ set(FREETYPE_SOURCES "./source/thirdparty/freetype/src/base/ftbase.c"
                      "./source/thirdparty/freetype/src/sfnt/sfnt.c"
                      "./source/thirdparty/freetype/src/psaux/psaux.c"
                      "./source/thirdparty/freetype/src/psnames/psnames.c"
-                     "./source/thirdparty/freetype/src/gzip/ftgzip.c"
-                     "./source/thirdparty/freetype/src/lzw/ftlzw.c"
+
+                     # Doesn't break the compilation and doesn't throw runtime
+                     # errors, but it if absent, it breaks glyph sizes in a
+                     # disgusting manner:
+                     "./source/thirdparty/freetype/src/pshinter/pshinter.c"
 
                      # In case something is missing:
                      #"./source/thirdparty/freetype/src/svg/svg.c"
                      #"./source/thirdparty/freetype/src/sdf/sdf.c"
-                     #"./source/thirdparty/freetype/src/pshinter/pshinter.c"
                      #"./source/thirdparty/freetype/src/bdf/bdf.c"
                      #"./source/thirdparty/freetype/src/winfonts/winfnt.c"
                      #"./source/thirdparty/freetype/src/pcf/pcf.c"
@@ -84,6 +86,8 @@ set(FREETYPE_SOURCES "./source/thirdparty/freetype/src/base/ftbase.c"
                      #"./source/thirdparty/freetype/src/pfr/pfr.c"
                      #"./source/thirdparty/freetype/src/type1/type1.c"
                      #"./source/thirdparty/freetype/src/type42/type42.c"
+                     #"./source/thirdparty/freetype/src/gzip/ftgzip.c"
+                     #"./source/thirdparty/freetype/src/lzw/ftlzw.c"
 )
 
 if (WIN32)
@@ -100,10 +104,8 @@ add_library("freetype-library-pic" OBJECT ${FREETYPE_SOURCES})
 
 target_compile_definitions("freetype-library-pic" PRIVATE
 	FT2_BUILD_LIBRARY # Needed
-	FT_CONFIG_MODULES_H="${CMAKE_SOURCE_DIR}/source/thirdparty/freetype-custom/ftmodule.h")
-
-	# With a custom "ftmodule.h" is enough to trim the library:
-	#FT_CONFIG_OPTIONS_H="${CMAKE_SOURCE_DIR}/source/thirdparty/freetype-custom/ftoption.h")
+	FT_CONFIG_MODULES_H="${CMAKE_SOURCE_DIR}/source/thirdparty/freetype-custom/ftmodule.h"
+	FT_CONFIG_OPTIONS_H="${CMAKE_SOURCE_DIR}/source/thirdparty/freetype-custom/ftoption.h")
 
 set_target_properties("freetype-library-pic" PROPERTIES C_VISIBILITY_PRESET hidden)
 set_target_properties("freetype-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
@@ -117,22 +119,35 @@ endif ()
 
 
 # Research stuff
+find_package(Freetype)
+
 add_executable(ui-test "./source/research/ui-test.cpp" "./source/research/ui.cpp" "./source/research/canvas.cpp" "./source/research/misc.cpp")
 add_executable(canvas-test "./source/research/canvas-test.cpp" "./source/research/canvas.cpp" "./source/research/misc.cpp")
+add_executable(metrics-test "./source/research/metrics-test.cpp")
+add_executable(metrics-system-test "./source/research/metrics-test.cpp")
 
 target_compile_options("ui-test" PRIVATE ${MATSURI_CFLAGS})
 target_compile_options("canvas-test" PRIVATE ${MATSURI_CFLAGS})
+target_compile_options("metrics-test" PRIVATE ${MATSURI_CFLAGS})
+target_compile_options("metrics-system-test" PRIVATE ${MATSURI_CFLAGS})
 
 target_link_libraries("ui-test" PRIVATE "freetype-library-pic")
 target_link_libraries("canvas-test" PRIVATE "freetype-library-pic")
+target_link_libraries("metrics-test" PRIVATE "freetype-library-pic")
+if (Freetype_FOUND)
+target_link_libraries("metrics-system-test" PRIVATE Freetype::Freetype)
+endif ()
 
 target_include_directories("ui-test" PRIVATE "./source/thirdparty/freetype/include")
 target_include_directories("canvas-test" PRIVATE "./source/thirdparty/freetype/include")
+target_include_directories("metrics-test" PRIVATE "./source/thirdparty/freetype/include")
 
 if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
 	# Freetype is chonky
 	target_link_options("canvas-test" PRIVATE -Wl,--gc-sections)
 	target_link_options("ui-test" PRIVATE -Wl,--gc-sections)
+	target_link_options("metrics-test" PRIVATE -Wl,--gc-sections)
+	target_link_options("metrics-system-test" PRIVATE -Wl,--gc-sections)
 endif ()
 
 

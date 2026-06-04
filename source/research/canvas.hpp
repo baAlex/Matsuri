@@ -26,6 +26,24 @@ struct Colour16
 		                              (static_cast<uint16_t>(Clamp(b, 0.0f, 1.0f) * 31.0f) << 1) |  //
 		                              (static_cast<uint16_t>((a > 0.5f) ? 1.0f : 0.0f) << 0))};
 	}
+
+	static Colour16 MixToBlack(Colour16 c, uint8_t t)
+	{
+		// const int r = ((((c.m_v >> 11) & 0b11111) << 3) * t) >> 11;
+		// const int g = ((((c.m_v >> 6) & 0b11111) << 3) * t) >> 11;
+		// const int b = ((((c.m_v >> 1) & 0b11111) << 3) * t) >> 11;
+		// const int a = (c.m_v >> 0) & 1;
+
+		const int r = (((c.m_v >> 8) & 255) * t) >> 11;
+		const int g = (((c.m_v >> 3) & 255) * t) >> 11;
+		const int b = (((c.m_v << 2) & 255) * t) >> 11;
+		const int a = c.m_v & 1;
+
+		return {static_cast<uint16_t>((static_cast<uint16_t>(r) << 11) | //
+		                              (static_cast<uint16_t>(g) << 6) |  //
+		                              (static_cast<uint16_t>(b) << 1) |  //
+		                              (static_cast<uint16_t>(a)))};
+	}
 };
 
 static constexpr auto COLOUR16_WHITE = Colour16::Set(1.0f, 1.0f, 1.0f, 1.0f);

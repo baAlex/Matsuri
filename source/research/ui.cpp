@@ -132,6 +132,8 @@ int Ui::Box::GetChildrenNo() const
 	return m_children_no;
 }
 
+static constexpr float SPACING = 0.2f; // TODO, hardcoded for now
+
 class Ui::BoxFriend
 {
   public:
@@ -151,8 +153,8 @@ class Ui::BoxFriend
 
 			switch (fwend.m_direction)
 			{
-			case T::Direction::Horizontal: *layout_delta_out = {(last < 0) ? size.w : 0.0f, 0.0f}; break;
-			case T::Direction::Vertical: *layout_delta_out = {0.0f, (last < 0) ? size.h : 0.0f}; break;
+			case T::Direction::Horizontal: *layout_delta_out = {(last < 0) ? size.w + SPACING : 0.0f, 0.0f}; break;
+			case T::Direction::Vertical: *layout_delta_out = {0.0f, (last < 0) ? size.h + SPACING : 0.0f}; break;
 			}
 		}
 
@@ -213,17 +215,19 @@ Size Ui::Box::UpdateLayout()
 		for (int i = 0; i < m_children_no; i += 1)
 		{
 			const auto size = m_children[i]->UpdateLayout();
-			m_natural_size.w += size.w;
+			m_natural_size.w += size.w + SPACING;
 			m_natural_size.h = Max(m_natural_size.h, size.h);
 		}
+		m_natural_size.w -= SPACING;
 		break;
 	case Direction::Vertical:
 		for (int i = 0; i < m_children_no; i += 1)
 		{
 			const auto size = m_children[i]->UpdateLayout();
 			m_natural_size.w = Max(m_natural_size.w, size.w);
-			m_natural_size.h += size.h;
+			m_natural_size.h += size.h + SPACING;
 		}
+		m_natural_size.h -= SPACING;
 		break;
 	}
 
@@ -321,7 +325,7 @@ const char* Ui::Text::GetPrintableInformation() const
 }
 
 
-static constexpr float MARGIN = 1.0f / 5.0f; // TODO, hardcoded for now
+static constexpr float MARGIN = 1.0f / 2.0f; // TODO, hardcoded for now
 
 Size Ui::Text::UpdateLayout()
 {
@@ -388,7 +392,7 @@ Ui::Widget* Ui::Button::GetChild(int no, Delta* layout_delta_out, Size* size_out
 {
 	(void)no;
 	if (layout_delta_out != nullptr)
-		*layout_delta_out = {};
+		*layout_delta_out = {}; // Valid only for containers with more than one child...
 	if (size_out != nullptr)
 		*size_out = GetNaturalSize();
 	return m_content;
@@ -398,7 +402,7 @@ const Ui::Widget* Ui::Button::GetChild(int no, Delta* layout_delta_out, Size* si
 {
 	(void)no;
 	if (layout_delta_out != nullptr)
-		*layout_delta_out = {};
+		*layout_delta_out = {}; // ... as it starts affecting from the second child
 	if (size_out != nullptr)
 		*size_out = GetNaturalSize();
 	return m_content;

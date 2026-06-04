@@ -18,7 +18,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 
 int main()
 {
-	auto canvas = Canvas::Create(640, 480, 1.0f);
+	auto canvas = Canvas::Create(640, 480, 1.0f / 16.0f);
 
 	// Grey background, to check that it is 640 and not 639, same with 480
 	// (valgrind will scream that memory isn't initialised if not the case)
