@@ -128,7 +128,7 @@ add_executable(metrics-system-test "./source/research/metrics-test.cpp")
 
 target_compile_options("ui-test" PRIVATE ${MATSURI_CFLAGS})
 target_compile_options("canvas-test" PRIVATE ${MATSURI_CFLAGS})
-target_compile_options("metrics-test" PRIVATE ${MATSURI_CFLAGS})
+#target_compile_options("metrics-test" PRIVATE ${MATSURI_CFLAGS})
 target_compile_options("metrics-system-test" PRIVATE ${MATSURI_CFLAGS})
 
 target_link_libraries("ui-test" PRIVATE "freetype-library-pic")
