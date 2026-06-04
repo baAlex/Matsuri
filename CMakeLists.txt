@@ -15,7 +15,7 @@ if (MSVC)
 endif ()
 
 if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
-	set(MATSURI_CFLAGS -Wall -Wextra -Wconversion -pedantic)
+	set(MATSURI_CFLAGS -Wall -Wextra -Wconversion -pedantic -ffunction-sections -fdata-sections)
 endif ()
 ####
 
@@ -65,8 +65,25 @@ set(FREETYPE_SOURCES "./source/thirdparty/freetype/src/base/ftbase.c"
                      "./source/thirdparty/freetype/src/cff/cff.c"
                      "./source/thirdparty/freetype/src/raster/raster.c"
                      "./source/thirdparty/freetype/src/smooth/smooth.c"
-                     "./source/thirdparty/freetype/src/svg/svg.c"
                      "./source/thirdparty/freetype/src/truetype/truetype.c"
+                     "./source/thirdparty/freetype/src/sfnt/sfnt.c"
+                     "./source/thirdparty/freetype/src/psaux/psaux.c"
+                     "./source/thirdparty/freetype/src/psnames/psnames.c"
+                     "./source/thirdparty/freetype/src/gzip/ftgzip.c"
+                     "./source/thirdparty/freetype/src/lzw/ftlzw.c"
+
+                     # In case something is missing:
+                     #"./source/thirdparty/freetype/src/svg/svg.c"
+                     #"./source/thirdparty/freetype/src/sdf/sdf.c"
+                     #"./source/thirdparty/freetype/src/pshinter/pshinter.c"
+                     #"./source/thirdparty/freetype/src/bdf/bdf.c"
+                     #"./source/thirdparty/freetype/src/winfonts/winfnt.c"
+                     #"./source/thirdparty/freetype/src/pcf/pcf.c"
+                     #"./source/thirdparty/freetype/src/cid/type1cid.c"
+                     #"./source/thirdparty/freetype/src/hvf/hvf.c"
+                     #"./source/thirdparty/freetype/src/pfr/pfr.c"
+                     #"./source/thirdparty/freetype/src/type1/type1.c"
+                     #"./source/thirdparty/freetype/src/type42/type42.c"
 )
 
 if (WIN32)
@@ -74,7 +91,8 @@ if (WIN32)
 elseif (UNIX)
 	list(APPEND FREETYPE_SOURCES "./source/thirdparty/freetype/builds/unix/ftsystem.c")
 else ()
-	# This one is ANSI C
+	# This one is ANSI C:
+	# (previous two are doing some sort of mmap trick to speed up file readings)
 	list(APPEND FREETYPE_SOURCES "./source/thirdparty/freetype/src/base/ftsystem.c")
 endif ()
 
@@ -82,12 +100,13 @@ add_library("freetype-library-pic" OBJECT ${FREETYPE_SOURCES})
 
 target_compile_definitions("freetype-library-pic" PRIVATE
 	FT2_BUILD_LIBRARY # Needed
-	FT_CONFIG_MODULES_H="${CMAKE_SOURCE_DIR}/source/thirdparty/freetype-custom/ftmodule.h"
-	FT_CONFIG_OPTIONS_H="${CMAKE_SOURCE_DIR}/source/thirdparty/freetype-custom/ftoption.h")
+	FT_CONFIG_MODULES_H="${CMAKE_SOURCE_DIR}/source/thirdparty/freetype-custom/ftmodule.h")
+
+	# With a custom "ftmodule.h" is enough to trim the library:
+	#FT_CONFIG_OPTIONS_H="${CMAKE_SOURCE_DIR}/source/thirdparty/freetype-custom/ftoption.h")
 
 set_target_properties("freetype-library-pic" PROPERTIES C_VISIBILITY_PRESET hidden)
 set_target_properties("freetype-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
-
 target_include_directories("freetype-library-pic" PRIVATE "./source/thirdparty/freetype/include")
 
 if (UNIX)
@@ -98,14 +117,23 @@ endif ()
 
 
 # Research stuff
-add_executable(research-ui "./source/research/test-ui.cpp" "./source/research/ui.cpp" "./source/research/canvas.cpp" "./source/research/misc.cpp")
-add_executable(research-canvas "./source/research/test-canvas.cpp" "./source/research/canvas.cpp" "./source/research/misc.cpp")
+add_executable(ui-test "./source/research/ui-test.cpp" "./source/research/ui.cpp" "./source/research/canvas.cpp" "./source/research/misc.cpp")
+add_executable(canvas-test "./source/research/canvas-test.cpp" "./source/research/canvas.cpp" "./source/research/misc.cpp")
 
-target_compile_options("research-ui" PRIVATE ${MATSURI_CFLAGS})
-target_compile_options("research-canvas" PRIVATE ${MATSURI_CFLAGS})
+target_compile_options("ui-test" PRIVATE ${MATSURI_CFLAGS})
+target_compile_options("canvas-test" PRIVATE ${MATSURI_CFLAGS})
 
-target_link_libraries("research-ui" PRIVATE "freetype-library-pic")
-target_link_libraries("research-canvas" PRIVATE "freetype-library-pic")
+target_link_libraries("ui-test" PRIVATE "freetype-library-pic")
+target_link_libraries("canvas-test" PRIVATE "freetype-library-pic")
+
+target_include_directories("ui-test" PRIVATE "./source/thirdparty/freetype/include")
+target_include_directories("canvas-test" PRIVATE "./source/thirdparty/freetype/include")
+
+if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
+	# Freetype is chonky
+	target_link_options("canvas-test" PRIVATE -Wl,--gc-sections)
+	target_link_options("ui-test" PRIVATE -Wl,--gc-sections)
+endif ()
 
 
 # Plugin, CLAP

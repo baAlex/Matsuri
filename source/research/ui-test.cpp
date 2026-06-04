@@ -179,7 +179,7 @@ class DrawAPIImplementation : public DrawAPI
 
 int main()
 {
-	auto canvas = Canvas::Create(640, 480, 20.0f);
+	auto canvas = Canvas::Create(640, 480, 22.0f);
 
 	auto draw_api = DrawAPIImplementation(canvas);
 	canvas->DrawRectangle({{0.0f, 0.0f}, {640.0f, 480.0f}}, COLOUR16_GREY);
