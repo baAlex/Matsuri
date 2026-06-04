@@ -123,7 +123,7 @@ find_package(Freetype)
 
 add_executable(ui-test "./source/research/ui-test.cpp" "./source/research/ui.cpp" "./source/research/canvas.cpp" "./source/research/misc.cpp")
 add_executable(canvas-test "./source/research/canvas-test.cpp" "./source/research/canvas.cpp" "./source/research/misc.cpp")
-add_executable(metrics-test "./source/research/metrics-test.cpp")
+#add_executable(metrics-test "./source/research/metrics-test.cpp")
 add_executable(metrics-system-test "./source/research/metrics-test.cpp")
 
 target_compile_options("ui-test" PRIVATE ${MATSURI_CFLAGS})
@@ -133,20 +133,20 @@ target_compile_options("metrics-system-test" PRIVATE ${MATSURI_CFLAGS})
 
 target_link_libraries("ui-test" PRIVATE "freetype-library-pic")
 target_link_libraries("canvas-test" PRIVATE "freetype-library-pic")
-target_link_libraries("metrics-test" PRIVATE "freetype-library-pic")
+#target_link_libraries("metrics-test" PRIVATE "freetype-library-pic")
 if (Freetype_FOUND)
 target_link_libraries("metrics-system-test" PRIVATE Freetype::Freetype)
 endif ()
 
 target_include_directories("ui-test" PRIVATE "./source/thirdparty/freetype/include")
 target_include_directories("canvas-test" PRIVATE "./source/thirdparty/freetype/include")
-target_include_directories("metrics-test" PRIVATE "./source/thirdparty/freetype/include")
+#target_include_directories("metrics-test" PRIVATE "./source/thirdparty/freetype/include")
 
 if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
 	# Freetype is chonky
 	target_link_options("canvas-test" PRIVATE -Wl,--gc-sections)
 	target_link_options("ui-test" PRIVATE -Wl,--gc-sections)
-	target_link_options("metrics-test" PRIVATE -Wl,--gc-sections)
+	#target_link_options("metrics-test" PRIVATE -Wl,--gc-sections)
 	target_link_options("metrics-system-test" PRIVATE -Wl,--gc-sections)
 endif ()
 
