@@ -119,8 +119,8 @@ endif ()
 
 
 # Research stuff
-add_executable(test-ui "./source/research/test-ui.cpp" "./source/research/ui.cpp" "./source/research/error.cpp" "./source/research/canvas.cpp" "./source/research/misc.cpp")
-add_executable(test-canvas "./source/research/test-canvas.cpp" "./source/research/error.cpp" "./source/research/canvas.cpp" "./source/research/misc.cpp")
+add_executable(test-ui "./source/research/test-ui.cpp" "./source/research/ui.cpp" "./source/research/error.cpp" "./source/research/canvas.cpp" "./source/research/shared.cpp")
+add_executable(test-canvas "./source/research/test-canvas.cpp" "./source/research/error.cpp" "./source/research/canvas.cpp" "./source/research/shared.cpp")
 add_executable(test-metrics "./source/research/test-metrics.cpp")
 
 target_compile_options("test-ui" PRIVATE ${MATSURI_CFLAGS})

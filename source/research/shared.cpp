@@ -10,13 +10,12 @@ If a copy of the CDDL was not distributed with this file, You
 can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
-#include <assert.h>
 #include <stdio.h>
 
-#include "misc.hpp"
+#include "shared.hpp"
 
 
-int SaveBMP16(const char* filename, int width, int height, const uint16_t* buffer)
+int SaveBMP(const char* filename, int width, int height, const Colour* buffer)
 {
 	FILE* fp = fopen(filename, "wb");
 	if (fp == NULL)
@@ -25,10 +24,11 @@ int SaveBMP16(const char* filename, int width, int height, const uint16_t* buffe
 		return 1;
 	}
 
-	const uint32_t row_size = static_cast<uint32_t>(width) * sizeof(uint16_t);
+	const uint32_t row_size = static_cast<uint32_t>(width) * sizeof(uint32_t);
 
-	// We want align to 4 bytes:
-	const uint32_t stride = (row_size + (sizeof(uint32_t) - 1)) & ~(sizeof(uint32_t) - 1);
+	// We want align to 4 bytes (old code from when I was using uint16_t):
+	// const uint32_t stride = (row_size + (sizeof(uint32_t) - 1)) & ~(sizeof(uint32_t) - 1);
+	const uint32_t stride = row_size;
 
 	const uint32_t image_size = stride * static_cast<uint32_t>(height);
 	const uint32_t data_offset = 14 + 40 + 12;
@@ -55,7 +55,7 @@ int SaveBMP16(const char* filename, int width, int height, const uint16_t* buffe
 		const uint32_t info_header_size = 40;
 		const int32_t flipped_height = -height; // top-down
 		const uint16_t planes = 1;
-		const uint16_t bits_per_pixel = 16;
+		const uint16_t bits_per_pixel = 32;
 		const uint32_t compression = 3;       // BI_BITFIELDS
 		const int32_t x_pixels_per_meter = 0; // ???
 		const int32_t y_pixels_per_meter = 0; // ???
@@ -83,9 +83,13 @@ int SaveBMP16(const char* filename, int width, int height, const uint16_t* buffe
 	// Bitfields (12 bytes)
 	{
 		// https://www.virtualdub.org/blog2/entry_177.html
-		const uint32_t r_mask = 0xF800; // 0b1111100000000000;
-		const uint32_t g_mask = 0x7C0;  // 0b0000011111000000;
-		const uint32_t b_mask = 0x3E;   // 0b0000000000111110;
+		// const uint32_t r_mask = 0xF800; // 0b1111100000000000;
+		// const uint32_t g_mask = 0x7C0;  // 0b0000011111000000;
+		// const uint32_t b_mask = 0x3E;   // 0b0000000000111110;
+
+		const uint32_t r_mask = 0xFF << 0;
+		const uint32_t g_mask = 0xFF << 8;
+		const uint32_t b_mask = 0xFF << 16;
 
 		if (fwrite(&r_mask, 4, 1, fp) != 1 || //
 		    fwrite(&g_mask, 4, 1, fp) != 1 || //
@@ -104,7 +108,7 @@ int SaveBMP16(const char* filename, int width, int height, const uint16_t* buffe
 
 		for (int y = 0; y < height; y += 1)
 		{
-			const uint16_t* row = buffer + y * width;
+			const Colour* row = buffer + y * width;
 
 			if (fwrite(row, row_size, 1, fp) != 1)
 			{

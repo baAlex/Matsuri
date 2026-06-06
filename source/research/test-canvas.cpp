@@ -10,10 +10,7 @@ If a copy of the CDDL was not distributed with this file, You
 can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
-#include <assert.h>
-
 #include "canvas.hpp"
-#include "misc.hpp"
 
 
 int main()
@@ -22,17 +19,17 @@ int main()
 
 	// Grey background, to check that it is 640 and not 639, same with 480
 	// (valgrind will scream that memory isn't initialised if not the case)
-	canvas->DrawRectangle({{0.0f, 0.0f}, {640.0f, 480.0f}}, COLOUR16_GREY);
+	canvas->DrawRectangle({{0.0f, 0.0f}, {640.0f, 480.0f}}, COLOUR_GREY);
 
 	// Three of same size, they should have, in theory, the same size
 	canvas->Draw3dBevel({{16.0f, 16.0f}, {32.0f, 32.0f}});
 	canvas->Draw3dBevel({{48.0f, 16.0f}, {32.0f, 32.0f}});
 
-	canvas->DrawRectangle({{16.0f, 64.0f}, {32.0f, 32.0f}}, COLOUR16_RED);
+	canvas->DrawRectangle({{16.0f, 64.0f}, {32.0f, 32.0f}}, COLOUR_RED);
 
 	// Against edge and corner (latter shouldn't make valgrind angry by writing outside memory)
-	canvas->DrawRectangle({{640.0f - 16.0f, 16.0f}, {32.0f, 32.0f}}, COLOUR16_BLUE);
-	canvas->DrawRectangle({{640.0f - 16.0f, 480.0f - 16.0f}, {32.0f, 32.0f}}, COLOUR16_GREEN);
+	canvas->DrawRectangle({{640.0f - 16.0f, 16.0f}, {32.0f, 32.0f}}, COLOUR_BLUE);
+	canvas->DrawRectangle({{640.0f - 16.0f, 480.0f - 16.0f}, {32.0f, 32.0f}}, COLOUR_GREEN);
 
 	// Outline against edges
 	{
@@ -54,7 +51,7 @@ int main()
 	}
 
 	// Bye!
-	SaveBMP16("test.bmp", 640, 480, canvas->GetBuffer());
+	SaveBMP("test.bmp", 640, 480, canvas->GetBuffer());
 
 	delete canvas;
 	return 0;

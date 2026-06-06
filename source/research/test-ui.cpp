@@ -14,7 +14,6 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include <stdio.h>
 
 #include "canvas.hpp"
-#include "misc.hpp"
 
 #include "ui.hpp"
 using namespace Ui;
@@ -165,14 +164,14 @@ class DrawAPIImplementation : public DrawAPI
 		m_canvas->Draw3dBevel(rect);
 	}
 
-	void DrawText(Position pos, const char* text) override
+	void DrawText(Font font, Position pos, const char* text, Colour colour) override
 	{
-		m_canvas->DrawText(pos, text, COLOUR16_RED);
+		m_canvas->DrawText(font, pos, text, colour);
 	}
 
-	Size GetTextSize(const char* text) const override
+	Size GetTextSize(Font font, const char* text) const override
 	{
-		return m_canvas->GetTextSize(text);
+		return m_canvas->GetTextSize(font, text);
 	}
 };
 
@@ -182,7 +181,7 @@ int main()
 	auto canvas = new Canvas(640, 480, 1.0f);
 
 	auto draw_api = DrawAPIImplementation(canvas);
-	canvas->DrawRectangle({{0.0f, 0.0f}, {640.0f, 480.0f}}, COLOUR16_GREY);
+	canvas->DrawRectangle({{0.0f, 0.0f}, {640.0f, 480.0f}}, COLOUR_GREY);
 
 	// Creating something somewhat complex, yet simple (I don't have many widgets yet)
 	auto window = Window::Create(&draw_api);
@@ -258,8 +257,9 @@ int main()
 	sUpdateLayout(window);
 	sRender(window);
 
-	SaveBMP16("test.bmp", 640, 480, canvas->GetBuffer());
+	SaveBMP("test.bmp", 640, 480, canvas->GetBuffer());
 
+	delete window;
 	delete canvas;
 	return 0;
 }

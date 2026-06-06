@@ -13,19 +13,10 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #ifndef UI_HPP
 #define UI_HPP
 
-#include "misc.hpp"
+#include "shared.hpp"
 
 namespace Ui
 {
-
-class DrawAPI
-{
-  public:
-	virtual void Draw3dBevel(Rect rect) = 0;
-	virtual void DrawText(Position pos, const char* text) = 0;
-	virtual Size GetTextSize(const char* text) const = 0;
-};
-
 
 class Wrapper;
 class Container;
@@ -61,7 +52,11 @@ class Widget
 		return (m_parent != nullptr) ? m_parent->GetDrawApi() : nullptr;
 	}
 
+	virtual ~Widget() = default;
+
   protected:
+	Widget(Container* container_parent, Wrapper* wrapper_parent);
+
 	virtual void MakeItDirty()
 	{
 		m_dirty = true;
@@ -70,7 +65,6 @@ class Widget
 			m_parent->MakeItDirty(); // Traverses upward
 	}
 
-	Widget(Container* container_parent, Wrapper* wrapper_parent);
 	Widget* m_parent;
 	bool m_dirty;
 	Size m_natural_size;
@@ -104,6 +98,7 @@ class Window : public Wrapper
 {
   public:
 	static Window* Create(DrawAPI* draw_api);
+	~Window();
 
 	Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) override;
 	const Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) const override;
@@ -135,6 +130,7 @@ class Box : public Container
 
 	static Box* Create(Container* parent, Direction direction);
 	static Box* Create(Wrapper* parent, Direction direction);
+	~Box();
 
 	int GetChildrenNo() const override;
 	Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) override;
@@ -206,6 +202,7 @@ class Button : public Wrapper
   public:
 	static Button* Create(Container* parent, const char* text = nullptr);
 	static Button* Create(Wrapper* parent, const char* text = nullptr);
+	~Button();
 
 	Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) override;
 	const Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) const override;

@@ -26,7 +26,7 @@ static const float EM_BASE = 16.0f;
 #include "texgyreheros-regular.inc"
 
 
-void Canvas::LoadAndRenderFont(int px_size, const uint8_t* data, size_t data_size)
+void Canvas::LoadAndRenderFont(int px_size, const uint8_t* data, size_t data_size, FontItem* out)
 {
 	// Fixed format used by Freetype
 	const auto fixed_to_float = [](FT_Pos x) -> float { return (float)(x) / 64.0f; };
@@ -70,11 +70,11 @@ void Canvas::LoadAndRenderFont(int px_size, const uint8_t* data, size_t data_siz
 			throw Error("Cannot load font character");
 		}
 
-		m_font_height = fixed_to_float(face->glyph->metrics.height);
+		out->font_height = fixed_to_float(face->glyph->metrics.height);
 	}
 	else
 	{
-		m_font_height = fixed_to_float(face->size->metrics.height);
+		out->font_height = fixed_to_float(face->size->metrics.height);
 	}
 
 	// Take ASCII characters metrics and render them
@@ -92,20 +92,23 @@ void Canvas::LoadAndRenderFont(int px_size, const uint8_t* data, size_t data_siz
 		// Save metrics
 		const FT_GlyphSlot g = face->glyph;
 
-		if ((static_cast<char>(c) >= '!' && static_cast<char>(c) <= '~') || static_cast<char>(c) == ' ')
-			printf("'%c', Width: %i, Height: %i, X: %.2f, Y: %.2f, Advance: %.2f\n", //
-			       static_cast<char>(c),
-			       g->bitmap.width,                         //
-			       g->bitmap.rows,                          //
-			       fixed_to_float(g->metrics.horiBearingX), //
-			       fixed_to_float(g->metrics.horiBearingY), //
-			       fixed_to_float(g->metrics.horiAdvance));
+		if (0)
+		{
+			if ((static_cast<char>(c) >= '!' && static_cast<char>(c) <= '~') || static_cast<char>(c) == ' ')
+				printf("'%c', Width: %i, Height: %i, X: %.2f, Y: %.2f, Advance: %.2f\n", //
+				       static_cast<char>(c),
+				       g->bitmap.width,                         //
+				       g->bitmap.rows,                          //
+				       fixed_to_float(g->metrics.horiBearingX), //
+				       fixed_to_float(g->metrics.horiBearingY), //
+				       fixed_to_float(g->metrics.horiAdvance));
+		}
 
-		Glyph* item = m_glyph + c;
+		Glyph* item = out->glyph + c;
 		item->w = static_cast<int>(g->bitmap.width);
 		item->h = static_cast<int>(g->bitmap.rows);
 		item->x_offset = fixed_to_float(g->metrics.horiBearingX);
-		item->y_offset = m_font_height - fixed_to_float(g->metrics.horiBearingY);
+		item->y_offset = out->font_height - fixed_to_float(g->metrics.horiBearingY);
 		item->advance = fixed_to_float(g->metrics.horiAdvance) / EM_BASE;
 
 		// Nothing else to do with non-printable characters
@@ -136,9 +139,9 @@ void Canvas::LoadAndRenderFont(int px_size, const uint8_t* data, size_t data_siz
 
 		{
 			auto new_memory = reinterpret_cast<uint8_t*>(realloc(m_data_soup, m_data_soup_size));
-
 			if (new_memory == nullptr)
 			{
+				free(m_data_soup);
 				clean_stuff();
 				throw Error("No enough memory");
 			}
@@ -151,12 +154,12 @@ void Canvas::LoadAndRenderFont(int px_size, const uint8_t* data, size_t data_siz
 		{
 			const uint8_t* in = g->bitmap.buffer + static_cast<unsigned>(g->bitmap.pitch) * r;
 			for (unsigned c = 0; c < g->bitmap.width; c += 1)
-				*out++ = 255 - (*in++);
+				*out++ = *in++;
 		}
 	}
 
 	// One last thing, used for EM/PX conversion
-	m_font_height /= EM_BASE;
+	out->font_height /= EM_BASE;
 
 	// Bye!
 	clean_stuff();
@@ -170,28 +173,29 @@ Canvas::Canvas(int width, int height, float em_scale)
 
 	m_width = width;
 	m_height = height;
-
 	m_buffer = nullptr;
+
+	for (int i = 0; i < FONTS_NO; i += 1)
+		m_fonts[i] = {};
+
 	m_data_soup = nullptr;
-
 	m_data_soup_size = 0;
-	m_font_height = 0.0f; // TODO
-
-	for (int i = 0; i < 128; i += 1)
-		m_glyph[i] = {};
 
 	// Now the things that can fail
-	if ((m_buffer = reinterpret_cast<Colour16*>(
-	         malloc(sizeof(Colour16) * static_cast<size_t>(width) * static_cast<size_t>(height)))) == nullptr)
+	if ((m_buffer = reinterpret_cast<Colour*>(
+	         malloc(sizeof(Colour) * static_cast<size_t>(width) * static_cast<size_t>(height)))) == nullptr)
 	{
 		throw Error("No enough memory");
 	}
 
 	try
 	{
-		// TODO, obviously hardcoded size and font
+		// They follow GetFont()
 		LoadAndRenderFont(static_cast<int>(m_em_scale * 0.85f), reinterpret_cast<const uint8_t*>(HEROS_REGULAR_DATA),
-		                  HEROS_REGULAR_SIZE);
+		                  HEROS_REGULAR_SIZE, m_fonts + 0);
+
+		LoadAndRenderFont(static_cast<int>(m_em_scale * 0.85f * 0.75f),
+		                  reinterpret_cast<const uint8_t*>(HEROS_REGULAR_DATA), HEROS_REGULAR_SIZE, m_fonts + 1);
 	}
 	catch (const Error& e)
 	{
@@ -201,17 +205,27 @@ Canvas::Canvas(int width, int height, float em_scale)
 
 Canvas::~Canvas() noexcept
 {
-	if (m_buffer == nullptr)
+	if (m_buffer != nullptr)
 		free(m_buffer);
 
-	if (m_data_soup == nullptr)
+	if (m_data_soup != nullptr)
 		free(m_data_soup);
 }
 
 
-const uint16_t* Canvas::GetBuffer() const noexcept
+const Canvas::FontItem* Canvas::GetFont(Font font_style) const noexcept
 {
-	return reinterpret_cast<const uint16_t*>(m_buffer);
+	switch (font_style)
+	{
+	case Font::Normal: return m_fonts + 0;
+	case Font::Small: return m_fonts + 1;
+	}
+}
+
+
+const Colour* Canvas::GetBuffer() const noexcept
+{
+	return m_buffer;
 }
 
 
@@ -220,7 +234,7 @@ static float sScale(float x, float em_scale)
 	return floorf(x * em_scale + 0.5f); // round() is expensive
 }
 
-void Canvas::DrawRectangle(Rect rect, Colour16 colour) noexcept
+void Canvas::DrawRectangle(Rect rect, Colour colour) noexcept
 {
 	// PROTIP, is better to do the scaling at the last instance possible, near int conversion.
 	// Otherwise round errors accumulate, very quickly everywhere
@@ -230,7 +244,7 @@ void Canvas::DrawRectangle(Rect rect, Colour16 colour) noexcept
 	const int x2 = Clamp(static_cast<int>(sScale(rect.pos.x + rect.size.w, m_em_scale)), 0, m_width);
 	const int y2 = Clamp(static_cast<int>(sScale(rect.pos.y + rect.size.h, m_em_scale)), 0, m_height);
 
-	for (Colour16* row = (m_buffer + m_width * y1); row < (m_buffer + m_width * y2); row += m_width)
+	for (Colour* row = (m_buffer + m_width * y1); row < (m_buffer + m_width * y2); row += m_width)
 	{
 		for (int col = x1; col < x2; col += 1)
 			row[col] = colour;
@@ -238,32 +252,34 @@ void Canvas::DrawRectangle(Rect rect, Colour16 colour) noexcept
 }
 
 
-Size Canvas::GetTextSize(const char* text) const noexcept
+Size Canvas::GetTextSize(Font font_style, const char* text) const noexcept
 {
 	const float SPACING = 0.0f; // Just in case for the future
+	const FontItem* font = GetFont(font_style);
 
 	Size ret = {};
 
 	for (const char* c = text; *c != '\0'; c += 1)
 	{
-		const Glyph glyph = m_glyph[(*c) & 127];
+		const Glyph glyph = font->glyph[(*c) & 127];
 		ret.w += glyph.advance + SPACING;
 	}
 
 	ret.w -= SPACING;
-	ret.h = m_font_height; // TODO, looks ugly, also margins aren't helping
-	                       // EDIT, nah, text work like this
+	ret.h = font->font_height; // TODO, looks ugly, also margins aren't helping
+	                           // EDIT, nah, text work like this
 	// ret.h = 1.0f;
 	return ret;
 }
 
-void Canvas::DrawText(Position pos, const char* text, Colour16 colour) noexcept
+void Canvas::DrawText(Font font_style, Position pos, const char* text, Colour colour) noexcept
 {
 	const float SPACING = 0.0f; // Just in case for the future
+	const FontItem* font = GetFont(font_style);
 
 	for (const char* c = text; *c != '\0'; c += 1)
 	{
-		const Glyph glyph = m_glyph[(*c) & 127];
+		const Glyph glyph = font->glyph[(*c) & 127];
 
 		if ((static_cast<char>(*c) >= '!' && static_cast<char>(*c) <= '~'))
 		{
@@ -279,12 +295,12 @@ void Canvas::DrawText(Position pos, const char* text, Colour16 colour) noexcept
 				// Developers, developers, developers
 				int row_no = 0;
 
-				for (Colour16* row = (m_buffer + m_width * y1); row < (m_buffer + m_width * y2);
+				for (Colour* row = (m_buffer + m_width * y1); row < (m_buffer + m_width * y2);
 				     row += m_width, row_no += 1)
 				{
 					for (int col = x1; col < x2; col += 1)
 					{
-						row[col] = (((col ^ row_no) & 1) != 0) ? colour : row[col];
+						row[col] = (((col ^ row_no) & 1) != 0) ? COLOUR_RED : row[col];
 					}
 				}
 			}
@@ -293,11 +309,11 @@ void Canvas::DrawText(Position pos, const char* text, Colour16 colour) noexcept
 			{
 				const uint8_t* in = m_data_soup + glyph.data_offset;
 
-				for (Colour16* row = (m_buffer + m_width * y1); row < (m_buffer + m_width * y2); row += m_width)
+				for (Colour* row = (m_buffer + m_width * y1); row < (m_buffer + m_width * y2); row += m_width)
 				{
 					for (int col = x1; col < x2; col += 1)
 					{
-						row[col] = Colour16::MixToBlack(row[col], *in++);
+						row[col] = Colour::Mix(row[col], colour, *in++);
 					}
 				}
 			}
@@ -308,7 +324,7 @@ void Canvas::DrawText(Position pos, const char* text, Colour16 colour) noexcept
 }
 
 
-static void sDraw3dOutsideBevel(float em_scale, int buffer_w, int buffer_h, Rect rect, Colour16* buffer)
+static void sDraw3dOutsideBevel(float em_scale, int buffer_w, int buffer_h, Rect rect, Colour* buffer)
 {
 	// TODO, Code of this one is ugly, also pixel-perfect lines is going to
 	// be painful on wacky DPI and zoom levels
@@ -323,33 +339,33 @@ static void sDraw3dOutsideBevel(float em_scale, int buffer_w, int buffer_h, Rect
 	// Top
 	if (static_cast<int>(rect.pos.y) >= 0)
 	{
-		for (Colour16* p = (buffer + buffer_w * y1 + x1); p < (buffer + buffer_w * y1 + x2); p += 1)
-			*p = COLOUR16_WHITE;
+		for (Colour* p = (buffer + buffer_w * y1 + x1); p < (buffer + buffer_w * y1 + x2); p += 1)
+			*p = COLOUR_WHITE;
 	}
 
 	// Left
 	if (static_cast<int>(rect.pos.x) >= 0)
 	{
-		for (Colour16* p = (buffer + buffer_w * y1 + x1); p < (buffer + buffer_w * y2 + x1); p += buffer_w)
-			*p = COLOUR16_WHITE;
+		for (Colour* p = (buffer + buffer_w * y1 + x1); p < (buffer + buffer_w * y2 + x1); p += buffer_w)
+			*p = COLOUR_WHITE;
 	}
 
 	// Bottom
 	if (static_cast<int>(rect.pos.y + rect.size.h) <= buffer_h)
 	{
-		for (Colour16* p = (buffer + buffer_w * (y2 - 1) + x1); p < (buffer + buffer_w * (y2 - 1) + x2); p += 1)
-			*p = COLOUR16_BLACK;
+		for (Colour* p = (buffer + buffer_w * (y2 - 1) + x1); p < (buffer + buffer_w * (y2 - 1) + x2); p += 1)
+			*p = COLOUR_BLACK;
 	}
 
 	// Right
 	if (static_cast<int>(rect.pos.x + rect.size.w) <= buffer_w)
 	{
-		for (Colour16* p = (buffer + buffer_w * y1 + (x2 - 1)); p < (buffer + buffer_w * y2 + (x2 - 1)); p += buffer_w)
-			*p = COLOUR16_BLACK;
+		for (Colour* p = (buffer + buffer_w * y1 + (x2 - 1)); p < (buffer + buffer_w * y2 + (x2 - 1)); p += buffer_w)
+			*p = COLOUR_BLACK;
 	}
 }
 
-static void sDraw3dInnerBevel(float em_scale, int buffer_w, int buffer_h, Rect rect, Colour16* buffer)
+static void sDraw3dInnerBevel(float em_scale, int buffer_w, int buffer_h, Rect rect, Colour* buffer)
 {
 	// This inner bevel always bite one column and row, making its content look misaligned.
 	// But it's the correct way, we don't want to have all other metrics misaligned.
@@ -371,16 +387,16 @@ static void sDraw3dInnerBevel(float em_scale, int buffer_w, int buffer_h, Rect r
 		// Bottom
 		if (static_cast<int>(rect.pos.y + rect.size.h) <= buffer_h)
 		{
-			for (Colour16* p = (buffer + buffer_w * (y2 - 1) + x1); p < (buffer + buffer_w * (y2 - 1) + x2); p += 1)
-				*p = COLOUR16_DARK_GREY;
+			for (Colour* p = (buffer + buffer_w * (y2 - 1) + x1); p < (buffer + buffer_w * (y2 - 1) + x2); p += 1)
+				*p = COLOUR_DARK_GREY;
 		}
 
 		// Right
 		if (static_cast<int>(rect.pos.x + rect.size.w) <= buffer_w)
 		{
-			for (Colour16* p = (buffer + buffer_w * y1 + (x2 - 1)); p < (buffer + buffer_w * y2 + (x2 - 1));
+			for (Colour* p = (buffer + buffer_w * y1 + (x2 - 1)); p < (buffer + buffer_w * y2 + (x2 - 1));
 			     p += buffer_w)
-				*p = COLOUR16_DARK_GREY;
+				*p = COLOUR_DARK_GREY;
 		}
 	}
 }

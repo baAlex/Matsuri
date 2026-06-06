@@ -40,6 +40,12 @@ Ui::Window::Window(DrawAPI* draw_api) : Wrapper(nullptr, nullptr)
 	m_content = nullptr;
 }
 
+Ui::Window::~Window()
+{
+	if (m_content != nullptr)
+		delete m_content;
+}
+
 Ui::Widget* Ui::Window::GetChild(int no, Delta* layout_delta_out, Size* size_out)
 {
 	(void)no;
@@ -96,7 +102,7 @@ void Ui::Window::Draw(Position pos) const
 	m_draw_api->Draw3dBevel({pos, m_natural_size});
 }
 
-Ui::DrawAPI* Ui::Window::GetDrawApi() const
+DrawAPI* Ui::Window::GetDrawApi() const
 {
 	return m_draw_api;
 }
@@ -125,6 +131,12 @@ Ui::Box::Box(Container* container_parent, Wrapper* wrapper_parent, Direction dir
 
 	m_direction = direction;
 	m_children_no = 0;
+}
+
+Ui::Box::~Box()
+{
+	for (int i = 0; i < m_children_no; i += 1)
+		delete m_children[i];
 }
 
 int Ui::Box::GetChildrenNo() const
@@ -338,7 +350,7 @@ Size Ui::Text::UpdateLayout()
 	DEBUGPRINT("%p Text::UpdateLayout()\n", reinterpret_cast<void*>(this));
 
 	if (m_text != nullptr)
-		m_natural_size = m_parent->GetDrawApi()->GetTextSize(m_text);
+		m_natural_size = m_parent->GetDrawApi()->GetTextSize(Font::Normal, m_text);
 	else
 		m_natural_size = {};
 
@@ -357,7 +369,7 @@ void Ui::Text::Draw(Position pos) const
 	pos.x += MARGIN;
 	pos.y += MARGIN;
 
-	m_parent->GetDrawApi()->DrawText(pos, m_text);
+	m_parent->GetDrawApi()->DrawText(Font::Normal, pos, m_text, COLOUR_BLACK);
 }
 
 
@@ -386,6 +398,12 @@ Ui::Button::Button(Container* container_parent, Wrapper* wrapper_parent, const c
 		Text::Create(this, text); // Calls SetChild() already
 	else
 		m_content = nullptr;
+}
+
+Ui::Button::~Button()
+{
+	if (m_content != nullptr)
+		delete m_content;
 }
 
 Ui::Widget* Ui::Button::GetChild(int no, Delta* layout_delta_out, Size* size_out)

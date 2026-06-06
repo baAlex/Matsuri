@@ -13,47 +13,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #ifndef CANVAS_HPP
 #define CANVAS_HPP
 
-#include "misc.hpp"
-#include <stddef.h>
-
-struct Colour16
-{
-	uint16_t m_v;
-
-	static constexpr Colour16 Set(float r, float g, float b, float a) noexcept
-	{
-		return {static_cast<uint16_t>((static_cast<uint16_t>(Clamp(r, 0.0f, 1.0f) * 31.0f) << 11) | //
-		                              (static_cast<uint16_t>(Clamp(g, 0.0f, 1.0f) * 31.0f) << 6) |  //
-		                              (static_cast<uint16_t>(Clamp(b, 0.0f, 1.0f) * 31.0f) << 1) |  //
-		                              (static_cast<uint16_t>((a > 0.5f) ? 1.0f : 0.0f) << 0))};
-	}
-
-	static Colour16 MixToBlack(Colour16 c, uint8_t t) noexcept
-	{
-		// const int r = ((((c.m_v >> 11) & 0b11111) << 3) * t) >> 11;
-		// const int g = ((((c.m_v >> 6) & 0b11111) << 3) * t) >> 11;
-		// const int b = ((((c.m_v >> 1) & 0b11111) << 3) * t) >> 11;
-		// const int a = (c.m_v >> 0) & 1;
-
-		const int r = (((c.m_v >> 8) & 255) * t) >> 11;
-		const int g = (((c.m_v >> 3) & 255) * t) >> 11;
-		const int b = (((c.m_v << 2) & 255) * t) >> 11;
-		const int a = c.m_v & 1;
-
-		return {static_cast<uint16_t>((static_cast<uint16_t>(r) << 11) | //
-		                              (static_cast<uint16_t>(g) << 6) |  //
-		                              (static_cast<uint16_t>(b) << 1) |  //
-		                              (static_cast<uint16_t>(a)))};
-	}
-};
-
-static constexpr auto COLOUR16_WHITE = Colour16::Set(1.0f, 1.0f, 1.0f, 1.0f);
-static constexpr auto COLOUR16_BLACK = Colour16::Set(0.0f, 0.0f, 0.0f, 1.0f);
-static constexpr auto COLOUR16_GREY = Colour16::Set(0.75f, 0.75f, 0.75f, 1.0f);
-static constexpr auto COLOUR16_DARK_GREY = Colour16::Set(0.5f, 0.5f, 0.5f, 1.0f);
-static constexpr auto COLOUR16_RED = Colour16::Set(1.0f, 0.0f, 0.0f, 1.0f);
-static constexpr auto COLOUR16_GREEN = Colour16::Set(0.0f, 1.0f, 0.0f, 1.0f);
-static constexpr auto COLOUR16_BLUE = Colour16::Set(0.0f, 0.0f, 1.0f, 1.0f);
+#include "shared.hpp"
 
 class Canvas
 {
@@ -61,21 +21,20 @@ class Canvas
 	Canvas(int width, int height, float em_scale);
 	~Canvas() noexcept;
 
-	const uint16_t* GetBuffer() const noexcept;
+	const Colour* GetBuffer() const noexcept;
 
-	void DrawRectangle(Rect rect, Colour16 colour) noexcept;
-	void DrawText(Position pos, const char* text, Colour16 colour) noexcept;
+	void DrawRectangle(Rect rect, Colour colour) noexcept;
 	void Draw3dBevel(Rect rect) noexcept;
 
-	Size GetTextSize(const char* text) const noexcept;
+	void DrawText(Font font, Position pos, const char* text, Colour colour) noexcept;
+	Size GetTextSize(Font font, const char* text) const noexcept;
 
   private:
 	float m_em_scale;
 
 	int m_width;
 	int m_height;
-
-	Colour16* m_buffer;
+	Colour* m_buffer;
 
 	struct Glyph
 	{
@@ -89,13 +48,19 @@ class Canvas
 		size_t data_offset; // Offset/index to data soup, in bytes
 	};
 
+	struct FontItem
+	{
+		float font_height; // In EM
+		Glyph glyph[128];
+	};
+
+	FontItem m_fonts[FONTS_NO];
+
 	uint8_t* m_data_soup;
 	size_t m_data_soup_size; // In bytes
 
-	float m_font_height; // In EM
-	Glyph m_glyph[128];
-
-	void LoadAndRenderFont(int px_size, const uint8_t* data, size_t data_size);
+	const FontItem* GetFont(Font font) const noexcept;
+	void LoadAndRenderFont(int px_size, const uint8_t* data, size_t data_size, FontItem* out);
 };
 
 #endif
