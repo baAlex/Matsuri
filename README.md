@@ -218,4 +218,8 @@ License And Terms
 -----------------
 Matsuri is free and open source, under Common Development and Distribution License 1.0.
 
+Portions of this software are copyright (c) 2026 [The FreeType Project](https://freetype.org). All rights reserved.
+
+Plugins use [CLAP](https://cleveraudio.org/) under MIT Licence, and [LV2](https://lv2plug.in/) under BSD-like license.
+
 Samples and audio created from code/programs, under no license, those are yours.
