@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 11)
 ####
 if (MSVC)
 	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-	add_compile_options(/experimental:c11atomics)
+	add_compile_options(/experimental:c11atomics /Gy /Gw)
 	set(MATSURI_CFLAGS /W4)
 endif ()
 
@@ -135,8 +135,12 @@ target_include_directories("test-ui" PRIVATE "./source/thirdparty/freetype/inclu
 target_include_directories("test-canvas" PRIVATE "./source/thirdparty/freetype/include")
 target_include_directories("test-metrics" PRIVATE "./source/thirdparty/freetype/include")
 
-if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
+if (MSVC)
 	# Freetype is chonky
+	target_link_options("test-canvas" PRIVATE /OPT:REF /OPT:ICF)
+	target_link_options("test-ui" PRIVATE /OPT:REF /OPT:ICF)
+	target_link_options("test-metrics" PRIVATE /OPT:REF /OPT:ICF)
+elseif ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
 	target_link_options("test-canvas" PRIVATE -Wl,--gc-sections)
 	target_link_options("test-ui" PRIVATE -Wl,--gc-sections)
 	target_link_options("test-metrics" PRIVATE -Wl,--gc-sections)
