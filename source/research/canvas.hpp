@@ -14,12 +14,13 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #define CANVAS_HPP
 
 #include "misc.hpp"
+#include <stddef.h>
 
 struct Colour16
 {
 	uint16_t m_v;
 
-	static constexpr Colour16 Set(float r, float g, float b, float a)
+	static constexpr Colour16 Set(float r, float g, float b, float a) noexcept
 	{
 		return {static_cast<uint16_t>((static_cast<uint16_t>(Clamp(r, 0.0f, 1.0f) * 31.0f) << 11) | //
 		                              (static_cast<uint16_t>(Clamp(g, 0.0f, 1.0f) * 31.0f) << 6) |  //
@@ -27,7 +28,7 @@ struct Colour16
 		                              (static_cast<uint16_t>((a > 0.5f) ? 1.0f : 0.0f) << 0))};
 	}
 
-	static Colour16 MixToBlack(Colour16 c, uint8_t t)
+	static Colour16 MixToBlack(Colour16 c, uint8_t t) noexcept
 	{
 		// const int r = ((((c.m_v >> 11) & 0b11111) << 3) * t) >> 11;
 		// const int g = ((((c.m_v >> 6) & 0b11111) << 3) * t) >> 11;
@@ -57,21 +58,44 @@ static constexpr auto COLOUR16_BLUE = Colour16::Set(0.0f, 0.0f, 1.0f, 1.0f);
 class Canvas
 {
   public:
-	static Canvas* Create(int width, int height, float em_scale);
-	const uint16_t* GetBuffer() const;
-
-	void DrawRectangle(Rect rect, Colour16 colour);
-	void DrawText(Position pos, const char* text, Colour16 colour);
-	void Draw3dBevel(Rect rect);
-
-	Size GetTextSize(const char* text) const;
-
-  protected:
 	Canvas(int width, int height, float em_scale);
-	Colour16* m_buffer;
+	~Canvas() noexcept;
+
+	const uint16_t* GetBuffer() const noexcept;
+
+	void DrawRectangle(Rect rect, Colour16 colour) noexcept;
+	void DrawText(Position pos, const char* text, Colour16 colour) noexcept;
+	void Draw3dBevel(Rect rect) noexcept;
+
+	Size GetTextSize(const char* text) const noexcept;
+
+  private:
 	float m_em_scale;
+
 	int m_width;
 	int m_height;
+
+	Colour16* m_buffer;
+
+	struct Glyph
+	{
+		int w;          // In PX
+		int h;          // In PX
+		float x_offset; // In PX
+		float y_offset; // In PX
+
+		float advance; // In EM
+
+		size_t data_offset; // Offset/index to data soup, in bytes
+	};
+
+	uint8_t* m_data_soup;
+	size_t m_data_soup_size; // In bytes
+
+	float m_font_height; // In EM
+	Glyph m_glyph[128];
+
+	void LoadAndRenderFont(int px_size, const uint8_t* data, size_t data_size);
 };
 
 #endif

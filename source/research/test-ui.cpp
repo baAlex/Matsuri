@@ -179,7 +179,7 @@ class DrawAPIImplementation : public DrawAPI
 
 int main()
 {
-	auto canvas = Canvas::Create(640, 480, 1.0f);
+	auto canvas = new Canvas(640, 480, 1.0f);
 
 	auto draw_api = DrawAPIImplementation(canvas);
 	canvas->DrawRectangle({{0.0f, 0.0f}, {640.0f, 480.0f}}, COLOUR16_GREY);
@@ -240,6 +240,18 @@ int main()
 				Button::Create(bottom_toolbar, "?"); // Center
 				Button::Create(bottom_toolbar, "!"); // Right
 			}
+
+			if (1)
+			{
+				auto test_toolbar = HBox::Create(vbox);
+				{
+					Button::Create(test_toolbar, "Bass Drum");
+					Button::Create(test_toolbar, "100%");
+					Button::Create(test_toolbar, "Center");
+					Button::Create(test_toolbar, "606");
+					Button::Create(test_toolbar, "Snare");
+				}
+			}
 		}
 	}
 
@@ -248,5 +260,6 @@ int main()
 
 	SaveBMP16("test.bmp", 640, 480, canvas->GetBuffer());
 
+	delete canvas;
 	return 0;
 }

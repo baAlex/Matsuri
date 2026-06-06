@@ -5,7 +5,7 @@
 #include FT_FREETYPE_H
 
 
-// Use "ldd ./metrics-test", "ldd ./metrics-system-test" after compiling,
+// Use "ldd ./test-metrics", "ldd ./test-metrics-system" after compiling,
 // errors of 1 or 2 pixels are expected
 
 
