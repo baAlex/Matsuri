@@ -46,33 +46,6 @@ Ui::Window::~Window()
 		delete m_content;
 }
 
-Ui::Widget* Ui::Window::GetChild(int no, Delta* layout_delta_out, Size* size_out)
-{
-	(void)no;
-	if (layout_delta_out != nullptr)
-		*layout_delta_out = {};
-	if (size_out != nullptr)
-		*size_out = GetNaturalSize();
-	return m_content;
-}
-
-const Ui::Widget* Ui::Window::GetChild(int no, Delta* layout_delta_out, Size* size_out) const
-{
-	(void)no;
-	if (layout_delta_out != nullptr)
-		*layout_delta_out = {};
-	if (size_out != nullptr)
-		*size_out = GetNaturalSize();
-	return m_content;
-}
-
-void Ui::Window::SetChild(Widget* widget)
-{
-	assert(widget != nullptr);
-	m_content = widget;
-	MakeItDirty();
-}
-
 const char* Ui::Window::GetType() const
 {
 	return "Window";
@@ -97,9 +70,9 @@ Size Ui::Window::UpdateLayout()
 	return m_natural_size;
 }
 
-void Ui::Window::Draw(Position pos) const
+void Ui::Window::Draw(Rect allowed_area) const
 {
-	m_draw_api->Draw3dBevel({pos, m_natural_size});
+	m_draw_api->Draw3dBevel(allowed_area);
 }
 
 DrawAPI* Ui::Window::GetDrawApi() const
@@ -149,19 +122,44 @@ static constexpr float SPACING = 0.2f; // TODO, hardcoded for now
 class Ui::BoxFriend
 {
   public:
-	template <typename T> static Ui::Widget* GetChild(T& fwend, int no, Delta* layout_delta_out, Size* size_out)
+	template <typename T>
+	static Ui::Widget* GetChild(T& fwend, int no, Size available_size, Delta* layout_delta_out, Size* size_out)
 	{
 		assert(no >= 0);
 		if (no >= fwend.m_children_no)
 			return nullptr;
 
+		// Calculate child size, with stretch logic
+		auto size = fwend.m_children[no]->GetNaturalSize();
+
+		switch (fwend.m_direction)
+		{
+		case T::Direction::Horizontal:
+			if (fwend.m_children[no]->GetStretchedX() == true)
+			{
+				size.w += (available_size.w - fwend.m_natural_size.w) / static_cast<float>(fwend.m_stretched_childs);
+			}
+			if (fwend.m_children[no]->GetStretchedY() == true)
+			{
+				size.h = available_size.h;
+			}
+			break;
+		case T::Direction::Vertical:
+			if (fwend.m_children[no]->GetStretchedX() == true)
+			{
+				size.w = available_size.w;
+			}
+			if (fwend.m_children[no]->GetStretchedY() == true)
+			{
+				size.h += (available_size.h - fwend.m_natural_size.h) / static_cast<float>(fwend.m_stretched_childs);
+			}
+			break;
+		}
+
+		// Output delta
 		if (layout_delta_out != nullptr)
 		{
-			const auto size = fwend.m_children[no]->GetNaturalSize();
 			const auto last = no - fwend.m_children_no;
-
-			if (size_out != nullptr)
-				*size_out = size;
 
 			switch (fwend.m_direction)
 			{
@@ -170,18 +168,22 @@ class Ui::BoxFriend
 			}
 		}
 
+		// Output size
+		if (size_out != nullptr)
+			*size_out = size;
+
 		return fwend.m_children[no];
 	}
 };
 
-Ui::Widget* Ui::Box::GetChild(int no, Delta* layout_delta_out, Size* size_out)
+Ui::Widget* Ui::Box::GetChild(int no, Size available_size, Delta* layout_delta_out, Size* size_out)
 {
-	return Ui::BoxFriend::GetChild<Ui::Box>(*this, no, layout_delta_out, size_out);
+	return Ui::BoxFriend::GetChild<Ui::Box>(*this, no, available_size, layout_delta_out, size_out);
 }
 
-const Ui::Widget* Ui::Box::GetChild(int no, Delta* layout_delta_out, Size* size_out) const
+const Ui::Widget* Ui::Box::GetChild(int no, Size available_size, Delta* layout_delta_out, Size* size_out) const
 {
-	return BoxFriend::GetChild<const Ui::Box>(*this, no, layout_delta_out, size_out);
+	return BoxFriend::GetChild<const Ui::Box>(*this, no, available_size, layout_delta_out, size_out);
 }
 
 int Ui::Box::AppendChild(Widget* widget)
@@ -221,6 +223,8 @@ Size Ui::Box::UpdateLayout()
 	DEBUGPRINT("%p Box::UpdateLayout()\n", reinterpret_cast<void*>(this));
 
 	m_natural_size = {};
+	m_stretched_childs = 0;
+
 	switch (m_direction)
 	{
 	case Direction::Horizontal:
@@ -229,6 +233,8 @@ Size Ui::Box::UpdateLayout()
 			const auto size = m_children[i]->UpdateLayout();
 			m_natural_size.w += size.w + SPACING;
 			m_natural_size.h = Max(m_natural_size.h, size.h);
+
+			m_stretched_childs += m_children[i]->GetStretchedX();
 		}
 		m_natural_size.w -= SPACING;
 		break;
@@ -238,6 +244,8 @@ Size Ui::Box::UpdateLayout()
 			const auto size = m_children[i]->UpdateLayout();
 			m_natural_size.w = Max(m_natural_size.w, size.w);
 			m_natural_size.h += size.h + SPACING;
+
+			m_stretched_childs += m_children[i]->GetStretchedY();
 		}
 		m_natural_size.h -= SPACING;
 		break;
@@ -245,6 +253,12 @@ Size Ui::Box::UpdateLayout()
 
 	m_dirty = false;
 	return m_natural_size;
+}
+
+Ui::Box* Ui::Box::SetStretch(bool x, bool y)
+{
+	Widget::SetStretch(x, y);
+	return this;
 }
 
 
@@ -303,6 +317,7 @@ Ui::Text::Text(Container* container_parent, Wrapper* wrapper_parent, const char*
 {
 	assert(container_parent != nullptr || wrapper_parent != nullptr);
 	m_text = text;
+	m_font = Font::Normal;
 }
 
 int Ui::Text::GetChildrenNo() const
@@ -310,17 +325,19 @@ int Ui::Text::GetChildrenNo() const
 	return 0;
 }
 
-Ui::Widget* Ui::Text::GetChild(int no, Delta* layout_delta_out, Size* size_out)
+Ui::Widget* Ui::Text::GetChild(int no, Size available_size, Delta* layout_delta_out, Size* size_out)
 {
 	(void)no;
+	(void)available_size;
 	(void)layout_delta_out;
 	(void)size_out;
 	return nullptr;
 }
 
-const Ui::Widget* Ui::Text::GetChild(int no, Delta* layout_delta_out, Size* size_out) const
+const Ui::Widget* Ui::Text::GetChild(int no, Size available_size, Delta* layout_delta_out, Size* size_out) const
 {
 	(void)no;
+	(void)available_size;
 	(void)layout_delta_out;
 	(void)size_out;
 	return nullptr;
@@ -350,7 +367,7 @@ Size Ui::Text::UpdateLayout()
 	DEBUGPRINT("%p Text::UpdateLayout()\n", reinterpret_cast<void*>(this));
 
 	if (m_text != nullptr)
-		m_natural_size = m_parent->GetDrawApi()->GetTextSize(Font::Normal, m_text);
+		m_natural_size = m_parent->GetDrawApi()->GetTextSize(m_font, m_text);
 	else
 		m_natural_size = {};
 
@@ -361,15 +378,20 @@ Size Ui::Text::UpdateLayout()
 	return m_natural_size;
 }
 
-void Ui::Text::Draw(Position pos) const
+void Ui::Text::Draw(Rect allowed_area) const
 {
 	if (m_text == nullptr)
 		return;
 
-	pos.x += MARGIN;
-	pos.y += MARGIN;
+	allowed_area.pos.x += MARGIN;
+	allowed_area.pos.y += MARGIN;
+	m_parent->GetDrawApi()->DrawText(m_font, allowed_area.pos, m_text, COLOUR_BLACK);
+}
 
-	m_parent->GetDrawApi()->DrawText(Font::Normal, pos, m_text, COLOUR_BLACK);
+Ui::Text* Ui::Text::SetFont(Font font)
+{
+	m_font = font;
+	return this;
 }
 
 
@@ -406,33 +428,6 @@ Ui::Button::~Button()
 		delete m_content;
 }
 
-Ui::Widget* Ui::Button::GetChild(int no, Delta* layout_delta_out, Size* size_out)
-{
-	(void)no;
-	if (layout_delta_out != nullptr)
-		*layout_delta_out = {}; // Valid only for containers with more than one child...
-	if (size_out != nullptr)
-		*size_out = GetNaturalSize();
-	return m_content;
-}
-
-const Ui::Widget* Ui::Button::GetChild(int no, Delta* layout_delta_out, Size* size_out) const
-{
-	(void)no;
-	if (layout_delta_out != nullptr)
-		*layout_delta_out = {}; // ... as it starts affecting from the second child
-	if (size_out != nullptr)
-		*size_out = GetNaturalSize();
-	return m_content;
-}
-
-void Ui::Button::SetChild(Widget* widget)
-{
-	assert(widget != nullptr);
-	m_content = widget;
-	MakeItDirty();
-}
-
 const char* Ui::Button::GetType() const
 {
 	return "Button";
@@ -457,9 +452,15 @@ Size Ui::Button::UpdateLayout()
 	return m_natural_size;
 }
 
-void Ui::Button::Draw(Position pos) const
+void Ui::Button::Draw(Rect allowed_area) const
 {
-	m_parent->GetDrawApi()->Draw3dBevel({pos, m_natural_size});
+	m_parent->GetDrawApi()->Draw3dBevel(allowed_area);
+}
+
+Ui::Button* Ui::Button::SetStretch(bool x, bool y)
+{
+	Widget::SetStretch(x, y);
+	return this;
 }
 
 
@@ -483,6 +484,9 @@ Ui::Widget::Widget(Container* container_parent, Wrapper* wrapper_parent)
 	}
 
 	MakeItDirty();
+
+	m_stretch_x = false;
+	m_stretch_y = false;
 }
 
 Ui::Container::Container(Container* container_parent, Wrapper* wrapper_parent) //
@@ -493,4 +497,46 @@ Ui::Container::Container(Container* container_parent, Wrapper* wrapper_parent) /
 Ui::Wrapper::Wrapper(Container* container_parent, Wrapper* wrapper_parent) //
     : Widget(container_parent, wrapper_parent)
 {
+}
+
+
+Ui::Widget* Ui::Wrapper::GetChild(int no, Size available_size, Delta* layout_delta_out, Size* size_out)
+{
+	(void)no;
+	(void)available_size;
+	if (layout_delta_out != nullptr)
+		*layout_delta_out = {};
+	if (size_out != nullptr)
+		*size_out = GetNaturalSize();
+	return m_content;
+}
+
+const Ui::Widget* Ui::Wrapper::GetChild(int no, Size available_size, Delta* layout_delta_out, Size* size_out) const
+{
+	(void)no;
+	(void)available_size;
+
+	// Calculate content size, with stretch logic
+	auto size = m_content->GetNaturalSize();
+
+	if (m_content->GetStretchedX() == true)
+		size.w = available_size.w;
+
+	if (m_content->GetStretchedY() == true)
+		size.h = available_size.h;
+
+	// Output delta and size
+	if (layout_delta_out != nullptr)
+		*layout_delta_out = {};
+	if (size_out != nullptr)
+		*size_out = size;
+
+	return m_content;
+}
+
+void Ui::Wrapper::SetChild(Widget* widget)
+{
+	assert(widget != nullptr);
+	m_content = widget;
+	MakeItDirty();
 }

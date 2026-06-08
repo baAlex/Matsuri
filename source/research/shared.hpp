@@ -28,6 +28,8 @@ template <typename T> constexpr T Clamp(T x, T min, T max) { return Min(Max(x, m
 // (I remember a Naughty Dog's developer article on this)
 // (so far I'm not buying the idea)
 
+static const float EM_BASE = 16.0f;
+
 struct Size
 {
 	float w; // In EM
@@ -54,10 +56,11 @@ struct Rect
 	Size size;
 };
 
-static const int FONTS_NO = 2;
+static const int FONTS_NO = 3;
 enum Font
 {
 	Normal,
+	Bold,
 	Small
 };
 

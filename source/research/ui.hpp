@@ -25,8 +25,13 @@ class Widget
 {
   public:
 	virtual int GetChildrenNo() const = 0;
-	virtual Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) = 0;
-	virtual const Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) const = 0;
+
+	// 'available_size' should be parent size, in case this child needs to stretch
+	virtual Widget* GetChild(int no, Size available_size, Delta* layout_delta = nullptr,
+	                         Size* natural_size = nullptr) = 0;
+	virtual const Widget* GetChild(int no, Size available_size, Delta* layout_delta = nullptr,
+	                               Size* natural_size = nullptr) const = 0;
+
 	virtual const char* GetType() const = 0;
 
 	virtual Size UpdateLayout() = 0; // Also returns natural size
@@ -41,9 +46,9 @@ class Widget
 		return nullptr;
 	}
 
-	virtual void Draw(Position pos) const
+	virtual void Draw(Rect allowed_area) const
 	{
-		(void)pos;
+		(void)allowed_area;
 	}
 
 	virtual DrawAPI* GetDrawApi() const
@@ -53,6 +58,26 @@ class Widget
 	}
 
 	virtual ~Widget() = default;
+
+	// clang-format off
+	virtual Widget* SetFont(Font font) { (void)font; return this; }
+	// clang-format on
+
+	virtual Widget* SetStretch(bool x, bool y)
+	{
+		m_stretch_x = x, m_stretch_y = y;
+		return this;
+	}
+
+	virtual bool GetStretchedX()
+	{
+		return m_stretch_x;
+	}
+
+	virtual bool GetStretchedY()
+	{
+		return m_stretch_y;
+	}
 
   protected:
 	Widget(Container* container_parent, Wrapper* wrapper_parent);
@@ -68,6 +93,9 @@ class Widget
 	Widget* m_parent;
 	bool m_dirty;
 	Size m_natural_size;
+
+	bool m_stretch_x; // Most widgets should implement these
+	bool m_stretch_y;
 };
 
 class Container : public Widget
@@ -82,15 +110,20 @@ class Container : public Widget
 class Wrapper : public Widget
 {
   public:
-	virtual void SetChild(Widget* widget) = 0;
-
 	int GetChildrenNo() const override
 	{
 		return 1;
 	}
 
+	virtual Widget* GetChild(int no, Size available_size, Delta* layout_delta = nullptr,
+	                         Size* natural_size = nullptr) override;
+	virtual const Widget* GetChild(int no, Size available_size, Delta* layout_delta = nullptr,
+	                               Size* natural_size = nullptr) const override;
+	virtual void SetChild(Widget* widget);
+
   protected:
 	Wrapper(Container* container_parent, Wrapper* wrapper_parent);
+	Widget* m_content;
 };
 
 
@@ -100,18 +133,14 @@ class Window : public Wrapper
 	static Window* Create(DrawAPI* draw_api);
 	~Window();
 
-	Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) override;
-	const Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) const override;
-	void SetChild(Widget* widget) override;
 	const char* GetType() const override;
 
 	Size UpdateLayout() override;
-	void Draw(Position pos) const override;
+	void Draw(Rect allowed_area) const override;
 	DrawAPI* GetDrawApi() const override;
 
   private:
 	Window(DrawAPI* draw_api);
-	Widget* m_content;
 	DrawAPI* m_draw_api;
 };
 
@@ -133,13 +162,16 @@ class Box : public Container
 	~Box();
 
 	int GetChildrenNo() const override;
-	Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) override;
-	const Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) const override;
+	Widget* GetChild(int no, Size available_size, Delta* layout_delta = nullptr, Size* natural_size = nullptr) override;
+	const Widget* GetChild(int no, Size available_size, Delta* layout_delta = nullptr,
+	                       Size* natural_size = nullptr) const override;
 	int AppendChild(Widget* widget) override;
 	const char* GetType() const override;
 	const char* GetPrintableInformation() const override;
 
 	Size UpdateLayout() override;
+
+	Box* SetStretch(bool x, bool y) override;
 
   protected:
 	Box(Container* container, Wrapper* wrapper, Direction direction);
@@ -148,6 +180,7 @@ class Box : public Container
 	Direction m_direction;
 	int m_children_no;
 	Widget* m_children[MAX_CHILDREN];
+	int m_stretched_childs;
 
 	friend BoxFriend; // :)
 };
@@ -181,19 +214,23 @@ class Text : public Widget
 	static Text* Create(Wrapper* parent, const char* text = nullptr);
 
 	int GetChildrenNo() const override;
-	Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) override;
-	const Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) const override;
+	Widget* GetChild(int no, Size available_size, Delta* layout_delta = nullptr, Size* natural_size = nullptr) override;
+	const Widget* GetChild(int no, Size available_size, Delta* layout_delta = nullptr,
+	                       Size* natural_size = nullptr) const override;
 	const char* GetType() const override;
 	const char* GetPrintableInformation() const override;
 
 	Size UpdateLayout() override;
-	void Draw(Position pos) const override;
+	void Draw(Rect allowed_area) const override;
+
+	Text* SetFont(Font font) override;
 
   protected:
 	Text(Container* container, Wrapper* wrapper, const char* text);
 
   private:
 	const char* m_text;
+	Font m_font;
 };
 
 
@@ -204,19 +241,15 @@ class Button : public Wrapper
 	static Button* Create(Wrapper* parent, const char* text = nullptr);
 	~Button();
 
-	Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) override;
-	const Widget* GetChild(int no, Delta* layout_delta = nullptr, Size* natural_size = nullptr) const override;
-	void SetChild(Widget* widget) override;
 	const char* GetType() const override;
 
 	Size UpdateLayout() override;
-	void Draw(Position pos) const override;
+	void Draw(Rect allowed_area) const override;
+
+	Button* SetStretch(bool x, bool y) override;
 
   protected:
 	Button(Container* container, Wrapper* wrapper, const char* text);
-
-  private:
-	Widget* m_content;
 };
 
 } // namespace Ui

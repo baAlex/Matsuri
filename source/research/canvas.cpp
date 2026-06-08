@@ -20,9 +20,14 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include FT_FREETYPE_H
 
 
-static const float EM_BASE = 16.0f;
+#if 1
+#define DEBUGPRINT(...) // Empty
+#else
+#define DEBUGPRINT(...) __builtin_printf(__VA_ARGS__)
+#endif
 
 
+#include "texgyreheros-bold.inc"
 #include "texgyreheros-regular.inc"
 
 
@@ -95,13 +100,15 @@ void Canvas::LoadAndRenderFont(int px_size, const uint8_t* data, size_t data_siz
 		if (0)
 		{
 			if ((static_cast<char>(c) >= '!' && static_cast<char>(c) <= '~') || static_cast<char>(c) == ' ')
-				printf("'%c', Width: %i, Height: %i, X: %.2f, Y: %.2f, Advance: %.2f\n", //
-				       static_cast<char>(c),
-				       g->bitmap.width,                         //
-				       g->bitmap.rows,                          //
-				       fixed_to_float(g->metrics.horiBearingX), //
-				       fixed_to_float(g->metrics.horiBearingY), //
-				       fixed_to_float(g->metrics.horiAdvance));
+			{
+				DEBUGPRINT("'%c', Width: %i, Height: %i, X: %.2f, Y: %.2f, Advance: %.2f\n", //
+				           static_cast<char>(c),
+				           g->bitmap.width,                         //
+				           g->bitmap.rows,                          //
+				           fixed_to_float(g->metrics.horiBearingX), //
+				           fixed_to_float(g->metrics.horiBearingY), //
+				           fixed_to_float(g->metrics.horiAdvance));
+			}
 		}
 
 		Glyph* item = out->glyph + c;
@@ -194,8 +201,11 @@ Canvas::Canvas(int width, int height, float em_scale)
 		LoadAndRenderFont(static_cast<int>(m_em_scale * 0.85f), reinterpret_cast<const uint8_t*>(HEROS_REGULAR_DATA),
 		                  HEROS_REGULAR_SIZE, m_fonts + 0);
 
+		LoadAndRenderFont(static_cast<int>(m_em_scale * 0.85f), reinterpret_cast<const uint8_t*>(HEROS_BOLD_DATA),
+		                  HEROS_BOLD_SIZE, m_fonts + 1);
+
 		LoadAndRenderFont(static_cast<int>(m_em_scale * 0.85f * 0.75f),
-		                  reinterpret_cast<const uint8_t*>(HEROS_REGULAR_DATA), HEROS_REGULAR_SIZE, m_fonts + 1);
+		                  reinterpret_cast<const uint8_t*>(HEROS_REGULAR_DATA), HEROS_REGULAR_SIZE, m_fonts + 2);
 	}
 	catch (const Error& e)
 	{
@@ -218,7 +228,8 @@ const Canvas::FontItem* Canvas::GetFont(Font font_style) const noexcept
 	switch (font_style)
 	{
 	case Font::Normal: return m_fonts + 0;
-	case Font::Small: return m_fonts + 1;
+	case Font::Bold: return m_fonts + 1;
+	case Font::Small: return m_fonts + 2;
 	}
 }
 

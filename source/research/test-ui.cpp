@@ -65,7 +65,7 @@ static void sRender(const Widget* root)
 	StackEntry stack[STACK_LEN];
 	int cursor = 0;
 
-	stack[cursor++] = {root, 0, {}, root->GetNaturalSize()};
+	stack[cursor++] = {root, 0, {}, {640.0f / EM_BASE, 480.0f / EM_BASE}};
 
 	while (cursor != 0)
 	{
@@ -73,7 +73,7 @@ static void sRender(const Widget* root)
 		const StackEntry* current = stack + cursor;
 
 		// Draw
-		current->widget->Draw(current->pos);
+		current->widget->Draw({current->pos, current->size});
 		sPrint(current);
 
 		// Stack children
@@ -91,7 +91,7 @@ static void sRender(const Widget* root)
 		{
 			Delta layout_delta = {}; // Generally widget size
 			Size size = {};
-			const Widget* child = current->widget->GetChild(i, &layout_delta, &size);
+			const Widget* child = current->widget->GetChild(i, current->size, &layout_delta, &size);
 
 			stack[cursor - i - 1] = {child, current->level + 1, pos_accumulator, size};
 
@@ -142,7 +142,7 @@ static void sUpdateLayout(Widget* root)
 		// Stack children
 		for (int i = children - 1; i >= 0; i -= 1)
 		{
-			Widget* child = current->widget->GetChild(i);
+			Widget* child = current->widget->GetChild(i, {});
 			stack[cursor++] = {child, false};
 		}
 	}
@@ -186,11 +186,18 @@ int main()
 	// Creating something somewhat complex, yet simple (I don't have many widgets yet)
 	auto window = Window::Create(&draw_api);
 	{
-		auto vbox = VBox::Create(window);
+		auto vbox = VBox::Create(window)->SetStretch(true, true);
 		{
-			auto titlebar = HBox::Create(vbox);
+			auto titlebar = HBox::Create(vbox)->SetStretch(true, false);
 			{
-				Button::Create(titlebar, "Microsoft Word - Document 1");
+				Button::Create(titlebar, "");
+
+				auto title = Button::Create(titlebar)->SetStretch(true, false);
+				Text::Create(title, "Microsoft Word - Document 1")->SetFont(Font::Bold);
+
+				Button::Create(titlebar, "_");
+				Button::Create(titlebar, "[]");
+				Button::Create(titlebar, "X");
 			}
 
 			auto menu = HBox::Create(vbox);
@@ -225,14 +232,14 @@ int main()
 				Button::Create(top_toolbar, "B"); // Redo
 			}
 
-			auto bottom_toolbar = HBox::Create(vbox);
+			auto bottom_toolbar = HBox::Create(vbox)->SetStretch(false, true);
 			{
 				Button::Create(bottom_toolbar, "Normal");          // Style
 				Button::Create(bottom_toolbar, "Times New Roman"); // Font
 				Button::Create(bottom_toolbar, "10");              // Size
 				Text::Create(bottom_toolbar, "|");
 				Button::Create(bottom_toolbar, "C"); // Bold
-				Button::Create(bottom_toolbar, "D"); // Cursive
+				Button::Create(bottom_toolbar, "D"); // Italic
 				Button::Create(bottom_toolbar, "E"); // Underline
 				Text::Create(bottom_toolbar, "|");
 				Button::Create(bottom_toolbar, "F"); // Left
@@ -242,11 +249,11 @@ int main()
 
 			if (1)
 			{
-				auto test_toolbar = HBox::Create(vbox);
+				auto test_toolbar = HBox::Create(vbox)->SetStretch(true, false);
 				{
 					Button::Create(test_toolbar, "Bass Drum");
-					Button::Create(test_toolbar, "100%");
-					Button::Create(test_toolbar, "Center");
+					Button::Create(test_toolbar, "100%")->SetStretch(true, true);
+					Button::Create(test_toolbar, "Center")->SetStretch(true, true);
 					Button::Create(test_toolbar, "606");
 					Button::Create(test_toolbar, "Snare");
 				}
