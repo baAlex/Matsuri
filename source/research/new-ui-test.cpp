@@ -54,73 +54,62 @@ static void sCreateUi(Ui::Wrapper& root)
 {
 	using namespace Ui;
 
-	auto titlebar = new HBox();
-	titlebar->SetStretch(true, false);
-	titlebar->AddChild(new Button(""));
-	titlebar->AddChild(new Button("Microsoft Word - Document 1")).SetStretch(true, false);
-	titlebar->AddChild(new Button("_"));
-	titlebar->AddChild(new Button("[]"));
-	titlebar->AddChild(new Button("X"));
+	auto& vbox = root.SetChild<VBox>();
 
-	auto menu = new HBox();
-	menu->AddChild(new Button("File"));
-	menu->AddChild(new Button("Edit"));
-	menu->AddChild(new Button("View"));
-	menu->AddChild(new Button("Insert"));
-	menu->AddChild(new Button("Format"));
-	menu->AddChild(new Button("Tools"));
-	menu->AddChild(new Button("Table"));
-	menu->AddChild(new Button("Window"));
-	menu->AddChild(new Button("Help"));
+	auto& titlebar = vbox.AddChild<HBox>();
+	titlebar.SetStretch(true, false);
+	titlebar.AddChild<Button>("");
+	titlebar.AddChild<Button>("Microsoft Word - Document 1").SetStretch(true, false);
+	titlebar.AddChild<Button>("_");
+	titlebar.AddChild<Button>("[]");
+	titlebar.AddChild<Button>("X");
 
-	auto top_toolbar = new HBox();
-	top_toolbar->AddChild(new Button("0")); // New
-	top_toolbar->AddChild(new Button("1")); // Open
-	top_toolbar->AddChild(new Button("2")); // Save
-	top_toolbar->AddChild(new Button("3")); // Print
-	top_toolbar->AddChild(new Button("4")); // Search
-	top_toolbar->AddChild(new Button("5")); // Spell
-	top_toolbar->AddChild(new Button("6")); // Cut
-	top_toolbar->AddChild(new Button("7")); // Copy
-	top_toolbar->AddChild(new Button("8")); // Paste
-	top_toolbar->AddChild(new Button("9")); // Format
-	top_toolbar->AddChild(new Button("A")); // Undo
-	top_toolbar->AddChild(new Button("B")); // Redo
+	auto& menu = vbox.AddChild<HBox>();
+	menu.AddChild<Button>("File");
+	menu.AddChild<Button>("Edit");
+	menu.AddChild<Button>("View");
+	menu.AddChild<Button>("Insert");
+	menu.AddChild<Button>("Format");
+	menu.AddChild<Button>("Tools");
+	menu.AddChild<Button>("Table");
+	menu.AddChild<Button>("Window");
+	menu.AddChild<Button>("Help");
 
-	auto bottom_toolbar = new HBox();
-	bottom_toolbar->AddChild(new Button("Normal"));          // Style
-	bottom_toolbar->AddChild(new Button("Times New Roman")); // Font
-	bottom_toolbar->AddChild(new Button("10"));              // Size
-	bottom_toolbar->AddChild(new Button("C"));               // Bold
-	bottom_toolbar->AddChild(new Button("D"));               // Italic
-	bottom_toolbar->AddChild(new Button("E"));               // Underline
-	bottom_toolbar->AddChild(new Button("F"));               // Left
-	bottom_toolbar->AddChild(new Button("?"));               // Center
-	bottom_toolbar->AddChild(new Button("!"));               // Right
+	auto& top_toolbar = vbox.AddChild<HBox>();
+	top_toolbar.AddChild<Button>("0"); // New
+	top_toolbar.AddChild<Button>("1"); // Open
+	top_toolbar.AddChild<Button>("2"); // Save
+	top_toolbar.AddChild<Button>("3"); // Print
+	top_toolbar.AddChild<Button>("4"); // Search
+	top_toolbar.AddChild<Button>("5"); // Spell
+	top_toolbar.AddChild<Button>("6"); // Cut
+	top_toolbar.AddChild<Button>("7"); // Copy
+	top_toolbar.AddChild<Button>("8"); // Paste
+	top_toolbar.AddChild<Button>("9"); // Format
+	top_toolbar.AddChild<Button>("A"); // Undo
+	top_toolbar.AddChild<Button>("B"); // Redo
 
-	auto content = new VBox();
-	content->SetStretch(true, true);
+	auto& bottom_toolbar = vbox.AddChild<HBox>();
+	bottom_toolbar.AddChild<Button>("Normal");          // Style
+	bottom_toolbar.AddChild<Button>("Times New Roman"); // Font
+	bottom_toolbar.AddChild<Button>("10");              // Size
+	bottom_toolbar.AddChild<Button>("C");               // Bold
+	bottom_toolbar.AddChild<Button>("D");               // Italic
+	bottom_toolbar.AddChild<Button>("E");               // Underline
+	bottom_toolbar.AddChild<Button>("F");               // Left
+	bottom_toolbar.AddChild<Button>("?");               // Center
+	bottom_toolbar.AddChild<Button>("!");               // Right
 
-	auto status_bar = new HBox();
-	status_bar->SetStretch(true, false);
-	status_bar->AddChild(new Button("Bass Drum"));
-	status_bar->AddChild(new Button("100%")).SetStretch(true, true);
-	status_bar->AddChild(new Button("Center")).SetStretch(true, true);
-	status_bar->AddChild(new Button("606"));
-	status_bar->AddChild(new Button("Snare"));
+	auto& content = vbox.AddChild<VBox>();
+	content.SetStretch(true, true);
 
-	// ----
-
-	auto vbox = new VBox();
-	vbox->SetStretch(true, true);
-	vbox->AddChild(titlebar);
-	vbox->AddChild(menu);
-	vbox->AddChild(top_toolbar);
-	vbox->AddChild(bottom_toolbar);
-	vbox->AddChild(content);
-	vbox->AddChild(status_bar);
-
-	root.SetChild(vbox);
+	auto& status_bar = vbox.AddChild<HBox>();
+	status_bar.SetStretch(true, false);
+	status_bar.AddChild<Button>("Bass Drum");
+	status_bar.AddChild<Button>("100%").SetStretch(true, true);
+	status_bar.AddChild<Button>("Center").SetStretch(true, true);
+	status_bar.AddChild<Button>("606");
+	status_bar.AddChild<Button>("Snare");
 }
 
 

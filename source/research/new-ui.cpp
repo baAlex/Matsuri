@@ -52,7 +52,7 @@ class Ui::ScreenFriend final : public Ui::DrawApi
   public:
 	Ui::Screen* fwend;
 
-	void DrawRectangle(uint32_t colour, Ui::Rect rect) noexcept override
+	void DrawRectangle(Colour colour, Ui::Rect rect) noexcept override
 	{
 		const int x1 = Clamp(rect.pos.x, 0, fwend->m_size.w);
 		const int y1 = Clamp(rect.pos.y, 0, fwend->m_size.h);
@@ -64,10 +64,10 @@ class Ui::ScreenFriend final : public Ui::DrawApi
 		{
 			for (uint8_t* col = row; col < row + rect.size.w; col += 4)
 			{
-				col[0] = static_cast<uint8_t>((colour >> 0) & 0xFF);
-				col[1] = static_cast<uint8_t>((colour >> 8) & 0xFF);
-				col[2] = static_cast<uint8_t>((colour >> 16) & 0xFF);
-				col[3] = static_cast<uint8_t>((colour >> 24) & 0xFF);
+				col[0] = colour.a;
+				col[1] = colour.b;
+				col[2] = colour.g;
+				col[3] = colour.r;
 			}
 		}
 	}
@@ -107,8 +107,8 @@ void Ui::Screen::Update(Position mouse_pos, Size size, int stride, void* out_raw
 
 	m_root->UpdateNaturalSize(); // [Recursion]
 
-	fwend.DrawRectangle(DrawApi::BKG_COLOUR, {{0, 0}, m_size});
-	fwend.DrawRectangle(DrawApi::GREEN, {m_mouse, {32, 32}});
+	fwend.DrawRectangle(BKG_COLOUR, {{0, 0}, m_size});
+	fwend.DrawRectangle(GREEN, {m_mouse, {32, 32}});
 
 	m_root->Draw(fwend, Rect{{0, 0}, m_size}); // [Recursion]
 }
@@ -119,7 +119,7 @@ Ui::Wrapper& Ui::Screen::GetRoot()
 	return *m_root;
 }
 
-const char* Ui::Screen::Root::GetType() const
+std::string_view Ui::Screen::Root::GetType() const
 {
 	return "Root";
 }
@@ -130,9 +130,8 @@ const char* Ui::Screen::Root::GetType() const
 
 Ui::Widget::Widget()
 {
-	m_natural_size = {};
-	m_stretch_x = false;
-	m_stretch_y = false;
+	m_stretch_x = false; // Is not possible to set bitfields on headers
+	m_stretch_y = false; // (a C++ quirk)
 }
 
 Ui::Size Ui::Widget::GetNaturalSize() const
@@ -169,44 +168,42 @@ Ui::Size Ui::Widget::GetSize(Size available_size) const
 // ############################
 
 
-Ui::Wrapper::Wrapper() : Widget()
-{
-	m_content = nullptr;
-}
-
-Ui::Wrapper::~Wrapper() noexcept
-{
-	if (m_content != nullptr)
-		delete m_content;
-}
-
 size_t Ui::Wrapper::GetChildrenNo() const
 {
 	return 1;
 }
 
-Ui::Widget& Ui::Wrapper::SetChild(Widget* widget)
+Ui::Widget& Ui::Wrapper::SetChild(std::unique_ptr<Widget> widget)
 {
-	m_content = widget;
-	return *widget;
-}
-
-Ui::Widget& Ui::Wrapper::GetChild(size_t, Size available_size, Delta* layout_delta_out, Size* child_size_out)
-{
-	if (layout_delta_out != nullptr)
-		*layout_delta_out = {};
-	if (child_size_out != nullptr)
-		*child_size_out = GetSize(available_size); // Wrapper size is also the size of child
+	m_content = std::move(widget);
 	return *m_content;
 }
 
-const Ui::Widget& Ui::Wrapper::GetChild(size_t, Size available_size, Delta* layout_delta_out,
-                                        Size* child_size_out) const
+Ui::Widget::ChildGet Ui::Wrapper::GetChild(size_t, Size available_size)
 {
-	if (layout_delta_out != nullptr)
-		*layout_delta_out = {};
-	if (child_size_out != nullptr)
-		*child_size_out = GetSize(available_size);
+	if (m_content == nullptr)
+		throw 1; // TODO
+	return {*m_content, {}, GetSize(available_size)};
+}
+
+const Ui::Widget::ChildGet Ui::Wrapper::GetChild(size_t, Size available_size) const
+{
+	if (m_content == nullptr)
+		throw 1; // TODO
+	return {*m_content, {}, GetSize(available_size)};
+}
+
+Ui::Widget& Ui::Wrapper::GetChild(size_t)
+{
+	if (m_content == nullptr)
+		throw 1; // TODO
+	return *m_content;
+}
+
+const Ui::Widget& Ui::Wrapper::GetChild(size_t) const
+{
+	if (m_content == nullptr)
+		throw 1; // TODO
 	return *m_content;
 }
 
@@ -232,83 +229,87 @@ Ui::Box::Box(Direction direction) : Container()
 	m_non_stretch_size = {};
 }
 
-Ui::Box::~Box() noexcept
-{
-	for (Widget* child : m_children)
-		delete child;
-}
-
 size_t Ui::Box::GetChildrenNo() const
 {
 	return m_children.size();
 }
 
-Ui::Widget& Ui::Box::AddChild(Widget* widget)
+Ui::Widget& Ui::Box::AddChild(std::unique_ptr<Widget> widget)
 {
-	m_children.push_back(widget);
-	return *widget;
+	m_children.push_back(std::move(widget));
+	return *m_children.back();
 }
 
 class Ui::BoxFriend
 {
   public:
-	template <typename T>
-	static Ui::Widget& GetChild(T* fwend, size_t no, Ui::Size available_size, Ui::Delta* layout_delta_out,
-	                            Ui::Size* child_size_out)
+	template <typename T> static Ui::Widget::ChildGet GetChild(T& fwend, size_t no, Ui::Size available_size)
 	{
 		Delta delta;
 		Size size;
 
-		auto child = fwend->m_children.at(no);
+		if (no >= fwend.m_children.size())
+			throw 1; // TODO
 
-		switch (fwend->m_direction)
+		auto& child = fwend.m_children.at(no);
+
+		switch (fwend.m_direction)
 		{
 		case Ui::Box::Direction::Horizontal:
 		{
 			if (child->GetStretchX() == true)
 			{
-				available_size.w = (available_size.w - fwend->m_non_stretch_size.w) /
-				                   Max(static_cast<int>(fwend->m_stretch_childs), 1);
+				available_size.w =
+				    (available_size.w - fwend.m_non_stretch_size.w) / Max(static_cast<int>(fwend.m_stretch_childs), 1);
 				available_size.w = Max(available_size.w, child->GetNaturalSize().w);
 			}
 			size = child->GetSize(available_size);
-			delta = {(no < fwend->m_children.size() - 1) ? size.w : 0, 0};
+			delta = {(no < fwend.m_children.size() - 1) ? size.w : 0, 0};
 		}
 		break;
 		case Ui::Box::Direction::Vertical:
 		{
 			if (child->GetStretchY() == true)
 			{
-				available_size.h = (available_size.h - fwend->m_non_stretch_size.h) /
-				                   Max(static_cast<int>(fwend->m_stretch_childs), 1);
+				available_size.h =
+				    (available_size.h - fwend.m_non_stretch_size.h) / Max(static_cast<int>(fwend.m_stretch_childs), 1);
 				available_size.h = Max(available_size.h, child->GetNaturalSize().h);
 			}
 			size = child->GetSize(available_size);
-			delta = {0, (no < fwend->m_children.size() - 1) ? size.h : 0};
+			delta = {0, (no < fwend.m_children.size() - 1) ? size.h : 0};
 		}
 		break;
 		}
 
-		if (layout_delta_out != nullptr)
-			*layout_delta_out = delta;
-		if (child_size_out != nullptr)
-			*child_size_out = size;
-
-		return *child;
+		return {*child, delta, size};
 	}
 };
 
-Ui::Widget& Ui::Box::GetChild(size_t no, Size available_size, Delta* layout_delta_out, Size* child_size_out)
+Ui::Widget::ChildGet Ui::Box::GetChild(size_t no, Size available_size)
 {
-	return BoxFriend::GetChild(this, no, available_size, layout_delta_out, child_size_out);
+	return BoxFriend::GetChild(*this, no, available_size);
 }
 
-const Ui::Widget& Ui::Box::GetChild(size_t no, Size available_size, Delta* layout_delta_out, Size* child_size_out) const
+const Ui::Widget::ChildGet Ui::Box::GetChild(size_t no, Size available_size) const
 {
-	return BoxFriend::GetChild(this, no, available_size, layout_delta_out, child_size_out);
+	return BoxFriend::GetChild(*this, no, available_size);
 }
 
-const char* Ui::Box::GetType() const
+Ui::Widget& Ui::Box::GetChild(size_t no)
+{
+	if (no >= m_children.size())
+		throw 1; // TODO
+	return *m_children.at(no);
+}
+
+const Ui::Widget& Ui::Box::GetChild(size_t no) const
+{
+	if (no >= m_children.size())
+		throw 1; // TODO
+	return *m_children.at(no);
+}
+
+std::string_view Ui::Box::GetType() const
 {
 	return "Box";
 }
@@ -317,9 +318,7 @@ void Ui::Box::Draw(DrawApi& api, Rect rect) const
 {
 	for (size_t i = 0; i < m_children.size(); i += 1)
 	{
-		Delta delta;
-		Size child_size;
-		const Widget& child = GetChild(i, rect.size, &delta, &child_size);
+		const auto [child, delta, child_size] = GetChild(i, rect.size);
 
 		child.Draw(api, {rect.pos, child_size}); // [Recursion]
 
@@ -337,7 +336,7 @@ Ui::Size Ui::Box::UpdateNaturalSize()
 	m_non_stretch_size = {};
 	m_stretch_childs = 0;
 
-	for (Widget* child : m_children)
+	for (auto& child : m_children)
 	{
 		const Size size = child->UpdateNaturalSize(); // [Recursion]
 
@@ -371,9 +370,9 @@ Ui::VBox::VBox() : Box(Direction::Vertical) {}
 // ############################
 
 
-Ui::Button::Button(const char*) : Wrapper() {}
+Ui::Button::Button(std::string) : Wrapper() {}
 
-const char* Ui::Button::GetType() const
+std::string_view Ui::Button::GetType() const
 {
 	return "Button";
 }
