@@ -10,9 +10,35 @@ If a copy of the CDDL was not distributed with this file, You
 can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
+#include <stddef.h>
 #include <stdint.h>
+#include <vector>
 
-class Ui
+namespace Ui
+{
+
+struct Position
+{
+	int x, y;
+};
+
+struct Delta
+{
+	int x, y;
+};
+
+struct Size
+{
+	int w, h;
+};
+
+struct Rect
+{
+	Position pos;
+	Size size;
+};
+
+class DrawApi
 {
   public:
 	static constexpr uint32_t BLACK = 0xFF000000;
@@ -27,32 +53,7 @@ class Ui
 	static constexpr uint32_t BEVEL_SHADOW_COLOUR = BLACK;
 	static constexpr uint32_t BEVEL_MID_COLOUR = 0xFF731414; // BKG_COLOUR / 2
 
-	struct Position
-	{
-		int x, y;
-	};
-
-	struct Delta
-	{
-		int x, y;
-	};
-
-	struct Size
-	{
-		int w, h;
-	};
-
-	struct Rect
-	{
-		Position pos;
-		Size size;
-	};
-
-	void Initialise();
-	void Deinitialise();
-	void Update(Position mouse_pos, Size size, int stride, void* out);
-
-	void DrawRectangle(uint32_t colour, Rect rect);
+	virtual void DrawRectangle(uint32_t colour, Rect rect) = 0;
 
 	enum class BevelStyle
 	{
@@ -60,159 +61,146 @@ class Ui
 		Outset
 	};
 
-	void Draw3dBevel(Rect rect, BevelStyle style);
-
-	class Wrapper;
-	class Container;
-
-	Wrapper* GetRoot();
+	virtual void Draw3dBevel(Rect rect, BevelStyle style) = 0;
+};
 
 
-	class Widget
+class Widget
+{
+  public:
+	virtual ~Widget() = default;
+
+	virtual size_t GetChildrenNo() const = 0;
+	virtual Widget& GetChild(size_t no, Size available_size, Delta* layout_delta = nullptr,
+	                         Size* child_size = nullptr) = 0;
+	virtual const Widget& GetChild(size_t no, Size available_size, Delta* layout_delta = nullptr,
+	                               Size* child_size = nullptr) const = 0;
+
+	virtual const char* GetType() const = 0;
+
+	virtual Size UpdateNaturalSize() = 0; // Also returns natural size
+	virtual Size GetNaturalSize() const;
+	virtual Size GetSize(Size available_size) const;
+	virtual void Draw(DrawApi& api, Rect allowed_area) const = 0;
+
+	virtual Widget& SetStretch(bool x, bool y);
+	virtual bool GetStretchX() const;
+	virtual bool GetStretchY() const;
+
+  protected:
+	Widget();
+
+	Size m_natural_size;
+	bool m_stretch_x; // Most widgets should implement these
+	bool m_stretch_y;
+};
+
+
+class Wrapper : public Widget
+{
+  public:
+	Wrapper();
+	virtual ~Wrapper() noexcept override;
+
+	virtual size_t GetChildrenNo() const override; // Always returns 1
+	virtual Widget& SetChild(Widget* widget);
+
+	virtual Widget& GetChild(size_t no, Size available_size, Delta* layout_delta = nullptr,
+	                         Size* child_size = nullptr) override;
+	virtual const Widget& GetChild(size_t no, Size available_size, Delta* layout_delta = nullptr,
+	                               Size* child_size = nullptr) const override;
+
+	virtual Size UpdateNaturalSize() override;
+	virtual void Draw(DrawApi& api, Rect allowed_area) const override;
+
+  protected:
+	Widget* m_content;
+};
+
+
+class Container : public Widget
+{
+  public:
+	virtual Widget& AddChild(Widget* widget) = 0;
+
+  protected:
+	Container() = default;
+};
+
+
+class BoxFriend;
+class Box : public Container
+{
+  public:
+	static constexpr size_t MAX_CHILDREN = 32;
+
+	enum class Direction
 	{
-	  public:
-		virtual void Deinitialise();
-
-		virtual int GetChildrenNo() const = 0;
-		virtual Widget* GetChild(int no, Size available_size, Delta* layout_delta = nullptr,
-		                         Size* child_size = nullptr) = 0;
-		virtual const Widget* GetChild(int no, Size available_size, Delta* layout_delta = nullptr,
-		                               Size* child_size = nullptr) const = 0;
-
-		virtual const char* GetType() const = 0;
-
-		virtual Size UpdateNaturalSize() = 0; // Also returns natural size
-		virtual Size GetNaturalSize() const;
-		virtual Size GetSize(Size available_size) const;
-		virtual void Draw(Ui* ui, Rect allowed_area) const = 0;
-
-		virtual Widget* SetStretch(bool x, bool y);
-		virtual bool GetStretchX() const;
-		virtual bool GetStretchY() const;
-
-	  protected:
-		Widget* Initialise(Container* container_parent, Wrapper* wrapper_parent);
-		virtual void MakeItDirty();
-
-		Widget* m_parent;
-		Size m_natural_size;
-
-		bool m_dirty : 1;
-		bool m_stretch_x : 1; // Most widgets should implement these
-		bool m_stretch_y : 1;
+		Horizontal,
+		Vertical
 	};
 
+	Box(Direction direction);
+	virtual ~Box() noexcept override;
 
-	class Wrapper : public Widget
-	{
-	  public:
-		virtual void Deinitialise() override;
+	virtual size_t GetChildrenNo() const override;
+	virtual Widget& AddChild(Widget* widget) override;
 
-		virtual int GetChildrenNo() const override; // Always returns 1
-		virtual void SetChild(Widget* widget);
+	virtual Widget& GetChild(size_t no, Size available_size, Delta* layout_delta = nullptr,
+	                         Size* child_size = nullptr) override;
+	virtual const Widget& GetChild(size_t no, Size available_size, Delta* layout_delta = nullptr,
+	                               Size* child_size = nullptr) const override;
 
-		virtual Widget* GetChild(int no, Size available_size, Delta* layout_delta = nullptr,
-		                         Size* child_size = nullptr) override;
-		virtual const Widget* GetChild(int no, Size available_size, Delta* layout_delta = nullptr,
-		                               Size* child_size = nullptr) const override;
+	virtual const char* GetType() const override;
 
-		virtual Size UpdateNaturalSize() override;
-		virtual void Draw(Ui* ui, Rect allowed_area) const override;
+	virtual Size UpdateNaturalSize() override;
+	virtual void Draw(DrawApi& api, Rect allowed_area) const override;
 
-		virtual Wrapper* SetStretch(bool x, bool y) override;
+  protected:
+	friend BoxFriend; // :)
 
-	  protected:
-		Wrapper* Initialise(Container* container_parent, Wrapper* wrapper_parent, Widget* child = nullptr);
-		Widget* m_content;
-	};
-
-
-	class Container : public Widget
-	{
-	  public:
-		virtual int AppendChild(Widget* widget) = 0;
-		virtual Container* SetStretch(bool x, bool y) override;
-
-	  protected:
-		Container* Initialise(Container* container_parent, Wrapper* wrapper_parent);
-	};
+	Direction m_direction;
+	std::vector<Widget*> m_children;
+	size_t m_stretch_childs;
+	Size m_non_stretch_size;
+};
 
 
-	class BoxFriend;
-	class Box : public Container
-	{
-	  public:
-		static constexpr int MAX_CHILDREN = 32;
-		virtual void Deinitialise() override;
+class HBox final : public Box
+{
+  public:
+	HBox();
+};
 
-		enum class Direction
-		{
-			Horizontal,
-			Vertical
-		};
-
-		static Box* Create(Container* parent, Direction direction);
-		static Box* Create(Wrapper* parent, Direction direction);
-
-		virtual int GetChildrenNo() const override;
-		virtual int AppendChild(Widget* widget) override;
-
-		virtual Widget* GetChild(int no, Size available_size, Delta* layout_delta = nullptr,
-		                         Size* child_size = nullptr) override;
-		virtual const Widget* GetChild(int no, Size available_size, Delta* layout_delta = nullptr,
-		                               Size* child_size = nullptr) const override;
-
-		virtual const char* GetType() const override;
-
-		virtual Size UpdateNaturalSize() override;
-		virtual void Draw(Ui* ui, Rect allowed_area) const override;
-
-	  protected:
-		Box* Initialise(Container* container, Wrapper* wrapper, Direction direction);
-
-	  private:
-		friend BoxFriend; // :)
-		Direction m_direction;
-		int m_children_no;
-		Widget* m_children[MAX_CHILDREN];
-		int m_stretch_childs;
-		Size m_non_stretch_size;
-	};
+class VBox final : public Box
+{
+  public:
+	VBox();
+};
 
 
-	class HBox final : public Box
-	{
-	  public:
-		static Box* Create(Container* parent);
-		static Box* Create(Wrapper* parent);
-	};
-
-	class VBox final : public Box
-	{
-	  public:
-		static Box* Create(Container* parent);
-		static Box* Create(Wrapper* parent);
-	};
+class Button : public Wrapper
+{
+  public:
+	Button(const char* text);
+	virtual const char* GetType() const override;
+	virtual void Draw(DrawApi& api, Rect allowed_area) const override;
+};
 
 
-	class Button : public Wrapper
-	{
-	  public:
-		static Button* Create(Container* parent, const char* text = nullptr);
-		static Button* Create(Wrapper* parent, const char* text = nullptr);
+class ScreenFriend;
+class Screen
+{
+  public:
+	void Initialise();
+	void Deinitialise() noexcept;
+	void Update(Position mouse_pos, Size size, int stride, void* out);
 
-		virtual const char* GetType() const override;
-		virtual void Draw(Ui* ui, Rect allowed_area) const override;
-
-	  protected:
-		Button* Initialise(Container* container, Wrapper* wrapper, const char* text);
-	};
-
-
-	// ----
-
+	Wrapper& GetRoot();
 
   private:
+	friend ScreenFriend; // :)
+
 	uint8_t* m_out;
 	int m_out_stride;
 	Size m_size;
@@ -223,9 +211,11 @@ class Ui
 	class Root final : public Wrapper
 	{
 	  public:
-		void Initialise();
+		Root() = default;
 		const char* GetType() const override;
 	};
 
 	Root* m_root; // A pointer, so it can survive a memset and being in a struct
 };
+
+} // namespace Ui

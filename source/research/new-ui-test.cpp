@@ -28,7 +28,7 @@ struct App
 
 	bool needs_redraw;
 
-	Ui ui;
+	Ui::Screen screen;
 	Ui::Position mouse_pos;
 	Ui::Size window_size;
 };
@@ -50,77 +50,77 @@ static int sUpdateTexture(App* app)
 }
 
 
-static void sCreateUi(Ui* ui)
+static void sCreateUi(Ui::Wrapper& root)
 {
-	auto vbox = Ui::VBox::Create(ui->GetRoot())->SetStretch(true, true);
-	{
-		auto titlebar = Ui::HBox::Create(vbox)->SetStretch(true, false);
-		{
-			Ui::Button::Create(titlebar, "");
-			Ui::Button::Create(titlebar, "Microsoft Word - Document 1")->SetStretch(true, false);
-			Ui::Button::Create(titlebar, "_");
-			Ui::Button::Create(titlebar, "[]");
-			Ui::Button::Create(titlebar, "X");
-		}
+	using namespace Ui;
 
-		auto menu = Ui::HBox::Create(vbox);
-		{
-			Ui::Button::Create(menu, "File");
-			Ui::Button::Create(menu, "Edit");
-			Ui::Button::Create(menu, "View");
-			Ui::Button::Create(menu, "Insert");
-			Ui::Button::Create(menu, "Format");
-			Ui::Button::Create(menu, "Tools");
-			Ui::Button::Create(menu, "Table");
-			Ui::Button::Create(menu, "Window");
-			Ui::Button::Create(menu, "Help");
-		}
+	auto titlebar = new HBox();
+	titlebar->SetStretch(true, false);
+	titlebar->AddChild(new Button(""));
+	titlebar->AddChild(new Button("Microsoft Word - Document 1")).SetStretch(true, false);
+	titlebar->AddChild(new Button("_"));
+	titlebar->AddChild(new Button("[]"));
+	titlebar->AddChild(new Button("X"));
 
-		auto top_toolbar = Ui::HBox::Create(vbox);
-		{
-			Ui::Button::Create(top_toolbar, "0"); // New
-			Ui::Button::Create(top_toolbar, "1"); // Open
-			Ui::Button::Create(top_toolbar, "2"); // Save
-			// Ui::Text::Create(top_toolbar, "|");
-			Ui::Button::Create(top_toolbar, "3"); // Print
-			Ui::Button::Create(top_toolbar, "4"); // Search
-			Ui::Button::Create(top_toolbar, "5"); // Spell
-			// Ui::Text::Create(top_toolbar, "|");
-			Ui::Button::Create(top_toolbar, "6"); // Cut
-			Ui::Button::Create(top_toolbar, "7"); // Copy
-			Ui::Button::Create(top_toolbar, "8"); // Paste
-			Ui::Button::Create(top_toolbar, "9"); // Format
-			// Ui::Text::Create(top_toolbar, "|");
-			Ui::Button::Create(top_toolbar, "A"); // Undo
-			Ui::Button::Create(top_toolbar, "B"); // Redo
-		}
+	auto menu = new HBox();
+	menu->AddChild(new Button("File"));
+	menu->AddChild(new Button("Edit"));
+	menu->AddChild(new Button("View"));
+	menu->AddChild(new Button("Insert"));
+	menu->AddChild(new Button("Format"));
+	menu->AddChild(new Button("Tools"));
+	menu->AddChild(new Button("Table"));
+	menu->AddChild(new Button("Window"));
+	menu->AddChild(new Button("Help"));
 
-		auto bottom_toolbar = Ui::HBox::Create(vbox);
-		{
-			Ui::Button::Create(bottom_toolbar, "Normal");          // Style
-			Ui::Button::Create(bottom_toolbar, "Times New Roman"); // Font
-			Ui::Button::Create(bottom_toolbar, "10");              // Size
-			// Ui::Text::Create(bottom_toolbar, "|");
-			Ui::Button::Create(bottom_toolbar, "C"); // Bold
-			Ui::Button::Create(bottom_toolbar, "D"); // Italic
-			Ui::Button::Create(bottom_toolbar, "E"); // Underline
-			// Ui::Text::Create(bottom_toolbar, "|");
-			Ui::Button::Create(bottom_toolbar, "F"); // Left
-			Ui::Button::Create(bottom_toolbar, "?"); // Center
-			Ui::Button::Create(bottom_toolbar, "!"); // Right
-		}
+	auto top_toolbar = new HBox();
+	top_toolbar->AddChild(new Button("0")); // New
+	top_toolbar->AddChild(new Button("1")); // Open
+	top_toolbar->AddChild(new Button("2")); // Save
+	top_toolbar->AddChild(new Button("3")); // Print
+	top_toolbar->AddChild(new Button("4")); // Search
+	top_toolbar->AddChild(new Button("5")); // Spell
+	top_toolbar->AddChild(new Button("6")); // Cut
+	top_toolbar->AddChild(new Button("7")); // Copy
+	top_toolbar->AddChild(new Button("8")); // Paste
+	top_toolbar->AddChild(new Button("9")); // Format
+	top_toolbar->AddChild(new Button("A")); // Undo
+	top_toolbar->AddChild(new Button("B")); // Redo
 
-		Ui::HBox::Create(vbox)->SetStretch(false, true); // Content, it stretches vertically
+	auto bottom_toolbar = new HBox();
+	bottom_toolbar->AddChild(new Button("Normal"));          // Style
+	bottom_toolbar->AddChild(new Button("Times New Roman")); // Font
+	bottom_toolbar->AddChild(new Button("10"));              // Size
+	bottom_toolbar->AddChild(new Button("C"));               // Bold
+	bottom_toolbar->AddChild(new Button("D"));               // Italic
+	bottom_toolbar->AddChild(new Button("E"));               // Underline
+	bottom_toolbar->AddChild(new Button("F"));               // Left
+	bottom_toolbar->AddChild(new Button("?"));               // Center
+	bottom_toolbar->AddChild(new Button("!"));               // Right
 
-		auto status_bar = Ui::HBox::Create(vbox)->SetStretch(true, false);
-		{
-			Ui::Button::Create(status_bar, "Bass Drum");
-			Ui::Button::Create(status_bar, "100%")->SetStretch(true, true);
-			Ui::Button::Create(status_bar, "Center")->SetStretch(true, true);
-			Ui::Button::Create(status_bar, "606");
-			Ui::Button::Create(status_bar, "Snare");
-		}
-	}
+	auto content = new VBox();
+	content->SetStretch(true, true);
+
+	auto status_bar = new HBox();
+	status_bar->SetStretch(true, false);
+	status_bar->AddChild(new Button("Bass Drum"));
+	status_bar->AddChild(new Button("100%")).SetStretch(true, true);
+	status_bar->AddChild(new Button("Center")).SetStretch(true, true);
+	status_bar->AddChild(new Button("606"));
+	status_bar->AddChild(new Button("Snare"));
+
+	// ----
+
+	auto vbox = new VBox();
+	vbox->SetStretch(true, true);
+	vbox->AddChild(titlebar);
+	vbox->AddChild(menu);
+	vbox->AddChild(top_toolbar);
+	vbox->AddChild(bottom_toolbar);
+	vbox->AddChild(content);
+	vbox->AddChild(status_bar);
+
+	root.SetChild(vbox);
 }
 
 
@@ -156,8 +156,8 @@ SDL_AppResult SDL_AppInit(void** app_raw, int, char**)
 	if (sUpdateTexture(app) != 0)
 		goto return_failure;
 
-	app->ui.Initialise();
-	sCreateUi(&app->ui);
+	app->screen.Initialise();
+	sCreateUi(app->screen.GetRoot());
 
 	// Bye!
 	return SDL_APP_CONTINUE;
@@ -196,7 +196,7 @@ SDL_AppResult SDL_AppIterate(void* app_raw)
 	int stride = 0;
 	if (SDL_LockTexture(app->texture, nullptr, &pixels, &stride) == true)
 	{
-		app->ui.Update(app->mouse_pos, app->window_size, stride, pixels);
+		app->screen.Update(app->mouse_pos, app->window_size, stride, pixels);
 		SDL_UnlockTexture(app->texture);
 	}
 	else
@@ -227,7 +227,7 @@ void SDL_AppQuit(void* app_raw, SDL_AppResult)
 	if (app->window)
 		SDL_DestroyWindow(app->window);
 
-	app->ui.Deinitialise();
+	app->screen.Deinitialise();
 
 	free(app);
 }
