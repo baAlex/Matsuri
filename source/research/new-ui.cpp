@@ -10,11 +10,17 @@ If a copy of the CDDL was not distributed with this file, You
 can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
+#include <algorithm>
 #include <new>
 #include <stdlib.h>
 
 #include "new-ui.hpp"
 
+#if 1
+#define DEBUGPRINT(...) __builtin_printf(__VA_ARGS__)
+#else
+#define DEBUGPRINT(...) // Empty
+#endif
 
 template <typename T> static T Min(T a, T b) noexcept
 {
@@ -38,6 +44,8 @@ void Ui::Screen::Initialise()
 
 	m_root = new Root();
 	m_root->SetStretch(true, true); // A good default value
+
+	m_click_pressed = nullptr;
 }
 
 void Ui::Screen::Deinitialise() noexcept
@@ -49,17 +57,17 @@ void Ui::Screen::Deinitialise() noexcept
 struct DrawStackEntry
 {
 	unsigned depth;
-	const Ui::Widget* widget;
+	Ui::Widget* widget;
 	Ui::Rect rect;
 };
 
 static constexpr size_t STACK_LEN = 256;
 static thread_local DrawStackEntry s_stack[STACK_LEN];
 
-class Ui::ScreenFriend final
+class Ui::ScreenFriend
 {
   public:
-	class DrawApiImplementation : public Ui::DrawApi
+	class DrawApiImplementation final : public Ui::DrawApi
 	{
 	  public:
 		Ui::Screen* fwend;
@@ -120,7 +128,7 @@ class Ui::ScreenFriend final
 		}
 	};
 
-	static void DrawWidgets(Ui::ScreenFriend::DrawApiImplementation& api)
+	static void DrawWidgets(DrawApiImplementation& api)
 	{
 		// Non-recursive draw, it has the good feature of carry information while
 		// descending the tree, like depth, and also from our end we can identify
@@ -137,12 +145,14 @@ class Ui::ScreenFriend final
 			api.clickable_set = false;
 			current.widget->Draw(api, current.rect);
 
-			if (api.clickable_set == true) // Widget wants to receive clicks
+			if (api.clickable_set == true) // Widget set a clickable area
 			{
 				api.clickable.depth = current.depth;
 				api.clickable.widget = current.widget;
 
-				api.fwend->m_clickables[api.fwend->m_clickables_no++] = api.clickable; // TODO
+				// Widget wants to receive clicks
+				if ((api.clickable.widget->GetReceivingEvents() & EVENT_MOUSE_CLICK) != 0)
+					api.fwend->m_clickables[api.fwend->m_clickables_no++] = api.clickable; // TODO
 			}
 
 			// Stack children
@@ -171,11 +181,6 @@ static constexpr bool DRAW_LIKE_CRAZY = false;
 
 static thread_local unsigned s_frame = 0;
 
-#if 0
-#define DEBUGPRINT(...) __builtin_printf(__VA_ARGS__)
-#else
-#define DEBUGPRINT(...) // Empty
-#endif
 
 void Ui::Screen::Update(Size size, int stride, void* out_raw)
 {
@@ -186,6 +191,7 @@ void Ui::Screen::Update(Size size, int stride, void* out_raw)
 
 	if (m_size.w != size.w || m_size.h != size.h || DRAW_LIKE_CRAZY == true)
 	{
+		// Set stuff
 		m_size = size;
 
 		ScreenFriend::DrawApiImplementation api;
@@ -193,28 +199,50 @@ void Ui::Screen::Update(Size size, int stride, void* out_raw)
 
 		api.DrawRectangle(BKG_COLOUR, {{0, 0}, m_size});
 
-		m_clickables_no = 0; // DrawWidgets() will recreate them
+		// Draw
+		m_clickables_no = 0; // DrawWidgets() next will recreate them
 		ScreenFriend::DrawWidgets(api);
+
+		// Sort clickable areas,
+		// so when dispatching events we start close from those widgets that,
+		// potentially, setup everything to receive events (buttons mostly)
+		if (m_clickables_no != 0)
+			std::sort(m_clickables, m_clickables + m_clickables_no,
+			          [](Clickable& a, Clickable& b) { return a.depth > b.depth; });
+
+		// for (size_t i = 0; i < m_clickables_no; i += 1)
+		//	DEBUGPRINT("%i\n", m_clickables[i].depth);
+		//  DEBUGPRINT("### %zu\n", m_clickables_no);
 	}
 
 	s_frame++;
 }
 
-void Ui::Screen::Click(Position mouse_pos)
+void Ui::Screen::MouseClick(MouseClickGesture gesture, Position mouse_pos)
 {
-	// TODO, sort clickables, and start with those with higher depth
 	// TODO, check if a parent also set a clickable, ask if it wants to intersect event
 
-	for (size_t i = 0; i < m_clickables_no; i += 1)
+	switch (gesture)
 	{
-		const Clickable& c = m_clickables[i];
-		if (mouse_pos.x < c.a.x || mouse_pos.y < c.a.y || mouse_pos.x > c.b.x || mouse_pos.y > c.b.y)
-			continue;
+	case MouseClickGesture::Press:
+		for (size_t i = 0; i < m_clickables_no; i += 1)
+		{
+			const Clickable& c = m_clickables[i];
+			if (mouse_pos.x < c.a.x || mouse_pos.y < c.a.y || mouse_pos.x > c.b.x || mouse_pos.y > c.b.y)
+				continue;
 
-		printf("Click on: %u \"%s\", %i, %i, %i, %i\n", c.depth, c.widget->GetType().cbegin(), c.a.x, c.a.y, c.b.x,
-		       c.b.y);
-
-		// TODO, send event
+			c.widget->OnMouseClick(MouseClickGesture::Press, mouse_pos);
+			m_click_pressed = c.widget;
+			break;
+		}
+		break;
+	case MouseClickGesture::Release:
+		if (m_click_pressed != nullptr)
+		{
+			m_click_pressed->OnMouseClick(MouseClickGesture::Release, mouse_pos);
+			m_click_pressed = nullptr;
+		}
+		break;
 	}
 }
 
@@ -270,7 +298,24 @@ Ui::Size Ui::Widget::GetSize(Size available_size) const
 	return size;
 }
 
-void Ui::Widget::Draw(DrawApi&, Rect) const {}
+void Ui::Widget::Draw(DrawApi& api, Rect allowed_area) const
+{
+	// There are less surprises by setting a clickable area by default,
+	// it still can be overridden if more fine control is needed
+	api.SetClickableArea({allowed_area.pos, GetSize(allowed_area.size)});
+}
+
+void Ui::Widget::SetReceivingEvents(uint32_t events)
+{
+	m_receiving_events = events;
+}
+
+uint32_t Ui::Widget::GetReceivingEvents() const
+{
+	return m_receiving_events;
+};
+
+void Ui::Widget::OnMouseClick(MouseClickGesture, Position){};
 
 
 // ############################
@@ -322,8 +367,7 @@ Ui::Size Ui::Wrapper::UpdateNaturalSize()
 {
 	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
 	{
-		DEBUGPRINT("%u | Ui::Wrapper::UpdateNaturalSize\n", s_frame);
-
+		// DEBUGPRINT("%u | Ui::Wrapper::UpdateNaturalSize\n", s_frame);
 		m_natural_size_updated = true;
 		m_natural_size = (m_content != nullptr) ? m_content->UpdateNaturalSize() : Size{32, 32}; // [Recursion]
 	}
@@ -431,8 +475,7 @@ Ui::Size Ui::Box::UpdateNaturalSize()
 {
 	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
 	{
-		DEBUGPRINT("%u | Ui::Box::UpdateNaturalSize\n", s_frame);
-
+		// DEBUGPRINT("%u | Ui::Box::UpdateNaturalSize\n", s_frame);
 		m_natural_size_updated = true;
 		m_natural_size = {};
 		m_non_stretch_size = {};
@@ -482,7 +525,18 @@ std::string_view Ui::Button::GetType() const
 
 void Ui::Button::Draw(DrawApi& api, Rect allowed_area) const
 {
-	DEBUGPRINT("%u | Ui::Button::Draw\n", s_frame);
+	// DEBUGPRINT("%u | Ui::Button::Draw\n", s_frame);
 	api.SetClickableArea({allowed_area.pos, GetSize(allowed_area.size)});
 	api.Draw3dBevel({allowed_area.pos, GetSize(allowed_area.size)}, DrawApi::BevelStyle::Outset);
+}
+
+void Ui::Button::SetMouseClickCallback(std::function<MouseClickCallback> callback)
+{
+	SetReceivingEvents(GetReceivingEvents() | Ui::EVENT_MOUSE_CLICK);
+	m_mouse_click_callback = callback;
+}
+
+void Ui::Button::OnMouseClick(Ui::MouseClickGesture gesture, Ui::Position mouse_pos)
+{
+	m_mouse_click_callback(*this, gesture, mouse_pos);
 }

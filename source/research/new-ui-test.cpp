@@ -49,19 +49,72 @@ static int sUpdateTexture(App* app)
 }
 
 
+class ButtonWithMethodOnClick : public Ui::Button
+{
+  public:
+	ButtonWithMethodOnClick(std::string text) : Ui::Button(std::move(text))
+	{
+		SetReceivingEvents(Ui::EVENT_MOUSE_CLICK); // Needed
+	}
+
+	void OnMouseClick(Ui::MouseClickGesture gesture, Ui::Position mouse_pos)
+	{
+		const char* gesture_name;
+		switch (gesture)
+		{
+		case Ui::MouseClickGesture::Press: gesture_name = "Press"; break;
+		case Ui::MouseClickGesture::Release: gesture_name = "Release"; break;
+		}
+		printf("Callback Click(), \"%s\", %s, %i, %i\n", GetType().cbegin(), gesture_name, mouse_pos.x, mouse_pos.y);
+	}
+};
+
+class HBoxWithMethodOnClick : public Ui::HBox
+{
+  public:
+	HBoxWithMethodOnClick() : Ui::HBox()
+	{
+		SetReceivingEvents(Ui::EVENT_MOUSE_CLICK);
+	}
+
+	void OnMouseClick(Ui::MouseClickGesture gesture, Ui::Position mouse_pos)
+	{
+		const char* gesture_name;
+		switch (gesture)
+		{
+		case Ui::MouseClickGesture::Press: gesture_name = "Press"; break;
+		case Ui::MouseClickGesture::Release: gesture_name = "Release"; break;
+		}
+		printf("Callback Click(), \"%s\", %s, %i, %i\n", GetType().cbegin(), gesture_name, mouse_pos.x, mouse_pos.y);
+	}
+};
+
+
 static void sCreateUi(Ui::Wrapper& root)
 {
 	using namespace Ui;
-
 	auto& vbox = root.SetChild<VBox>();
 
-	auto& titlebar = vbox.AddChild<HBox>();
+	auto& titlebar = vbox.AddChild<HBoxWithMethodOnClick>();
 	titlebar.SetStretch(true, false);
-	titlebar.AddChild<Button>("");
-	titlebar.AddChild<Button>("Microsoft Word - Document 1").SetStretch(true, false);
-	titlebar.AddChild<Button>("_");
-	titlebar.AddChild<Button>("[]");
-	titlebar.AddChild<Button>("X");
+	titlebar.AddChild<ButtonWithMethodOnClick>("");
+	titlebar.AddChild<ButtonWithMethodOnClick>("Microsoft Word - Document 1").SetStretch(true, false);
+	titlebar.AddChild<ButtonWithMethodOnClick>("_");
+	titlebar.AddChild<ButtonWithMethodOnClick>("[]");
+
+	titlebar.AddChild<Button>("X").SetMouseClickCallback(
+	    [](Button& self, MouseClickGesture gesture, Position mouse_pos)
+	    {
+		    const char* gesture_name;
+		    switch (gesture)
+		    {
+		    case MouseClickGesture::Press: gesture_name = "Press"; break;
+		    case MouseClickGesture::Release: gesture_name = "Release"; break;
+		    }
+
+		    printf("Callback Click(), \"%s\", %s, %i, %i\n", self.GetType().cbegin(), gesture_name, mouse_pos.x,
+		           mouse_pos.y);
+	    });
 
 	auto& menu = vbox.AddChild<HBox>();
 	menu.AddChild<Button>("File");
@@ -166,7 +219,13 @@ SDL_AppResult SDL_AppEvent(void* app_raw, SDL_Event* event)
 	}
 	else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
 	{
-		app->screen.Click({static_cast<int>(event->button.x), static_cast<int>(event->button.y)});
+		app->screen.MouseClick(Ui::MouseClickGesture::Press,
+		                       {static_cast<int>(event->button.x), static_cast<int>(event->button.y)});
+	}
+	else if (event->type == SDL_EVENT_MOUSE_BUTTON_UP)
+	{
+		app->screen.MouseClick(Ui::MouseClickGesture::Release,
+		                       {static_cast<int>(event->button.x), static_cast<int>(event->button.y)});
 	}
 	else if (event->type == SDL_EVENT_WINDOW_RESIZED)
 	{

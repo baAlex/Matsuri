@@ -13,6 +13,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include <stddef.h>
 #include <stdint.h>
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -77,6 +78,16 @@ class DrawApi
 };
 
 
+constexpr uint32_t EVENT_NONE = 0;
+constexpr uint32_t EVENT_MOUSE_CLICK = 1 << 1;
+
+enum class MouseClickGesture
+{
+	Press,
+	Release
+};
+
+
 class Widget
 {
 	// TODO?, this suggestion is typical 90s OOP:
@@ -112,8 +123,13 @@ class Widget
 	virtual bool GetStretchX() const;
 	virtual bool GetStretchY() const;
 
+	virtual void SetReceivingEvents(uint32_t events);
+	virtual uint32_t GetReceivingEvents() const;
+	virtual void OnMouseClick(MouseClickGesture gesture, Position mouse_pos);
+
   protected:
 	Size m_natural_size = {};
+	uint32_t m_receiving_events = 0;
 	bool m_stretch_x : 1; // Most widgets should implement these
 	bool m_stretch_y : 1;
 	bool m_natural_size_updated : 1;
@@ -198,13 +214,13 @@ class Box : public Container
 };
 
 
-class HBox final : public Box
+class HBox : public Box
 {
   public:
 	HBox();
 };
 
-class VBox final : public Box
+class VBox : public Box
 {
   public:
 	VBox();
@@ -214,9 +230,17 @@ class VBox final : public Box
 class Button : public Wrapper
 {
   public:
+	using MouseClickCallback = void(Button& self, MouseClickGesture gesture, Position mouse_pos);
+
 	Button(std::string text);
 	virtual std::string_view GetType() const override;
 	virtual void Draw(DrawApi& api, Rect allowed_area) const override;
+
+	virtual void OnMouseClick(MouseClickGesture gesture, Position mouse_pos) override;
+	virtual void SetMouseClickCallback(std::function<MouseClickCallback> callback);
+
+  protected:
+	std::function<MouseClickCallback> m_mouse_click_callback;
 };
 
 
@@ -229,7 +253,7 @@ class Screen
 	void Initialise();
 	void Deinitialise() noexcept;
 	void Update(Size size, int stride, void* out);
-	void Click(Position mouse_pos);
+	void MouseClick(MouseClickGesture gesture, Position mouse_pos);
 
 	Wrapper& GetRoot();
 
@@ -256,12 +280,13 @@ class Screen
 		Position a; // Set in SetClickableArea()
 		Position b; // Set in SetClickableArea()
 
-		unsigned depth;       // Set in DrawWidgets()
-		const Widget* widget; // Set in DrawWidgets()
+		unsigned depth; // Set in DrawWidgets()
+		Widget* widget; // Set in DrawWidgets()
 	};
 
 	Clickable m_clickables[256];
 	size_t m_clickables_no;
+	Widget* m_click_pressed;
 
 	// Not sorry:
 	// https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#c90-rely-on-constructors-and-assignment-operators-not-memset-and-memcpy
