@@ -64,6 +64,7 @@ static constexpr Colour BEVEL_MID_COLOUR = {0xFF, 0x73, 0x14, 0x14}; // BKG_COLO
 class DrawApi
 {
   public:
+	virtual void SetClickableArea(Rect rect) = 0;
 	virtual void DrawRectangle(Colour colour, Rect rect) = 0;
 
 	enum class BevelStyle
@@ -105,7 +106,7 @@ class Widget
 	virtual Size UpdateNaturalSize() = 0; // Also returns natural size
 	virtual Size GetNaturalSize() const;
 	virtual Size GetSize(Size available_size) const;
-	virtual void Draw(DrawApi& api, Rect allowed_area) const = 0;
+	virtual void Draw(DrawApi& api, Rect allowed_area) const;
 
 	virtual Widget& SetStretch(bool x, bool y);
 	virtual bool GetStretchX() const;
@@ -115,6 +116,7 @@ class Widget
 	Size m_natural_size = {};
 	bool m_stretch_x : 1; // Most widgets should implement these
 	bool m_stretch_y : 1;
+	bool m_natural_size_updated : 1;
 };
 
 
@@ -138,7 +140,6 @@ class Wrapper : public Widget
 	virtual const Widget& GetChild(size_t no) const override;
 
 	virtual Size UpdateNaturalSize() override;
-	virtual void Draw(DrawApi& api, Rect allowed_area) const override;
 
   protected:
 	std::unique_ptr<Widget> m_content;
@@ -186,7 +187,6 @@ class Box : public Container
 	virtual std::string_view GetType() const override;
 
 	virtual Size UpdateNaturalSize() override;
-	virtual void Draw(DrawApi& api, Rect allowed_area) const override;
 
   protected:
 	friend BoxFriend; // :)
@@ -228,7 +228,8 @@ class Screen
   public:
 	void Initialise();
 	void Deinitialise() noexcept;
-	void Update(Position mouse_pos, Size size, int stride, void* out);
+	void Update(Size size, int stride, void* out);
+	void Click(Position mouse_pos);
 
 	Wrapper& GetRoot();
 
@@ -238,7 +239,6 @@ class Screen
 	uint8_t* m_out;
 	int m_out_stride;
 	Size m_size;
-	Position m_mouse;
 
 	uint8_t m_dummy[4];
 
@@ -250,6 +250,18 @@ class Screen
 	};
 
 	Root* m_root; // A pointer, so it can survive a memset and being in a struct
+
+	struct Clickable
+	{
+		Position a; // Set in SetClickableArea()
+		Position b; // Set in SetClickableArea()
+
+		unsigned depth;       // Set in DrawWidgets()
+		const Widget* widget; // Set in DrawWidgets()
+	};
+
+	Clickable m_clickables[256];
+	size_t m_clickables_no;
 
 	// Not sorry:
 	// https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#c90-rely-on-constructors-and-assignment-operators-not-memset-and-memcpy

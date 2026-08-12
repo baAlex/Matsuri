@@ -29,7 +29,6 @@ struct App
 	bool needs_redraw;
 
 	Ui::Screen screen;
-	Ui::Position mouse_pos;
 	Ui::Size window_size;
 };
 
@@ -142,6 +141,8 @@ SDL_AppResult SDL_AppInit(void** app_raw, int, char**)
 		goto return_failure;
 	}
 
+	SDL_SetRenderVSync(app->renderer, 1);
+
 	if (sUpdateTexture(app) != 0)
 		goto return_failure;
 
@@ -160,11 +161,12 @@ SDL_AppResult SDL_AppEvent(void* app_raw, SDL_Event* event)
 	App* app = reinterpret_cast<App*>(app_raw);
 
 	if (event->type == SDL_EVENT_QUIT)
-		return SDL_APP_SUCCESS;
-	else if (event->type == SDL_EVENT_MOUSE_MOTION)
 	{
-		app->mouse_pos.x = static_cast<int>(event->motion.x);
-		app->mouse_pos.y = static_cast<int>(event->motion.y);
+		return SDL_APP_SUCCESS;
+	}
+	else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+	{
+		app->screen.Click({static_cast<int>(event->button.x), static_cast<int>(event->button.y)});
 	}
 	else if (event->type == SDL_EVENT_WINDOW_RESIZED)
 	{
@@ -185,7 +187,7 @@ SDL_AppResult SDL_AppIterate(void* app_raw)
 	int stride = 0;
 	if (SDL_LockTexture(app->texture, nullptr, &pixels, &stride) == true)
 	{
-		app->screen.Update(app->mouse_pos, app->window_size, stride, pixels);
+		app->screen.Update(app->window_size, stride, pixels);
 		SDL_UnlockTexture(app->texture);
 	}
 	else

@@ -35,7 +35,6 @@ void Ui::Screen::Initialise()
 	m_out = m_dummy;
 	m_out_stride = 4;
 	m_size = {1, 1};
-	m_mouse = {0, 0};
 
 	m_root = new Root();
 	m_root->SetStretch(true, true); // A good default value
@@ -47,70 +46,176 @@ void Ui::Screen::Deinitialise() noexcept
 }
 
 
-class Ui::ScreenFriend final : public Ui::DrawApi
+struct DrawStackEntry
+{
+	unsigned depth;
+	const Ui::Widget* widget;
+	Ui::Rect rect;
+};
+
+static constexpr size_t STACK_LEN = 256;
+static thread_local DrawStackEntry s_stack[STACK_LEN];
+
+class Ui::ScreenFriend final
 {
   public:
-	Ui::Screen* fwend;
-
-	void DrawRectangle(Colour colour, Ui::Rect rect) noexcept override
+	class DrawApiImplementation : public Ui::DrawApi
 	{
-		const int x1 = Clamp(rect.pos.x, 0, fwend->m_size.w);
-		const int y1 = Clamp(rect.pos.y, 0, fwend->m_size.h);
-		rect.size.w = (Clamp(rect.pos.x + rect.size.w, 0, fwend->m_size.w) - x1) * 4;
-		rect.size.h = (Clamp(rect.pos.y + rect.size.h, 0, fwend->m_size.h) - y1) * fwend->m_out_stride;
+	  public:
+		Ui::Screen* fwend;
+		bool clickable_set;
+		struct Ui::Screen::Clickable clickable;
 
-		uint8_t* out = fwend->m_out + (x1 * 4) + (y1 * fwend->m_out_stride);
-		for (uint8_t* row = out; row < out + rect.size.h; row += fwend->m_out_stride)
+		void SetClickableArea(Ui::Rect rect) noexcept override
 		{
-			for (uint8_t* col = row; col < row + rect.size.w; col += 4)
+			const int x1 = Clamp(rect.pos.x, 0, fwend->m_size.w);
+			const int y1 = Clamp(rect.pos.y, 0, fwend->m_size.h);
+			const int x2 = Clamp(rect.pos.x + rect.size.w, 0, fwend->m_size.w);
+			const int y2 = Clamp(rect.pos.y + rect.size.h, 0, fwend->m_size.h);
+
+			clickable_set = true; // If already set, we overwrite last one
+			clickable.a = {x1, y1};
+			clickable.b = {x2, y2};
+		}
+
+		void DrawRectangle(Colour colour, Ui::Rect rect) noexcept override
+		{
+			const int x1 = Clamp(rect.pos.x, 0, fwend->m_size.w);
+			const int y1 = Clamp(rect.pos.y, 0, fwend->m_size.h);
+			rect.size.w = (Clamp(rect.pos.x + rect.size.w, 0, fwend->m_size.w) - x1) * 4;
+			rect.size.h = (Clamp(rect.pos.y + rect.size.h, 0, fwend->m_size.h) - y1) * fwend->m_out_stride;
+
+			uint8_t* out = fwend->m_out + (x1 * 4) + (y1 * fwend->m_out_stride);
+			for (uint8_t* row = out; row < out + rect.size.h; row += fwend->m_out_stride)
 			{
-				col[0] = colour.a;
-				col[1] = colour.b;
-				col[2] = colour.g;
-				col[3] = colour.r;
+				for (uint8_t* col = row; col < row + rect.size.w; col += 4)
+				{
+					col[0] = colour.a;
+					col[1] = colour.b;
+					col[2] = colour.g;
+					col[3] = colour.r;
+				}
 			}
 		}
-	}
 
-	void Draw3dBevel(Ui::Rect rect, BevelStyle style) noexcept override
-	{
-		if (style == BevelStyle::Inset)
+		void Draw3dBevel(Ui::Rect rect, BevelStyle style) noexcept override
 		{
-			DrawRectangle(BEVEL_MID_COLOUR, {{rect.pos.x, rect.pos.y}, {rect.size.w - 1, 1}});
-			DrawRectangle(BEVEL_MID_COLOUR, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.h - 1}});
-			DrawRectangle(BEVEL_LIGHT_COLOUR, {{rect.pos.x + rect.size.w - 1, rect.pos.y}, {1, rect.size.h}});
-			DrawRectangle(BEVEL_LIGHT_COLOUR, {{rect.pos.x, rect.pos.y + rect.size.h - 1}, {rect.size.w, 1}});
+			if (style == BevelStyle::Inset)
+			{
+				DrawRectangle(BEVEL_MID_COLOUR, {{rect.pos.x, rect.pos.y}, {rect.size.w - 1, 1}});
+				DrawRectangle(BEVEL_MID_COLOUR, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.h - 1}});
+				DrawRectangle(BEVEL_LIGHT_COLOUR, {{rect.pos.x + rect.size.w - 1, rect.pos.y}, {1, rect.size.h}});
+				DrawRectangle(BEVEL_LIGHT_COLOUR, {{rect.pos.x, rect.pos.y + rect.size.h - 1}, {rect.size.w, 1}});
+			}
+			else
+			{
+				DrawRectangle(BEVEL_LIGHT_COLOUR, {{rect.pos.x, rect.pos.y}, {rect.size.w - 1, 1}});
+				DrawRectangle(BEVEL_LIGHT_COLOUR, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.h - 1}});
+				DrawRectangle(BEVEL_SHADOW_COLOUR, {{rect.pos.x + rect.size.w - 1, rect.pos.y}, {1, rect.size.h}});
+				DrawRectangle(BEVEL_SHADOW_COLOUR, {{rect.pos.x, rect.pos.y + rect.size.h - 1}, {rect.size.w, 1}});
+
+				DrawRectangle(BEVEL_MID_COLOUR, {{rect.pos.x + rect.size.w - 2, rect.pos.y + 1}, {1, rect.size.h - 2}});
+				DrawRectangle(BEVEL_MID_COLOUR, {{rect.pos.x + 1, rect.pos.y + rect.size.h - 2}, {rect.size.w - 2, 1}});
+			}
 		}
-		else
-		{
-			DrawRectangle(BEVEL_LIGHT_COLOUR, {{rect.pos.x, rect.pos.y}, {rect.size.w - 1, 1}});
-			DrawRectangle(BEVEL_LIGHT_COLOUR, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.h - 1}});
-			DrawRectangle(BEVEL_SHADOW_COLOUR, {{rect.pos.x + rect.size.w - 1, rect.pos.y}, {1, rect.size.h}});
-			DrawRectangle(BEVEL_SHADOW_COLOUR, {{rect.pos.x, rect.pos.y + rect.size.h - 1}, {rect.size.w, 1}});
+	};
 
-			DrawRectangle(BEVEL_MID_COLOUR, {{rect.pos.x + rect.size.w - 2, rect.pos.y + 1}, {1, rect.size.h - 2}});
-			DrawRectangle(BEVEL_MID_COLOUR, {{rect.pos.x + 1, rect.pos.y + rect.size.h - 2}, {rect.size.w - 2, 1}});
+	static void DrawWidgets(Ui::ScreenFriend::DrawApiImplementation& api)
+	{
+		// Non-recursive draw, it has the good feature of carry information while
+		// descending the tree, like depth, and also from our end we can identify
+		// on what widget we are without asking it to widgets themselves
+
+		size_t cursor = 0;
+		s_stack[cursor++] = {0, api.fwend->m_root, Rect{{0, 0}, api.fwend->m_size}};
+
+		while (cursor > 0)
+		{
+			DrawStackEntry current = s_stack[--cursor]; // Yes, copy it
+
+			// Draw
+			api.clickable_set = false;
+			current.widget->Draw(api, current.rect);
+
+			if (api.clickable_set == true) // Widget wants to receive clicks
+			{
+				api.clickable.depth = current.depth;
+				api.clickable.widget = current.widget;
+
+				api.fwend->m_clickables[api.fwend->m_clickables_no++] = api.clickable; // TODO
+			}
+
+			// Stack children
+			if (cursor + current.widget->GetChildrenNo() >= STACK_LEN)
+			{
+				fprintf(stderr, "Too many widgets\n");
+				return;
+			}
+
+			for (size_t i = 0; i < current.widget->GetChildrenNo(); i += 1)
+			{
+				const auto [child, delta, child_size] = current.widget->GetChild(i, current.rect.size);
+
+				s_stack[cursor++] = {current.depth + 1, &child, {current.rect.pos, child_size}};
+
+				current.rect.pos.x += delta.x;
+				current.rect.pos.y += delta.y;
+			}
 		}
 	}
 };
 
 
-void Ui::Screen::Update(Position mouse_pos, Size size, int stride, void* out_raw)
+static constexpr bool UPDATE_NATURAL_SIZE_LIKE_CRAZY = false;
+static constexpr bool DRAW_LIKE_CRAZY = false;
+
+static thread_local unsigned s_frame = 0;
+
+#if 0
+#define DEBUGPRINT(...) __builtin_printf(__VA_ARGS__)
+#else
+#define DEBUGPRINT(...) // Empty
+#endif
+
+void Ui::Screen::Update(Size size, int stride, void* out_raw)
 {
 	m_out = reinterpret_cast<uint8_t*>(out_raw);
 	m_out_stride = stride;
-	m_size = size;
-	m_mouse = mouse_pos;
-
-	ScreenFriend fwend;
-	fwend.fwend = this;
 
 	m_root->UpdateNaturalSize(); // [Recursion]
 
-	fwend.DrawRectangle(BKG_COLOUR, {{0, 0}, m_size});
-	fwend.DrawRectangle(GREEN, {m_mouse, {32, 32}});
+	if (m_size.w != size.w || m_size.h != size.h || DRAW_LIKE_CRAZY == true)
+	{
+		m_size = size;
 
-	m_root->Draw(fwend, Rect{{0, 0}, m_size}); // [Recursion]
+		ScreenFriend::DrawApiImplementation api;
+		api.fwend = this;
+
+		api.DrawRectangle(BKG_COLOUR, {{0, 0}, m_size});
+
+		m_clickables_no = 0; // DrawWidgets() will recreate them
+		ScreenFriend::DrawWidgets(api);
+	}
+
+	s_frame++;
+}
+
+void Ui::Screen::Click(Position mouse_pos)
+{
+	// TODO, sort clickables, and start with those with higher depth
+	// TODO, check if a parent also set a clickable, ask if it wants to intersect event
+
+	for (size_t i = 0; i < m_clickables_no; i += 1)
+	{
+		const Clickable& c = m_clickables[i];
+		if (mouse_pos.x < c.a.x || mouse_pos.y < c.a.y || mouse_pos.x > c.b.x || mouse_pos.y > c.b.y)
+			continue;
+
+		printf("Click on: %u \"%s\", %i, %i, %i, %i\n", c.depth, c.widget->GetType().cbegin(), c.a.x, c.a.y, c.b.x,
+		       c.b.y);
+
+		// TODO, send event
+	}
 }
 
 
@@ -132,6 +237,7 @@ Ui::Widget::Widget()
 {
 	m_stretch_x = false; // Is not possible to set bitfields on headers
 	m_stretch_y = false; // (a C++ quirk)
+	m_natural_size_updated = false;
 }
 
 Ui::Size Ui::Widget::GetNaturalSize() const
@@ -164,18 +270,23 @@ Ui::Size Ui::Widget::GetSize(Size available_size) const
 	return size;
 }
 
+void Ui::Widget::Draw(DrawApi&, Rect) const {}
+
 
 // ############################
 
 
 size_t Ui::Wrapper::GetChildrenNo() const
 {
+	if (m_content == nullptr)
+		return 0;
 	return 1;
 }
 
 Ui::Widget& Ui::Wrapper::SetChild(std::unique_ptr<Widget> widget)
 {
 	m_content = std::move(widget);
+	m_natural_size_updated = false;
 	return *m_content;
 }
 
@@ -209,14 +320,15 @@ const Ui::Widget& Ui::Wrapper::GetChild(size_t) const
 
 Ui::Size Ui::Wrapper::UpdateNaturalSize()
 {
-	m_natural_size = (m_content != nullptr) ? m_content->UpdateNaturalSize() : Size{32, 32}; // [Recursion]
-	return m_natural_size;
-}
+	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
+	{
+		DEBUGPRINT("%u | Ui::Wrapper::UpdateNaturalSize\n", s_frame);
 
-void Ui::Wrapper::Draw(DrawApi& api, Rect allowed_area) const
-{
-	if (m_content != nullptr)
-		m_content->Draw(api, {allowed_area.pos, GetSize(allowed_area.size)}); // [Recursion]
+		m_natural_size_updated = true;
+		m_natural_size = (m_content != nullptr) ? m_content->UpdateNaturalSize() : Size{32, 32}; // [Recursion]
+	}
+
+	return m_natural_size;
 }
 
 
@@ -237,6 +349,7 @@ size_t Ui::Box::GetChildrenNo() const
 Ui::Widget& Ui::Box::AddChild(std::unique_ptr<Widget> widget)
 {
 	m_children.push_back(std::move(widget));
+	m_natural_size_updated = false;
 	return *m_children.back();
 }
 
@@ -314,50 +427,40 @@ std::string_view Ui::Box::GetType() const
 	return "Box";
 }
 
-void Ui::Box::Draw(DrawApi& api, Rect rect) const
-{
-	for (size_t i = 0; i < m_children.size(); i += 1)
-	{
-		const auto [child, delta, child_size] = GetChild(i, rect.size);
-
-		child.Draw(api, {rect.pos, child_size}); // [Recursion]
-
-		switch (m_direction)
-		{
-		case Direction::Horizontal: rect.pos.x += delta.x; break;
-		case Direction::Vertical: rect.pos.y += delta.y; break;
-		}
-	}
-}
-
 Ui::Size Ui::Box::UpdateNaturalSize()
 {
-	m_natural_size = {};
-	m_non_stretch_size = {};
-	m_stretch_childs = 0;
-
-	for (auto& child : m_children)
+	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
 	{
-		const Size size = child->UpdateNaturalSize(); // [Recursion]
+		DEBUGPRINT("%u | Ui::Box::UpdateNaturalSize\n", s_frame);
 
-		switch (m_direction)
+		m_natural_size_updated = true;
+		m_natural_size = {};
+		m_non_stretch_size = {};
+		m_stretch_childs = 0;
+
+		for (auto& child : m_children)
 		{
-		case Direction::Horizontal:
-			m_natural_size.w += size.w;
-			m_natural_size.h = Max(size.h, m_natural_size.h);
-			m_stretch_childs += static_cast<size_t>(child->GetStretchX());
-			break;
-		case Direction::Vertical:
-			m_natural_size.w = Max(size.w, m_natural_size.w);
-			m_natural_size.h += size.h;
-			m_stretch_childs += static_cast<size_t>(child->GetStretchY());
-			break;
-		}
+			const Size size = child->UpdateNaturalSize(); // [Recursion]
 
-		if (child->GetStretchX() == false)
-			m_non_stretch_size.w += size.w;
-		if (child->GetStretchY() == false)
-			m_non_stretch_size.h += size.h;
+			switch (m_direction)
+			{
+			case Direction::Horizontal:
+				m_natural_size.w += size.w;
+				m_natural_size.h = Max(size.h, m_natural_size.h);
+				m_stretch_childs += static_cast<size_t>(child->GetStretchX());
+				break;
+			case Direction::Vertical:
+				m_natural_size.w = Max(size.w, m_natural_size.w);
+				m_natural_size.h += size.h;
+				m_stretch_childs += static_cast<size_t>(child->GetStretchY());
+				break;
+			}
+
+			if (child->GetStretchX() == false)
+				m_non_stretch_size.w += size.w;
+			if (child->GetStretchY() == false)
+				m_non_stretch_size.h += size.h;
+		}
 	}
 
 	return m_natural_size;
@@ -379,5 +482,7 @@ std::string_view Ui::Button::GetType() const
 
 void Ui::Button::Draw(DrawApi& api, Rect allowed_area) const
 {
+	DEBUGPRINT("%u | Ui::Button::Draw\n", s_frame);
+	api.SetClickableArea({allowed_area.pos, GetSize(allowed_area.size)});
 	api.Draw3dBevel({allowed_area.pos, GetSize(allowed_area.size)}, DrawApi::BevelStyle::Outset);
 }
