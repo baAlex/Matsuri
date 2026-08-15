@@ -32,6 +32,18 @@ set_target_properties("matsuri-library-pic" PROPERTIES C_VISIBILITY_PRESET hidde
 set_target_properties("matsuri-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 
+# UI library
+add_library("ui-library"     OBJECT "./source/ui/yuika.cpp")
+add_library("ui-library-pic" OBJECT "./source/ui/yuika.cpp")
+
+target_compile_options("ui-library"     PRIVATE ${MATSURI_CFLAGS})
+target_compile_options("ui-library-pic" PRIVATE ${MATSURI_CFLAGS})
+
+set_target_properties("ui-library"     PROPERTIES CXX_VISIBILITY_PRESET hidden)
+set_target_properties("ui-library-pic" PROPERTIES CXX_VISIBILITY_PRESET hidden)
+set_target_properties("ui-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+
+
 # Executable "generate-wavs"
 add_executable("generate-wavs" "./source/generate-wavs.c")
 
@@ -112,58 +124,21 @@ set_target_properties("freetype-library-pic" PROPERTIES POSITION_INDEPENDENT_COD
 target_include_directories("freetype-library-pic" PRIVATE "./source/thirdparty/freetype/include")
 
 if (UNIX)
-	# It's 2026, it's illegal to a non-POSIX UNIX (ewww... all caps acronyms) to even exist
+	# It's 2026, it's illegal to a non-POSIX UNIX to even exist
 	target_compile_definitions("freetype-library-pic" PRIVATE HAVE_UNISTD_H)
 	target_compile_definitions("freetype-library-pic" PRIVATE HAVE_FCNTL_H)
 endif ()
 
 
-# Research stuff
-add_executable(test-ui "./source/research/test-ui.cpp" "./source/research/ui.cpp" "./source/research/error.cpp" "./source/research/canvas.cpp" "./source/research/shared.cpp")
-add_executable(test-canvas "./source/research/test-canvas.cpp" "./source/research/error.cpp" "./source/research/canvas.cpp" "./source/research/shared.cpp")
-add_executable(test-metrics "./source/research/test-metrics.cpp")
-
-target_compile_options("test-ui" PRIVATE ${MATSURI_CFLAGS})
-target_compile_options("test-canvas" PRIVATE ${MATSURI_CFLAGS})
-target_compile_options("test-metrics" PRIVATE ${MATSURI_CFLAGS})
-
-target_link_libraries("test-ui" PRIVATE "freetype-library-pic")
-target_link_libraries("test-canvas" PRIVATE "freetype-library-pic")
-target_link_libraries("test-metrics" PRIVATE "freetype-library-pic")
-
-target_include_directories("test-ui" PRIVATE "./source/thirdparty/freetype/include")
-target_include_directories("test-canvas" PRIVATE "./source/thirdparty/freetype/include")
-target_include_directories("test-metrics" PRIVATE "./source/thirdparty/freetype/include")
-
-if (MSVC)
-	# Freetype is chonky
-	target_link_options("test-canvas" PRIVATE /OPT:REF /OPT:ICF)
-	target_link_options("test-ui" PRIVATE /OPT:REF /OPT:ICF)
-	target_link_options("test-metrics" PRIVATE /OPT:REF /OPT:ICF)
-elseif ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
-	target_link_options("test-canvas" PRIVATE -Wl,--gc-sections)
-	target_link_options("test-ui" PRIVATE -Wl,--gc-sections)
-	target_link_options("test-metrics" PRIVATE -Wl,--gc-sections)
-endif ()
-
-find_package(Freetype)
-
-if (Freetype_FOUND)
-	add_executable(test-metrics-system "./source/research/test-metrics.cpp")
-	target_compile_options("test-metrics-system" PRIVATE ${MATSURI_CFLAGS})
-	target_link_libraries("test-metrics-system" PRIVATE Freetype::Freetype)
-endif ()
-
-
 # Plugin, CLAP
-set(CLAP_SOURCES "./source/clap/plugin.c"
+set(CLAP_SOURCES "./source/clap/plugin.cpp"
                  "./source/voice-allocator.c"
                  "./source/misc.c"
 )
 
 add_library("matsuri-clap" MODULE ${CLAP_SOURCES})
 target_compile_options("matsuri-clap" PRIVATE ${MATSURI_CFLAGS})
-target_link_libraries("matsuri-clap" PRIVATE "matsuri-library-pic")
+target_link_libraries("matsuri-clap" PRIVATE "matsuri-library-pic" "ui-library-pic")
 
 target_include_directories("matsuri-clap" PRIVATE "./source/thirdparty/clap/include")
 
@@ -171,8 +146,13 @@ set_target_properties("matsuri-clap" PROPERTIES PREFIX "")
 set_target_properties("matsuri-clap" PROPERTIES OUTPUT_NAME "matsuri")
 set_target_properties("matsuri-clap" PROPERTIES SUFFIX ".clap")
 set_target_properties("matsuri-clap" PROPERTIES C_VISIBILITY_PRESET hidden)
+set_target_properties("matsuri-clap" PROPERTIES CXX_VISIBILITY_PRESET hidden)
 set_target_properties("matsuri-clap" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 set_target_properties("matsuri-clap" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/matsuri-clap")
+
+if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
+	target_link_options("matsuri-clap" PRIVATE -Wl,--no-undefined) # To not forget the 'extern "C"'s
+endif ()
 
 
 # Plugin, LV2
@@ -194,6 +174,9 @@ set_target_properties("matsuri-lv2" PROPERTIES C_VISIBILITY_PRESET hidden)
 set_target_properties("matsuri-lv2" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 set_target_properties("matsuri-lv2" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/matsuri-lv2")
 
+if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
+	target_link_options("matsuri-lv2" PRIVATE -Wl,--no-undefined)
+endif ()
 
 set(LV2_DIR "${CMAKE_CURRENT_BINARY_DIR}/matsuri-lv2")
 set(LV2_MANIFEST_SRC "${CMAKE_SOURCE_DIR}/source/lv2/manifest.ttl")
@@ -225,7 +208,6 @@ add_custom_target("lv2-ttl" ALL DEPENDS ${LV2_DIR} ${LV2_TTL_DEST})
 
 # Plugin, WASM
 if (WASM AND "${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
-
 	message(STATUS "WASM32 build set")
 
 	set(WASM_SOURCES "${CMAKE_SOURCE_DIR}/source/wasm/plugin.c"
@@ -297,6 +279,8 @@ endif ()
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
 	set_target_properties("matsuri-library"     PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("matsuri-library-pic" PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+	set_target_properties("ui-library"          PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+	set_target_properties("ui-library-pic"      PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("generate-wavs"       PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("matsuri-clap"        PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("matsuri-lv2"         PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)

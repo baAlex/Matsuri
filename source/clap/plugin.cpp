@@ -19,31 +19,33 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 
 #include "clap/clap.h" // IWYU pragma: keep
 
+extern "C"
+{
 #include "../misc.h"
 #include "../version.h"
 #include "../voice-allocator.h"
-
+}
 
 #define UNNECESSARY_PRINTS 1
 
-static const clap_plugin_descriptor_t s_descriptor = {
-    .clap_version = CLAP_VERSION_INIT,
-    .id = MATSURI_URI,
-    .name = MATSURI_NAME,
-    .vendor = MATSURI_VENDOR,
-    .url = MATSURI_URL,
-    .manual_url = MATSURI_URL,
-    .support_url = MATSURI_URL,
-    .version = MATSURI_VERSION_STRING,
-    .description = MATSURI_DESCRIPTION,
+static const char* const s_features[] = {
+    CLAP_PLUGIN_FEATURE_INSTRUMENT,
+    CLAP_PLUGIN_FEATURE_DRUM_MACHINE,
+    CLAP_PLUGIN_FEATURE_STEREO,
+    nullptr,
+};
 
-    .features =
-        (const char*[]){
-            CLAP_PLUGIN_FEATURE_INSTRUMENT,
-            CLAP_PLUGIN_FEATURE_DRUM_MACHINE,
-            CLAP_PLUGIN_FEATURE_STEREO,
-            NULL,
-        },
+static const clap_plugin_descriptor s_descriptor = {
+    /* .clap_version */ CLAP_VERSION_INIT,
+    /* .id */ MATSURI_URI,
+    /* .name */ MATSURI_NAME,
+    /* .vendor */ MATSURI_VENDOR,
+    /* .url */ MATSURI_URL,
+    /* .manual_url */ MATSURI_URL,
+    /* .support_url */ MATSURI_URL,
+    /* .version */ MATSURI_VERSION_STRING,
+    /* .description */ MATSURI_DESCRIPTION,
+    /* .features */ s_features,
 };
 
 
@@ -76,7 +78,7 @@ struct ParameterInfo
 	const char* unit;
 };
 
-static const struct ParameterInfo s_parameters_info[PARAMETERS_NO] = {
+static const ParameterInfo s_parameters_info[PARAMETERS_NO] = {
     {"Volume", "Bass drum", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
     {"Volume", "Snare drum", 100.0f, 0.0f, 100.0f, 655.36f, "%"},
     {"Volume", "Closed hi-hat", 65.0f, 0.0f, 100.0f, 655.36f, "%"},
@@ -95,12 +97,12 @@ static const struct ParameterInfo s_parameters_info[PARAMETERS_NO] = {
 
 struct MatsuriPlugin
 {
-	clap_plugin_t plugin;
-	const clap_host_t* host;
-	const clap_host_log_t* host_log;
+	clap_plugin plugin;
+	const clap_host* host;
+	const clap_host_log* host_log;
 
 	float sampling_frequency;
-	struct VoiceAllocator allocator;
+	VoiceAllocator allocator;
 
 	atomic_int parameters_changed_offline;
 	atomic_int parameter[PARAMETERS_NO];
@@ -108,18 +110,22 @@ struct MatsuriPlugin
 
 
 static int sFloatToFixed(float v, float conversion)
-{ return (int)(v * conversion); }
+{
+	return static_cast<int>(v * conversion);
+}
 
 static float sFixedToFloat(int v, float conversion)
-{ return (float)(v) / conversion; }
+{
+	return static_cast<float>(v) / conversion;
+}
 
-static float sParameter(const struct MatsuriPlugin* plugin, int index)
+static float sParameter(const MatsuriPlugin* plugin, int index)
 {
 	return sFixedToFloat(plugin->parameter[index], s_parameters_info[index].fixed_conversion) /
 	       s_parameters_info[index].max_value;
 }
 
-static float sVolumeParameter(const struct MatsuriPlugin* plugin, int index)
+static float sVolumeParameter(const MatsuriPlugin* plugin, int index)
 {
 	return ExponentialVolumeEasing(                                                          //
 	    sFixedToFloat(plugin->parameter[index], s_parameters_info[index].fixed_conversion) / //
@@ -131,17 +137,13 @@ static float sVolumeParameter(const struct MatsuriPlugin* plugin, int index)
 // clap_plugin_audio_ports //
 /////////////////////////////
 
-static uint32_t sPluginAudioPortsNo(const clap_plugin_t* plugin, bool is_input)
+static uint32_t sPluginAudioPortsNo(const clap_plugin*, bool is_input)
 {
-	(void)plugin;
 	return (is_input == true) ? 0 : 1;
 }
 
-static bool sPluginAudioPortsGet(const clap_plugin_t* plugin, uint32_t index, bool is_input,
-                                 clap_audio_port_info_t* info)
+static bool sPluginAudioPortsGet(const clap_plugin*, uint32_t index, bool is_input, clap_audio_port_info* info)
 {
-	(void)plugin;
-
 	if (is_input == true || index != 0)
 		return false;
 
@@ -156,9 +158,9 @@ static bool sPluginAudioPortsGet(const clap_plugin_t* plugin, uint32_t index, bo
 	return true;
 }
 
-static const clap_plugin_audio_ports_t s_plugin_audio_ports_extensions = {
-    .count = sPluginAudioPortsNo,
-    .get = sPluginAudioPortsGet,
+static const clap_plugin_audio_ports s_plugin_audio_ports_extensions = {
+    /* .count */ sPluginAudioPortsNo,
+    /* .get */ sPluginAudioPortsGet,
 };
 
 
@@ -166,16 +168,13 @@ static const clap_plugin_audio_ports_t s_plugin_audio_ports_extensions = {
 // clap_plugin_note_ports //
 ////////////////////////////
 
-static uint32_t sPluginNotePortsNo(const clap_plugin_t* plugin, bool is_input)
+static uint32_t sPluginNotePortsNo(const clap_plugin*, bool is_input)
 {
-	(void)plugin;
 	return (is_input == true) ? 1 : 0;
 }
 
-static bool sPluginNotePortsGet(const clap_plugin_t* plugin, uint32_t index, bool is_input, clap_note_port_info_t* info)
+static bool sPluginNotePortsGet(const clap_plugin*, uint32_t index, bool is_input, clap_note_port_info* info)
 {
-	(void)plugin;
-
 	if (is_input == false || index != 0)
 		return false;
 
@@ -194,9 +193,9 @@ static bool sPluginNotePortsGet(const clap_plugin_t* plugin, uint32_t index, boo
 	return true;
 }
 
-static const clap_plugin_note_ports_t s_plugin_note_ports_extensions = {
-    .count = sPluginNotePortsNo,
-    .get = sPluginNotePortsGet,
+static const clap_plugin_note_ports s_plugin_note_ports_extensions = {
+    /* .count */ sPluginNotePortsNo,
+    /* .get */ sPluginNotePortsGet,
 };
 
 
@@ -204,19 +203,16 @@ static const clap_plugin_note_ports_t s_plugin_note_ports_extensions = {
 // clap_plugin_parameters //
 ////////////////////////////
 
-static uint32_t sPluginParametersNo(const clap_plugin_t* plugin)
+static uint32_t sPluginParametersNo(const clap_plugin*)
 {
-	(void)plugin;
 	return PARAMETERS_NO;
 }
 
-static bool sPluginParametersInfo(const clap_plugin_t* plugin, uint32_t index, clap_param_info_t* out)
+static bool sPluginParametersInfo(const clap_plugin*, uint32_t index, clap_param_info* out)
 {
-	(void)plugin;
-
 	if (index < PARAMETERS_NO)
 	{
-		memset(out, 0, sizeof(clap_param_info_t));
+		memset(out, 0, sizeof(clap_param_info));
 		out->id = index;
 
 		// Without CLAP_PARAM_REQUIRES_PROCESS, Zrythm rejects it
@@ -234,10 +230,10 @@ static bool sPluginParametersInfo(const clap_plugin_t* plugin, uint32_t index, c
 	return false;
 }
 
-static bool sPluginParametersValue(const clap_plugin_t* plugin_, clap_id id, double* value)
+static bool sPluginParametersValue(const clap_plugin* plugin_, clap_id id, double* value)
 {
-	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
-	const uint32_t index = (uint32_t)id;
+	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
+	uint32_t index = (uint32_t)(id);
 
 	if (index < PARAMETERS_NO)
 	{
@@ -248,11 +244,9 @@ static bool sPluginParametersValue(const clap_plugin_t* plugin_, clap_id id, dou
 	return false;
 }
 
-static bool sPluginParametersValueToText(const clap_plugin_t* plugin, clap_id id, double value, char* display,
-                                         uint32_t size)
+static bool sPluginParametersValueToText(const clap_plugin*, clap_id id, double value, char* display, uint32_t size)
 {
-	(void)plugin;
-	const uint32_t index = (uint32_t)id;
+	uint32_t index = (uint32_t)(id);
 
 	if (index < PARAMETERS_NO)
 	{
@@ -267,51 +261,45 @@ static bool sPluginParametersValueToText(const clap_plugin_t* plugin, clap_id id
 	return false;
 }
 
-static bool sPluginParametersTextToValue(const clap_plugin_t* plugin, clap_id id, const char* display, double* value)
+static bool sPluginParametersTextToValue(const clap_plugin*, clap_id, const char*, double*)
 {
-	(void)plugin;
-	(void)id;
-	(void)display;
-	(void)value;
 	return false; // TODO, it's important, user may enter values using the keyboard
 }
 
-static void sPluginParametersFlush(const clap_plugin_t* plugin_, const clap_input_events_t* in,
-                                   const clap_output_events_t* out)
+static void sPluginParametersFlush(const clap_plugin* plugin_, const clap_input_events* in, const clap_output_events*)
 {
-	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
-	(void)out;
+	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
 
 #ifdef UNNECESSARY_PRINTS
-	if (plugin->host_log != NULL)
+	if (plugin->host_log != nullptr)
 		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: sPluginParametersFlush()");
 #endif
 
 	for (uint32_t event_index = 0; event_index < in->size(in); event_index += 1)
 	{
-		const clap_event_header_t* event = in->get(in, event_index);
+		const clap_event_header* event = in->get(in, event_index);
 		if (event->space_id != CLAP_CORE_EVENT_SPACE_ID || event->type != CLAP_EVENT_PARAM_VALUE)
 			continue;
 
-		const clap_event_param_value_t* param_event = (const clap_event_param_value_t*)(in->get(in, event_index));
-		const uint32_t index = (uint32_t)param_event->param_id;
+		const clap_event_param_value* param_event = (const clap_event_param_value*)(in->get(in, event_index));
+		const uint32_t index = (uint32_t)(param_event->param_id);
 
 		if (index < PARAMETERS_NO)
 		{
 			plugin->parameter[index] =
-			    sFloatToFixed((float)(param_event->value), s_parameters_info[index].fixed_conversion);
+			    sFloatToFixed(static_cast<float>(param_event->value), s_parameters_info[index].fixed_conversion);
 			plugin->parameters_changed_offline = 1;
 		}
 	}
 }
 
-static const clap_plugin_params_t s_plugin_parameters_extensions = {
-    .count = sPluginParametersNo,
-    .get_info = sPluginParametersInfo,
-    .get_value = sPluginParametersValue,
-    .value_to_text = sPluginParametersValueToText,
-    .text_to_value = sPluginParametersTextToValue,
-    .flush = sPluginParametersFlush,
+static const clap_plugin_params s_plugin_parameters_extensions = {
+    /* .count */ sPluginParametersNo,
+    /* .get_info */ sPluginParametersInfo,
+    /* .get_value */ sPluginParametersValue,
+    /* .value_to_text */ sPluginParametersValueToText,
+    /* .text_to_value */ sPluginParametersTextToValue,
+    /* .flush */ sPluginParametersFlush,
 };
 
 
@@ -319,12 +307,12 @@ static const clap_plugin_params_t s_plugin_parameters_extensions = {
 // clap_state //
 ////////////////
 
-static bool sPluginStateSave(const clap_plugin_t* plugin_, const clap_ostream_t* stream)
+static bool sPluginStateSave(const clap_plugin* plugin_, const clap_ostream* stream)
 {
-	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
+	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
 
 #ifdef UNNECESSARY_PRINTS
-	if (plugin->host_log != NULL)
+	if (plugin->host_log != nullptr)
 		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: sPluginStateSave()");
 #endif
 
@@ -337,7 +325,7 @@ static bool sPluginStateSave(const clap_plugin_t* plugin_, const clap_ostream_t*
 	const int version = MATSURI_VERSION_MAJOR;
 	if (stream->write(stream, &version, sizeof(int)) != sizeof(int))
 	{
-		if (plugin->host_log != NULL)
+		if (plugin->host_log != nullptr)
 			plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Host error writing state/preset\n");
 		return false;
 	}
@@ -347,7 +335,7 @@ static bool sPluginStateSave(const clap_plugin_t* plugin_, const clap_ostream_t*
 	{
 		if (stream->write(stream, &p[i], sizeof(int)) != sizeof(int))
 		{
-			if (plugin->host_log != NULL)
+			if (plugin->host_log != nullptr)
 				plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Host error writing state/preset\n");
 			return false;
 		}
@@ -357,12 +345,12 @@ static bool sPluginStateSave(const clap_plugin_t* plugin_, const clap_ostream_t*
 	return true;
 }
 
-static bool sPluginStateLoad(const clap_plugin_t* plugin_, const clap_istream_t* stream)
+static bool sPluginStateLoad(const clap_plugin* plugin_, const clap_istream* stream)
 {
-	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
+	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
 
 #ifdef UNNECESSARY_PRINTS
-	if (plugin->host_log != NULL)
+	if (plugin->host_log != nullptr)
 		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: sPluginStateLoad()");
 #endif
 
@@ -372,14 +360,14 @@ static bool sPluginStateLoad(const clap_plugin_t* plugin_, const clap_istream_t*
 	int version;
 	if (stream->read(stream, &version, sizeof(int)) != sizeof(int))
 	{
-		if (plugin->host_log != NULL)
+		if (plugin->host_log != nullptr)
 			plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Host error reading state/preset\n");
 		return false;
 	}
 
 	if (version != MATSURI_VERSION_MAJOR) // There isn't old versions yet
 	{
-		if (plugin->host_log != NULL)
+		if (plugin->host_log != nullptr)
 			plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Unknown state/preset version\n");
 		return false;
 	}
@@ -389,7 +377,7 @@ static bool sPluginStateLoad(const clap_plugin_t* plugin_, const clap_istream_t*
 	{
 		if (stream->read(stream, &p[i], sizeof(int)) != sizeof(int))
 		{
-			if (plugin->host_log != NULL)
+			if (plugin->host_log != nullptr)
 				plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Host error reading state/preset\n");
 			return false;
 		}
@@ -402,9 +390,147 @@ static bool sPluginStateLoad(const clap_plugin_t* plugin_, const clap_istream_t*
 	return true;
 }
 
-static const clap_plugin_state_t s_plugin_state_extension = {
-    .save = sPluginStateSave,
-    .load = sPluginStateLoad,
+static const clap_plugin_state s_plugin_state_extension = {
+    /* .save */ sPluginStateSave,
+    /* .load */ sPluginStateLoad,
+};
+
+
+//////////////
+// clap_gui //
+//////////////
+
+// https://nakst.gitlab.io/tutorial/clap-part-3.html
+
+#define GUI_API CLAP_WINDOW_API_X11
+
+static bool sPluginIsAPISupported(const clap_plugin*, const char* api, bool is_floating)
+{
+	if (strcmp(api, GUI_API) == 0 && is_floating == false)
+		return true;
+
+	return false;
+}
+
+static bool sGetPreferredApi(const clap_plugin*, const char** api, bool* is_floating)
+{
+	*api = GUI_API;
+	*is_floating = false;
+	return true;
+}
+
+static bool sCreate(const clap_plugin* plugin_, const char* api, bool is_floating)
+{
+	if (sPluginIsAPISupported(plugin_, api, is_floating) == false)
+		return false;
+	// We'll define GUICreate in our platform specific code file.
+	// GUICreate((MyPlugin*)plugin_->plugin_data);
+	return true;
+}
+
+static void sDestroy(const clap_plugin* plugin_)
+{
+	(void)plugin_;
+	// We'll define GUIDestroy in our platform specific code file.
+	// GUIDestroy((MyPlugin*)plugin_->plugin_data);
+}
+
+static bool sSetScale(const clap_plugin* plugin_, double scale)
+{
+	(void)plugin_;
+	(void)scale;
+	return false;
+}
+
+static bool sGetSize(const clap_plugin* plugin_, uint32_t* width, uint32_t* height)
+{
+	(void)plugin_;
+	*width = 640;
+	*height = 480;
+	return true;
+}
+
+static bool sCanResize(const clap_plugin* plugin_)
+{
+	(void)plugin_;
+	return false;
+}
+
+static bool sGetResizeHints(const clap_plugin* plugin_, clap_gui_resize_hints* hints)
+{
+	(void)plugin_;
+	(void)hints;
+	return false;
+}
+
+static bool sAdjustSize(const clap_plugin* plugin_, uint32_t* width, uint32_t* height)
+{
+	return sGetSize(plugin_, width, height);
+}
+
+static bool sSetSize(const clap_plugin* plugin_, uint32_t width, uint32_t height)
+{
+	(void)plugin_;
+	(void)width;
+	(void)height;
+	return true;
+}
+
+static bool sSetParent(const clap_plugin* plugin_, const clap_window* window)
+{
+	assert(strcmp(window->api, GUI_API) == 0);
+	(void)plugin_;
+	// We'll define GUISetParent in our platform specific code file.
+	// GUISetParent((MyPlugin*)plugin_->plugin_data, window);
+	return true;
+}
+
+static bool sSetTransient(const clap_plugin* plugin_, const clap_window* window)
+{
+	(void)plugin_;
+	(void)window;
+	return false;
+}
+
+static void sSuggestTitle(const clap_plugin* plugin_, const char* title)
+{
+	(void)plugin_;
+	(void)title;
+}
+
+static bool sShow(const clap_plugin* plugin_)
+{
+	(void)plugin_;
+
+	// We'll define GUISetVisible in our platform specific code file.
+	// GUISetVisible((MyPlugin*)plugin_->plugin_data, true);
+	return true;
+}
+
+static bool sHide(const clap_plugin* plugin_)
+{
+	(void)plugin_;
+
+	// GUISetVisible((MyPlugin*)plugin_->plugin_data, false);
+	return true;
+}
+
+static const clap_plugin_gui s_plugin_gui_extension = {
+    /* .is_api_supported */ sPluginIsAPISupported,
+    /* .get_preferred_api */ sGetPreferredApi,
+    /* .create */ sCreate,
+    /* .destroy */ sDestroy,
+    /* .set_scale */ sSetScale,
+    /* .get_size */ sGetSize,
+    /* .can_resize */ sCanResize,
+    /* .get_resize_hints */ sGetResizeHints,
+    /* .adjust_size */ sAdjustSize,
+    /* .set_size */ sSetSize,
+    /* .set_parent */ sSetParent,
+    /* .set_transient */ sSetTransient,
+    /* .suggest_title */ sSuggestTitle,
+    /* .show */ sShow,
+    /* .hide */ sHide,
 };
 
 
@@ -412,14 +538,14 @@ static const clap_plugin_state_t s_plugin_state_extension = {
 // clap_plugin //
 /////////////////
 
-static bool sPluginInitialise(const struct clap_plugin* plugin_)
+static bool sPluginInitialise(const clap_plugin* plugin_)
 {
-	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
+	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
 
-	plugin->host_log = (const clap_host_log_t*)(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
+	plugin->host_log = (const clap_host_log*)(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
 
 #ifdef UNNECESSARY_PRINTS
-	if (plugin->host_log != NULL)
+	if (plugin->host_log != nullptr)
 		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: sPluginInitialise()");
 #endif
 
@@ -434,74 +560,68 @@ static bool sPluginInitialise(const struct clap_plugin* plugin_)
 	return true;
 }
 
-static void sPluginDestroy(const struct clap_plugin* plugin_)
+static void sPluginDestroy(const clap_plugin* plugin_)
 {
-	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
+	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
 	free(plugin);
 }
 
-static bool sPluginActivate(const struct clap_plugin* plugin_, double sampling_frequency, uint32_t minimum_frames_count,
-                            uint32_t maximum_frames_count)
+static bool sPluginActivate(const clap_plugin* plugin_, double sampling_frequency, uint32_t, uint32_t)
 {
-	(void)minimum_frames_count;
-	(void)maximum_frames_count;
-
-	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
-	plugin->sampling_frequency = (float)(sampling_frequency);
+	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
+	plugin->sampling_frequency = static_cast<float>(sampling_frequency);
 	VoiceAllocatorSet(&plugin->allocator, plugin->sampling_frequency, MAX_MAX_ITEMS);
 	// TODO, should I set parameters again?, like in Initialise()???
 
-	plugin->host_log = (const clap_host_log_t*)(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
+	plugin->host_log = (const clap_host_log*)(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
 
 #ifdef UNNECESSARY_PRINTS
-	if (plugin->host_log != NULL)
+	if (plugin->host_log != nullptr)
 		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: sPluginActivate()");
 #endif
 
 	return true;
 }
 
-static void sPluginDeactivate(const struct clap_plugin* plugin_)
-{ (void)plugin_; }
+static void sPluginDeactivate(const clap_plugin*) {}
 
-static bool sPluginStartProcessing(const struct clap_plugin* plugin_)
+static bool sPluginStartProcessing(const clap_plugin*)
 {
-	(void)plugin_;
 	return true;
 }
 
-static void sPluginStopProcessing(const struct clap_plugin* plugin_)
-{ (void)plugin_; }
+static void sPluginStopProcessing(const clap_plugin*) {}
 
-static void sPluginReset(const struct clap_plugin* plugin_)
+static void sPluginReset(const clap_plugin* plugin_)
 {
-	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
+	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
 	VoiceAllocatorSet(&plugin->allocator, plugin->sampling_frequency, MAX_MAX_ITEMS);
 	// TODO, should I set parameters again?, like in Initialise()???
 
-	plugin->host_log = (const clap_host_log_t*)(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
+	plugin->host_log = (const clap_host_log*)(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
 
 #ifdef UNNECESSARY_PRINTS
-	if (plugin->host_log != NULL)
+	if (plugin->host_log != nullptr)
 		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: sPluginReset()");
 #endif
 }
 
-static void sPluginProcessEvent(struct MatsuriPlugin* plugin, const clap_event_header_t* event)
+static void sPluginProcessEvent(MatsuriPlugin* plugin, const clap_event_header* event)
 {
 	if (event->type == CLAP_EVENT_NOTE_ON)
 	{
-		const clap_event_note_t* note_on_event = (const clap_event_note_t*)(event);
+		const clap_event_note* note_on_event = (const clap_event_note*)(event);
 
 		const int byte0 = note_on_event->channel | (9 << 4); // 'channel' is the same as MIDI
 		const int byte1 = note_on_event->key;                // 'key' same as MIDI
-		const int byte2 = (int)(MaxF(MinF((float)(note_on_event->velocity), 1.0f) * 127.0f, 1.0f));
+		const int byte2 =
+		    static_cast<int>(MaxF(MinF(static_cast<float>(note_on_event->velocity), 1.0f) * 127.0f, 1.0f));
 
 		VoiceAllocatorMidi(&plugin->allocator, byte0, byte1, byte2);
 	}
 	else if (event->type == CLAP_EVENT_MIDI)
 	{
-		const clap_event_midi_t* midi_event = (const clap_event_midi_t*)(event);
+		const clap_event_midi* midi_event = (const clap_event_midi*)(event);
 
 		const int byte0 = midi_event->data[0];
 		const int byte1 = midi_event->data[1];
@@ -511,15 +631,15 @@ static void sPluginProcessEvent(struct MatsuriPlugin* plugin, const clap_event_h
 	}
 	else if (event->type == CLAP_EVENT_PARAM_VALUE)
 	{
-		const clap_event_param_value_t* param_event = (const clap_event_param_value_t*)(event);
-		const uint32_t index = (uint32_t)param_event->param_id;
+		const clap_event_param_value* param_event = (const clap_event_param_value*)(event);
+		const uint32_t index = (uint32_t)(param_event->param_id);
 
 		if (index >= PARAMETERS_NO)
 			return;
 
 		// Keep parameter value around
 		plugin->parameter[index] =
-		    sFloatToFixed((float)(param_event->value), s_parameters_info[index].fixed_conversion);
+		    sFloatToFixed(static_cast<float>(param_event->value), s_parameters_info[index].fixed_conversion);
 
 		// Handle special cases
 		if (index == PARAMETER_VELOCITY_VOLUME_MODULATION || index == PARAMETER_VELOCITY_TONE_MODULATION ||
@@ -527,16 +647,17 @@ static void sPluginProcessEvent(struct MatsuriPlugin* plugin, const clap_event_h
 		    index == PARAMETER_MASTER_VOLUME)
 		{
 			VoiceAllocatorConfigure(&plugin->allocator,
-			                        sParameter(plugin, (int)(PARAMETER_VELOCITY_VOLUME_MODULATION)), //
-			                        sParameter(plugin, (int)(PARAMETER_VELOCITY_TONE_MODULATION)),   //
-			                        sParameter(plugin, (int)(PARAMETER_VELOCITY_REFERENCE)),         //
-			                        sParameter(plugin, (int)(PARAMETER_LIMITER_DECAY)),              //
-			                        sVolumeParameter(plugin, (int)(PARAMETER_MASTER_VOLUME)));
+			                        sParameter(plugin, static_cast<int>(PARAMETER_VELOCITY_VOLUME_MODULATION)), //
+			                        sParameter(plugin, static_cast<int>(PARAMETER_VELOCITY_TONE_MODULATION)),   //
+			                        sParameter(plugin, static_cast<int>(PARAMETER_VELOCITY_REFERENCE)),         //
+			                        sParameter(plugin, static_cast<int>(PARAMETER_LIMITER_DECAY)),              //
+			                        sVolumeParameter(plugin, static_cast<int>(PARAMETER_MASTER_VOLUME)));
 			return; // Nothing more to do
 		}
 
 		// Handle volume parameters
-		const float v = ExponentialVolumeEasing(((float)(param_event->value) / s_parameters_info[index].max_value));
+		const float v =
+		    ExponentialVolumeEasing((static_cast<float>(param_event->value) / s_parameters_info[index].max_value));
 
 		switch (index)
 		{
@@ -552,9 +673,9 @@ static void sPluginProcessEvent(struct MatsuriPlugin* plugin, const clap_event_h
 	}
 }
 
-static clap_process_status sPluginProcess(const struct clap_plugin* plugin_, const clap_process_t* process)
+static clap_process_status sPluginProcess(const clap_plugin* plugin_, const clap_process* process)
 {
-	struct MatsuriPlugin* plugin = (struct MatsuriPlugin*)(plugin_->plugin_data);
+	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
 
 	assert(process->audio_outputs_count == 1);
 	assert(process->audio_inputs_count == 0);
@@ -568,33 +689,34 @@ static clap_process_status sPluginProcess(const struct clap_plugin* plugin_, con
 	{
 		plugin->parameters_changed_offline = 0;
 
-		VoiceAllocatorConfigure(&plugin->allocator, sParameter(plugin, (int)(PARAMETER_VELOCITY_VOLUME_MODULATION)), //
-		                        sParameter(plugin, (int)(PARAMETER_VELOCITY_TONE_MODULATION)),                       //
-		                        sParameter(plugin, (int)(PARAMETER_VELOCITY_REFERENCE)),                             //
-		                        sParameter(plugin, (int)(PARAMETER_LIMITER_DECAY)),                                  //
-		                        sVolumeParameter(plugin, (int)(PARAMETER_MASTER_VOLUME)));
+		VoiceAllocatorConfigure(&plugin->allocator,
+		                        sParameter(plugin, static_cast<int>(PARAMETER_VELOCITY_VOLUME_MODULATION)), //
+		                        sParameter(plugin, static_cast<int>(PARAMETER_VELOCITY_TONE_MODULATION)),   //
+		                        sParameter(plugin, static_cast<int>(PARAMETER_VELOCITY_REFERENCE)),         //
+		                        sParameter(plugin, static_cast<int>(PARAMETER_LIMITER_DECAY)),              //
+		                        sVolumeParameter(plugin, static_cast<int>(PARAMETER_MASTER_VOLUME)));
 
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_KICK,
-		                             sVolumeParameter(plugin, (int)(PARAMETER_KICK_VOLUME)));
+		                             sVolumeParameter(plugin, static_cast<int>(PARAMETER_KICK_VOLUME)));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_SNARE,
-		                             sVolumeParameter(plugin, (int)(PARAMETER_SNARE_VOLUME)));
+		                             sVolumeParameter(plugin, static_cast<int>(PARAMETER_SNARE_VOLUME)));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CLOSED_HAT,
-		                             sVolumeParameter(plugin, (int)(PARAMETER_CLOSED_HAT_VOLUME)));
+		                             sVolumeParameter(plugin, static_cast<int>(PARAMETER_CLOSED_HAT_VOLUME)));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_OPEN_HAT,
-		                             sVolumeParameter(plugin, (int)(PARAMETER_OPEN_HAT_VOLUME)));
+		                             sVolumeParameter(plugin, static_cast<int>(PARAMETER_OPEN_HAT_VOLUME)));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_CYMBAL,
-		                             sVolumeParameter(plugin, (int)(PARAMETER_CYMBAL_VOLUME)));
+		                             sVolumeParameter(plugin, static_cast<int>(PARAMETER_CYMBAL_VOLUME)));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_LOW_TOM,
-		                             sVolumeParameter(plugin, (int)(PARAMETER_LOW_TOM_VOLUME)));
+		                             sVolumeParameter(plugin, static_cast<int>(PARAMETER_LOW_TOM_VOLUME)));
 		VoiceAllocatorConfigureVoice(&plugin->allocator, TYPE_HIGH_TOM,
-		                             sVolumeParameter(plugin, (int)(PARAMETER_HIGH_TOM_VOLUME)));
+		                             sVolumeParameter(plugin, static_cast<int>(PARAMETER_HIGH_TOM_VOLUME)));
 	}
 
 	for (uint32_t f = 0; f < frames;)
 	{
 		while (event_index < input_events && next_event_frame == f)
 		{
-			const clap_event_header_t* event = process->in_events->get(process->in_events, event_index);
+			const clap_event_header* event = process->in_events->get(process->in_events, event_index);
 
 			if (event->time != f)
 			{
@@ -627,9 +749,8 @@ static clap_process_status sPluginProcess(const struct clap_plugin* plugin_, con
 	return CLAP_PROCESS_CONTINUE;
 }
 
-static const void* sPluginGetExtension(const struct clap_plugin* plugin, const char* id)
+static const void* sPluginGetExtension(const clap_plugin*, const char* id)
 {
-	(void)plugin;
 	if (strcmp(id, CLAP_EXT_NOTE_PORTS) == 0)
 		return &s_plugin_note_ports_extensions;
 	if (strcmp(id, CLAP_EXT_AUDIO_PORTS) == 0)
@@ -638,38 +759,36 @@ static const void* sPluginGetExtension(const struct clap_plugin* plugin, const c
 		return &s_plugin_parameters_extensions;
 	if (strcmp(id, CLAP_EXT_STATE) == 0)
 		return &s_plugin_state_extension;
-	return NULL;
+	if (strcmp(id, CLAP_EXT_GUI) == 0)
+		return &s_plugin_gui_extension;
+	return nullptr;
 }
 
-static void sPluginOnMainThread(const struct clap_plugin* plugin_)
-{ (void)plugin_; }
+static void sPluginOnMainThread(const clap_plugin*) {}
 
-static const clap_plugin_t s_plugin_class = {
-    .desc = &s_descriptor,
-    .plugin_data = NULL,
-    .init = sPluginInitialise,
-    .destroy = sPluginDestroy,
-    .activate = sPluginActivate,
-    .deactivate = sPluginDeactivate,
-    .start_processing = sPluginStartProcessing,
-    .stop_processing = sPluginStopProcessing,
-    .reset = sPluginReset,
-    .process = sPluginProcess,
-    .get_extension = sPluginGetExtension,
-    .on_main_thread = sPluginOnMainThread,
+static const clap_plugin s_plugin_class = {
+    /* .desc */ &s_descriptor,
+    /* .plugin_data */ nullptr,
+    /* .init */ sPluginInitialise,
+    /* .destroy */ sPluginDestroy,
+    /* .activate */ sPluginActivate,
+    /* .deactivate */ sPluginDeactivate,
+    /* .start_processing */ sPluginStartProcessing,
+    /* .stop_processing */ sPluginStopProcessing,
+    /* .reset */ sPluginReset,
+    /* .process */ sPluginProcess,
+    /* .get_extension */ sPluginGetExtension,
+    /* .on_main_thread */ sPluginOnMainThread,
 };
 
-static const clap_plugin_t* sPluginCreate(const struct clap_plugin_factory* factory, const clap_host_t* host,
-                                          const char* plugin_id)
+static const clap_plugin* sPluginCreate(const clap_plugin_factory*, const clap_host* host, const char* plugin_id)
 {
-	(void)factory;
-
 	if (clap_version_is_compatible(host->clap_version) == false || strcmp(plugin_id, s_descriptor.id) != 0)
-		return NULL;
+		return nullptr;
 
-	struct MatsuriPlugin* plugin = calloc(1, sizeof(struct MatsuriPlugin));
-	if (plugin == NULL)
-		return NULL;
+	MatsuriPlugin* plugin = (MatsuriPlugin*)(calloc(1, sizeof(MatsuriPlugin)));
+	if (plugin == nullptr)
+		return nullptr;
 
 	plugin->host = host;
 	plugin->plugin = s_plugin_class;
@@ -682,22 +801,20 @@ static const clap_plugin_t* sPluginCreate(const struct clap_plugin_factory* fact
 // clap_plugin_factory //
 /////////////////////////
 
-static uint32_t sFactoryPluginsNo(const struct clap_plugin_factory* factory)
+static uint32_t sFactoryPluginsNo(const clap_plugin_factory*)
 {
-	(void)factory;
 	return 1;
 }
 
-static const clap_plugin_descriptor_t* sFactoryGetDescriptor(const struct clap_plugin_factory* factory, uint32_t index)
+static const clap_plugin_descriptor* sFactoryGetDescriptor(const clap_plugin_factory*, uint32_t index)
 {
-	(void)factory;
-	return (index == 0) ? &s_descriptor : NULL;
+	return (index == 0) ? &s_descriptor : nullptr;
 }
 
-static const clap_plugin_factory_t s_factory = {
-    .get_plugin_count = sFactoryPluginsNo,
-    .get_plugin_descriptor = sFactoryGetDescriptor,
-    .create_plugin = sPluginCreate,
+static const clap_plugin_factory s_factory = {
+    /* get_plugin_count */ sFactoryPluginsNo,
+    /* get_plugin_descriptor */ sFactoryGetDescriptor,
+    /* create_plugin */ sPluginCreate,
 };
 
 
@@ -705,22 +822,26 @@ static const clap_plugin_factory_t s_factory = {
 // clap_entry //
 ////////////////
 
-static bool sEntryInitialisation(const char* path)
+static bool sEntryInitialisation(const char*)
 {
-	(void)path;
 	return true;
 }
 
 static void sEntryDeinitialisation(void) {}
 
 static const void* sEntryGetFactory(const char* factory_id)
-{ return (strcmp(factory_id, CLAP_PLUGIN_FACTORY_ID) == 0) ? &s_factory : NULL; }
+{
+	return (strcmp(factory_id, CLAP_PLUGIN_FACTORY_ID) == 0) ? &s_factory : nullptr;
+}
 
-EXPORT const clap_plugin_entry_t clap_entry = {
-    .clap_version = CLAP_VERSION_INIT,
-    .init = sEntryInitialisation,
-    .deinit = sEntryDeinitialisation,
-    .get_factory = sEntryGetFactory,
-};
+extern "C"
+{
+	EXPORT const clap_plugin_entry clap_entry = {
+	    /* .clap_version */ CLAP_VERSION_INIT,
+	    /* .init */ sEntryInitialisation,
+	    /* .deinit */ sEntryDeinitialisation,
+	    /* .get_factory */ sEntryGetFactory,
+	};
 
-EXPORT const char* copyright = MATSURI_COPYRIGHT;
+	EXPORT const char* copyright = MATSURI_COPYRIGHT;
+}
