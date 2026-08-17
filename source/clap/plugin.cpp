@@ -10,13 +10,12 @@ If a copy of the CDDL was not distributed with this file, You
 can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
-#include <assert.h>
 #include <stdatomic.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "../ui/ui.hpp"
 #include "clap/clap.h" // IWYU pragma: keep
 
 extern "C"
@@ -106,6 +105,14 @@ struct MatsuriPlugin
 
 	atomic_int parameters_changed_offline;
 	atomic_int parameter[PARAMETERS_NO];
+
+	Ui ui;
+	atomic_int ui_window_width;
+	atomic_int ui_window_height;
+
+#ifdef MATSURI_UI_X11
+	const clap_host_posix_fd_support* posix_fd;
+#endif
 };
 
 
@@ -232,12 +239,12 @@ static bool sPluginParametersInfo(const clap_plugin*, uint32_t index, clap_param
 
 static bool sPluginParametersValue(const clap_plugin* plugin_, clap_id id, double* value)
 {
-	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
-	uint32_t index = (uint32_t)(id);
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	uint32_t index = static_cast<uint32_t>(id);
 
 	if (index < PARAMETERS_NO)
 	{
-		*value = (double)(sFixedToFloat(plugin->parameter[index], s_parameters_info[index].fixed_conversion));
+		*value = static_cast<double>(sFixedToFloat(plugin->parameter[index], s_parameters_info[index].fixed_conversion));
 		return true;
 	}
 
@@ -246,7 +253,7 @@ static bool sPluginParametersValue(const clap_plugin* plugin_, clap_id id, doubl
 
 static bool sPluginParametersValueToText(const clap_plugin*, clap_id id, double value, char* display, uint32_t size)
 {
-	uint32_t index = (uint32_t)(id);
+	uint32_t index = static_cast<uint32_t>(id);
 
 	if (index < PARAMETERS_NO)
 	{
@@ -268,7 +275,7 @@ static bool sPluginParametersTextToValue(const clap_plugin*, clap_id, const char
 
 static void sPluginParametersFlush(const clap_plugin* plugin_, const clap_input_events* in, const clap_output_events*)
 {
-	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 #ifdef UNNECESSARY_PRINTS
 	if (plugin->host_log != nullptr)
@@ -281,8 +288,9 @@ static void sPluginParametersFlush(const clap_plugin* plugin_, const clap_input_
 		if (event->space_id != CLAP_CORE_EVENT_SPACE_ID || event->type != CLAP_EVENT_PARAM_VALUE)
 			continue;
 
-		const clap_event_param_value* param_event = (const clap_event_param_value*)(in->get(in, event_index));
-		const uint32_t index = (uint32_t)(param_event->param_id);
+		const clap_event_param_value* param_event =
+		    reinterpret_cast<const clap_event_param_value*>(in->get(in, event_index));
+		const uint32_t index = static_cast<uint32_t>(param_event->param_id);
 
 		if (index < PARAMETERS_NO)
 		{
@@ -309,7 +317,7 @@ static const clap_plugin_params s_plugin_parameters_extensions = {
 
 static bool sPluginStateSave(const clap_plugin* plugin_, const clap_ostream* stream)
 {
-	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 #ifdef UNNECESSARY_PRINTS
 	if (plugin->host_log != nullptr)
@@ -347,7 +355,7 @@ static bool sPluginStateSave(const clap_plugin* plugin_, const clap_ostream* str
 
 static bool sPluginStateLoad(const clap_plugin* plugin_, const clap_istream* stream)
 {
-	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 #ifdef UNNECESSARY_PRINTS
 	if (plugin->host_log != nullptr)
@@ -400,39 +408,57 @@ static const clap_plugin_state s_plugin_state_extension = {
 // clap_gui //
 //////////////
 
-// https://nakst.gitlab.io/tutorial/clap-part-3.html
-
-#define GUI_API CLAP_WINDOW_API_X11
+// https://nakst.gitlab.io/tutorial/clap-part-3.html, thanks nakst!
 
 static bool sPluginIsAPISupported(const clap_plugin*, const char* api, bool is_floating)
 {
-	if (strcmp(api, GUI_API) == 0 && is_floating == false)
+	if (strcmp(api, CLAP_WINDOW_API_X11) == 0 && is_floating == false)
 		return true;
-
 	return false;
 }
 
 static bool sGetPreferredApi(const clap_plugin*, const char** api, bool* is_floating)
 {
-	*api = GUI_API;
+	*api = CLAP_WINDOW_API_X11;
 	*is_floating = false;
 	return true;
 }
 
 static bool sCreate(const clap_plugin* plugin_, const char* api, bool is_floating)
 {
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+
+#ifdef UNNECESSARY_PRINTS
+	if (plugin->host_log != nullptr)
+		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: Ui sCreate()");
+#endif
+
 	if (sPluginIsAPISupported(plugin_, api, is_floating) == false)
 		return false;
-	// We'll define GUICreate in our platform specific code file.
-	// GUICreate((MyPlugin*)plugin_->plugin_data);
+
+	try
+	{
+		plugin->ui.Initialise(plugin->ui_window_width, plugin->ui_window_height);
+	}
+	catch (...)
+	{
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "### Matsuri: ui.Initialise()");
+		return false;
+	}
+
 	return true;
 }
 
 static void sDestroy(const clap_plugin* plugin_)
 {
-	(void)plugin_;
-	// We'll define GUIDestroy in our platform specific code file.
-	// GUIDestroy((MyPlugin*)plugin_->plugin_data);
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+
+#ifdef UNNECESSARY_PRINTS
+	if (plugin->host_log != nullptr)
+		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: Ui sDestroy()");
+#endif
+
+	plugin->ui.Deinitialise();
 }
 
 static bool sSetScale(const clap_plugin* plugin_, double scale)
@@ -444,74 +470,122 @@ static bool sSetScale(const clap_plugin* plugin_, double scale)
 
 static bool sGetSize(const clap_plugin* plugin_, uint32_t* width, uint32_t* height)
 {
-	(void)plugin_;
-	*width = 640;
-	*height = 480;
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+
+	*width = plugin->ui_window_width;   // No idea why a resizable gui needs to answer this
+	*height = plugin->ui_window_height; // (and we are getting called). But the header doesn't
+	                                    // mention that we are exempt of answering this (also
+	                                    // by returning false QTractor prints a warning,
+	                                    // similar enough to an error)
+
 	return true;
 }
 
-static bool sCanResize(const clap_plugin* plugin_)
+static bool sCanResize(const clap_plugin*)
 {
-	(void)plugin_;
-	return false;
+	return true;
 }
 
-static bool sGetResizeHints(const clap_plugin* plugin_, clap_gui_resize_hints* hints)
+static bool sGetResizeHints(const clap_plugin*, clap_gui_resize_hints* hints)
 {
-	(void)plugin_;
-	(void)hints;
-	return false;
+	hints->can_resize_horizontally = true;
+	hints->can_resize_vertically = true;
+	hints->preserve_aspect_ratio = false;
+	return true;
 }
 
 static bool sAdjustSize(const clap_plugin* plugin_, uint32_t* width, uint32_t* height)
 {
-	return sGetSize(plugin_, width, height);
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+
+	*width = MaxU(*width, 320);
+	*height = MaxU(*height, 240);
+
+	// Store it, CLAP seems to ask it later (even if we are resizable)
+	plugin->ui_window_width = static_cast<int>(*width);
+	plugin->ui_window_height = static_cast<int>(*height);
+
+	return true; // """ plugin will calculate the closest usable size which fits in the given size """".
+	             // I don't get the "fits in the given size" part.
 }
 
-static bool sSetSize(const clap_plugin* plugin_, uint32_t width, uint32_t height)
+static bool sSetSize(const clap_plugin*, uint32_t, uint32_t)
 {
-	(void)plugin_;
-	(void)width;
-	(void)height;
+	return true; // """ Returns true if the plugin could adjust the given size """
+}
+
+static bool sSetParent(const clap_plugin* plugin_, const clap_window* daw_window)
+{
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+
+#ifdef UNNECESSARY_PRINTS
+	if (plugin->host_log != nullptr)
+		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: Ui sSetParent()");
+#endif
+
+	try
+	{
+		plugin->ui.SetParent(static_cast<Window>(daw_window->x11));
+	}
+	catch (...)
+	{
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "### Matsuri: ui.SetParent()");
+		return false;
+	}
+
 	return true;
 }
 
-static bool sSetParent(const clap_plugin* plugin_, const clap_window* window)
+static bool sSetTransient(const clap_plugin*, const clap_window*) // Just for floating uis'
 {
-	assert(strcmp(window->api, GUI_API) == 0);
-	(void)plugin_;
-	// We'll define GUISetParent in our platform specific code file.
-	// GUISetParent((MyPlugin*)plugin_->plugin_data, window);
-	return true;
-}
-
-static bool sSetTransient(const clap_plugin* plugin_, const clap_window* window)
-{
-	(void)plugin_;
-	(void)window;
 	return false;
 }
 
-static void sSuggestTitle(const clap_plugin* plugin_, const char* title)
+static void sSuggestTitle(const clap_plugin*, const char*) // Just for floating uis'
 {
-	(void)plugin_;
-	(void)title;
 }
 
 static bool sShow(const clap_plugin* plugin_)
 {
-	(void)plugin_;
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
-	// We'll define GUISetVisible in our platform specific code file.
-	// GUISetVisible((MyPlugin*)plugin_->plugin_data, true);
+#ifdef UNNECESSARY_PRINTS
+	if (plugin->host_log != nullptr)
+		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: Ui sShow()");
+#endif
+
+	try
+	{
+		plugin->ui.Show();
+	}
+	catch (...)
+	{
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "### Matsuri: ui.Show()");
+		return false;
+	}
+
 	return true;
 }
 
 static bool sHide(const clap_plugin* plugin_)
 {
-	(void)plugin_;
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
-	// GUISetVisible((MyPlugin*)plugin_->plugin_data, false);
+#ifdef UNNECESSARY_PRINTS
+	if (plugin->host_log != nullptr)
+		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: Ui sHide()");
+#endif
+
+	try
+	{
+		plugin->ui.Hide();
+	}
+	catch (...)
+	{
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "### Matsuri: ui.Show()");
+		return false;
+	}
+
 	return true;
 }
 
@@ -534,15 +608,38 @@ static const clap_plugin_gui s_plugin_gui_extension = {
 };
 
 
+///////////////////
+// clap_posix_fd //
+///////////////////
+
+#ifdef MATSURI_UI_X11
+void sOnFd(const clap_plugin_t* plugin_, int, clap_posix_fd_flags_t)
+{
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+
+#ifdef UNNECESSARY_PRINTS
+	if (plugin->host_log != nullptr)
+		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: Ui sOnFd()");
+#endif
+
+	plugin->ui.OnFd(); // No error on this one
+}
+
+static const clap_plugin_posix_fd_support_t s_posix_fd_extension = {
+    /* .on_fd */ sOnFd,
+};
+#endif
+
+
 /////////////////
 // clap_plugin //
 /////////////////
 
 static bool sPluginInitialise(const clap_plugin* plugin_)
 {
-	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
-	plugin->host_log = (const clap_host_log*)(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
+	plugin->host_log = reinterpret_cast<const clap_host_log*>(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
 
 #ifdef UNNECESSARY_PRINTS
 	if (plugin->host_log != nullptr)
@@ -557,23 +654,32 @@ static bool sPluginInitialise(const clap_plugin* plugin_)
 		            sFloatToFixed(s_parameters_info[i].default_value, s_parameters_info[i].fixed_conversion));
 	}
 
+	atomic_init(&plugin->ui_window_width, 640);
+	atomic_init(&plugin->ui_window_height, 480);
+
+#ifdef MATSURI_UI_X11
+	plugin->posix_fd = reinterpret_cast<const clap_host_posix_fd_support_t*>(
+	    plugin->host->get_extension(plugin->host, CLAP_EXT_POSIX_FD_SUPPORT));
+#endif
+
 	return true;
 }
 
 static void sPluginDestroy(const clap_plugin* plugin_)
 {
-	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 	free(plugin);
 }
 
 static bool sPluginActivate(const clap_plugin* plugin_, double sampling_frequency, uint32_t, uint32_t)
 {
-	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+
 	plugin->sampling_frequency = static_cast<float>(sampling_frequency);
 	VoiceAllocatorSet(&plugin->allocator, plugin->sampling_frequency, MAX_MAX_ITEMS);
 	// TODO, should I set parameters again?, like in Initialise()???
 
-	plugin->host_log = (const clap_host_log*)(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
+	plugin->host_log = reinterpret_cast<const clap_host_log*>(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
 
 #ifdef UNNECESSARY_PRINTS
 	if (plugin->host_log != nullptr)
@@ -594,11 +700,12 @@ static void sPluginStopProcessing(const clap_plugin*) {}
 
 static void sPluginReset(const clap_plugin* plugin_)
 {
-	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+
 	VoiceAllocatorSet(&plugin->allocator, plugin->sampling_frequency, MAX_MAX_ITEMS);
 	// TODO, should I set parameters again?, like in Initialise()???
 
-	plugin->host_log = (const clap_host_log*)(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
+	plugin->host_log = reinterpret_cast<const clap_host_log*>(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
 
 #ifdef UNNECESSARY_PRINTS
 	if (plugin->host_log != nullptr)
@@ -610,7 +717,7 @@ static void sPluginProcessEvent(MatsuriPlugin* plugin, const clap_event_header* 
 {
 	if (event->type == CLAP_EVENT_NOTE_ON)
 	{
-		const clap_event_note* note_on_event = (const clap_event_note*)(event);
+		const clap_event_note* note_on_event = reinterpret_cast<const clap_event_note*>(event);
 
 		const int byte0 = note_on_event->channel | (9 << 4); // 'channel' is the same as MIDI
 		const int byte1 = note_on_event->key;                // 'key' same as MIDI
@@ -621,7 +728,7 @@ static void sPluginProcessEvent(MatsuriPlugin* plugin, const clap_event_header* 
 	}
 	else if (event->type == CLAP_EVENT_MIDI)
 	{
-		const clap_event_midi* midi_event = (const clap_event_midi*)(event);
+		const clap_event_midi* midi_event = reinterpret_cast<const clap_event_midi*>(event);
 
 		const int byte0 = midi_event->data[0];
 		const int byte1 = midi_event->data[1];
@@ -631,8 +738,8 @@ static void sPluginProcessEvent(MatsuriPlugin* plugin, const clap_event_header* 
 	}
 	else if (event->type == CLAP_EVENT_PARAM_VALUE)
 	{
-		const clap_event_param_value* param_event = (const clap_event_param_value*)(event);
-		const uint32_t index = (uint32_t)(param_event->param_id);
+		const clap_event_param_value* param_event = reinterpret_cast<const clap_event_param_value*>(event);
+		const uint32_t index = static_cast<uint32_t>(param_event->param_id);
 
 		if (index >= PARAMETERS_NO)
 			return;
@@ -675,10 +782,7 @@ static void sPluginProcessEvent(MatsuriPlugin* plugin, const clap_event_header* 
 
 static clap_process_status sPluginProcess(const clap_plugin* plugin_, const clap_process* process)
 {
-	MatsuriPlugin* plugin = (MatsuriPlugin*)(plugin_->plugin_data);
-
-	assert(process->audio_outputs_count == 1);
-	assert(process->audio_inputs_count == 0);
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 	const uint32_t frames = process->frames_count;
 	const uint32_t input_events = process->in_events->size(process->in_events);
@@ -761,6 +865,12 @@ static const void* sPluginGetExtension(const clap_plugin*, const char* id)
 		return &s_plugin_state_extension;
 	if (strcmp(id, CLAP_EXT_GUI) == 0)
 		return &s_plugin_gui_extension;
+
+#ifdef MATSURI_UI_X11
+	if (strcmp(id, CLAP_EXT_POSIX_FD_SUPPORT) == 0)
+		return &s_posix_fd_extension;
+#endif
+
 	return nullptr;
 }
 
@@ -786,7 +896,7 @@ static const clap_plugin* sPluginCreate(const clap_plugin_factory*, const clap_h
 	if (clap_version_is_compatible(host->clap_version) == false || strcmp(plugin_id, s_descriptor.id) != 0)
 		return nullptr;
 
-	MatsuriPlugin* plugin = (MatsuriPlugin*)(calloc(1, sizeof(MatsuriPlugin)));
+	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(calloc(1, sizeof(MatsuriPlugin)));
 	if (plugin == nullptr)
 		return nullptr;
 

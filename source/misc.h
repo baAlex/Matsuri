@@ -34,6 +34,7 @@ uint32_t Xorshift(uint32_t x);
 
 int MinI(int a, int b);
 uint32_t MinU(uint32_t a, uint32_t b);
+uint32_t MaxU(uint32_t a, uint32_t b);
 float MinF(float a, float b);
 float MaxF(float a, float b);
 

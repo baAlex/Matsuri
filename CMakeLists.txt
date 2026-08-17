@@ -33,8 +33,12 @@ set_target_properties("matsuri-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE
 
 
 # UI library
-add_library("ui-library"     OBJECT "./source/ui/yuika.cpp")
-add_library("ui-library-pic" OBJECT "./source/ui/yuika.cpp")
+set(UI_LIBRARY_SOURCES "./source/ui/ui.cpp"
+                       "./source/ui/yuika.cpp"
+)
+
+add_library("ui-library"     OBJECT ${UI_LIBRARY_SOURCES})
+add_library("ui-library-pic" OBJECT ${UI_LIBRARY_SOURCES})
 
 target_compile_options("ui-library"     PRIVATE ${MATSURI_CFLAGS})
 target_compile_options("ui-library-pic" PRIVATE ${MATSURI_CFLAGS})
@@ -42,6 +46,14 @@ target_compile_options("ui-library-pic" PRIVATE ${MATSURI_CFLAGS})
 set_target_properties("ui-library"     PROPERTIES CXX_VISIBILITY_PRESET hidden)
 set_target_properties("ui-library-pic" PROPERTIES CXX_VISIBILITY_PRESET hidden)
 set_target_properties("ui-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+
+if (UNIX) # ???, I want to assume that X11 doesn't exist outside unixes
+	target_compile_definitions("ui-library"     PRIVATE MATSURI_UI_X11)
+	target_compile_definitions("ui-library-pic" PRIVATE MATSURI_UI_X11)
+
+	target_link_libraries("ui-library"     PRIVATE "X11")
+	target_link_libraries("ui-library-pic" PRIVATE "X11")
+endif ()
 
 
 # Executable "generate-wavs"
@@ -152,6 +164,10 @@ set_target_properties("matsuri-clap" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAK
 
 if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
 	target_link_options("matsuri-clap" PRIVATE -Wl,--no-undefined) # To not forget the 'extern "C"'s
+endif ()
+
+if (UNIX)
+	target_compile_definitions("matsuri-clap" PRIVATE MATSURI_UI_X11)
 endif ()
 
 

@@ -34,6 +34,11 @@ uint32_t MinU(uint32_t a, uint32_t b)
 	return (a < b) ? a : b;
 }
 
+uint32_t MaxU(uint32_t a, uint32_t b)
+{
+	return (a > b) ? a : b;
+}
+
 float MinF(float a, float b)
 {
 	return (a < b) ? a : b;
