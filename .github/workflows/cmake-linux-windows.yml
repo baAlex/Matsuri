@@ -54,9 +54,9 @@ jobs:
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-    - name: Install lld
+    - name: Install dependencies
       if: runner.os == 'Linux'
-      run: sudo apt install -y lld
+      run: sudo apt install -y lld libx11-dev
 
     - name: Submodules
       run: git submodule init; git submodule update

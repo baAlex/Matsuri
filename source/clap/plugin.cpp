@@ -10,10 +10,11 @@ If a copy of the CDDL was not distributed with this file, You
 can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
-#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <atomic>
 
 #include "../ui/ui.hpp"
 #include "clap/clap.h" // IWYU pragma: keep
@@ -103,12 +104,12 @@ struct MatsuriPlugin
 	float sampling_frequency;
 	VoiceAllocator allocator;
 
-	atomic_int parameters_changed_offline;
-	atomic_int parameter[PARAMETERS_NO];
+	std::atomic<int> parameters_changed_offline;
+	std::atomic<int> parameter[PARAMETERS_NO];
 
 	Ui ui;
-	atomic_int ui_window_width;
-	atomic_int ui_window_height;
+	std::atomic<int> ui_window_width;
+	std::atomic<int> ui_window_height;
 
 #ifdef MATSURI_UI_X11
 	const clap_host_posix_fd_support* posix_fd;
@@ -244,7 +245,8 @@ static bool sPluginParametersValue(const clap_plugin* plugin_, clap_id id, doubl
 
 	if (index < PARAMETERS_NO)
 	{
-		*value = static_cast<double>(sFixedToFloat(plugin->parameter[index], s_parameters_info[index].fixed_conversion));
+		*value =
+		    static_cast<double>(sFixedToFloat(plugin->parameter[index], s_parameters_info[index].fixed_conversion));
 		return true;
 	}
 
@@ -472,11 +474,11 @@ static bool sGetSize(const clap_plugin* plugin_, uint32_t* width, uint32_t* heig
 {
 	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
-	*width = plugin->ui_window_width;   // No idea why a resizable gui needs to answer this
-	*height = plugin->ui_window_height; // (and we are getting called). But the header doesn't
-	                                    // mention that we are exempt of answering this (also
-	                                    // by returning false QTractor prints a warning,
-	                                    // similar enough to an error)
+	*width = static_cast<uint32_t>(plugin->ui_window_width);
+	*height = static_cast<uint32_t>(plugin->ui_window_height);
+	// No idea why a resizable gui needs to answer this (and we are getting called).
+	// But the header doesn't mention that we are exempt of answering this (also by
+	// returning false QTractor prints a warning, similar enough to an error)
 
 	return true;
 }
@@ -525,7 +527,9 @@ static bool sSetParent(const clap_plugin* plugin_, const clap_window* daw_window
 
 	try
 	{
+#ifdef MATSURI_UI_X11
 		plugin->ui.SetParent(static_cast<Window>(daw_window->x11));
+#endif
 	}
 	catch (...)
 	{
@@ -646,16 +650,16 @@ static bool sPluginInitialise(const clap_plugin* plugin_)
 		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: sPluginInitialise()");
 #endif
 
-	atomic_init(&plugin->parameters_changed_offline, 1); // Force an initial update
+	std::atomic_init(&plugin->parameters_changed_offline, 1); // Force an initial update
 
 	for (int i = 0; i < PARAMETERS_NO; i += 1)
 	{
-		atomic_init(&plugin->parameter[i],
-		            sFloatToFixed(s_parameters_info[i].default_value, s_parameters_info[i].fixed_conversion));
+		std::atomic_init(&plugin->parameter[i],
+		                 sFloatToFixed(s_parameters_info[i].default_value, s_parameters_info[i].fixed_conversion));
 	}
 
-	atomic_init(&plugin->ui_window_width, 640);
-	atomic_init(&plugin->ui_window_height, 480);
+	std::atomic_init(&plugin->ui_window_width, 640);
+	std::atomic_init(&plugin->ui_window_height, 480);
 
 #ifdef MATSURI_UI_X11
 	plugin->posix_fd = reinterpret_cast<const clap_host_posix_fd_support_t*>(
