@@ -225,6 +225,12 @@ void Ui::Screen::MouseClick(MouseClickGesture gesture, Position mouse_pos)
 	switch (gesture)
 	{
 	case MouseClickGesture::Press:
+		if (m_click_pressed != nullptr) // Yes
+		{
+			m_click_pressed->OnMouseClick(MouseClickGesture::Release, mouse_pos);
+			m_click_pressed = nullptr;
+		}
+
 		for (size_t i = 0; i < m_clickables_no; i += 1)
 		{
 			const Clickable& c = m_clickables[i];
@@ -236,6 +242,7 @@ void Ui::Screen::MouseClick(MouseClickGesture gesture, Position mouse_pos)
 			break;
 		}
 		break;
+
 	case MouseClickGesture::Release:
 		if (m_click_pressed != nullptr)
 		{
@@ -516,7 +523,10 @@ Ui::VBox::VBox() : Box(Direction::Vertical) {}
 // ############################
 
 
-Ui::Button::Button(std::string) : Wrapper() {}
+Ui::Button::Button(std::string text) : Wrapper()
+{
+	m_text = text; // TODO, it has to create a label
+}
 
 std::string_view Ui::Button::GetType() const
 {

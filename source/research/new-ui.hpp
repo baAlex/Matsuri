@@ -239,6 +239,8 @@ class Button : public Wrapper
 	virtual void OnMouseClick(MouseClickGesture gesture, Position mouse_pos) override;
 	virtual void SetMouseClickCallback(std::function<MouseClickCallback> callback);
 
+	std::string m_text; // TODO, create a label
+
   protected:
 	std::function<MouseClickCallback> m_mouse_click_callback;
 };
@@ -286,6 +288,7 @@ class Screen
 
 	Clickable m_clickables[256];
 	size_t m_clickables_no;
+
 	Widget* m_click_pressed;
 
 	// Not sorry:

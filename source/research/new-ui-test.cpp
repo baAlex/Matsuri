@@ -65,7 +65,8 @@ class ButtonWithMethodOnClick : public Ui::Button
 		case Ui::MouseClickGesture::Press: gesture_name = "Press"; break;
 		case Ui::MouseClickGesture::Release: gesture_name = "Release"; break;
 		}
-		printf("Callback Click(), \"%s\", %s, %i, %i\n", GetType().cbegin(), gesture_name, mouse_pos.x, mouse_pos.y);
+		printf("Callback Click(), \"%s\", %s, %i, %i. \"%s\"\n", GetType().cbegin(), gesture_name, mouse_pos.x,
+		       mouse_pos.y, m_text.c_str());
 	}
 };
 
@@ -112,8 +113,8 @@ static void sCreateUi(Ui::Wrapper& root)
 		    case MouseClickGesture::Release: gesture_name = "Release"; break;
 		    }
 
-		    printf("Callback Click(), \"%s\", %s, %i, %i\n", self.GetType().cbegin(), gesture_name, mouse_pos.x,
-		           mouse_pos.y);
+		    printf("Callback Click(), \"%s\", %s, %i, %i. \"%s\"\n", self.GetType().cbegin(), gesture_name, mouse_pos.x,
+		           mouse_pos.y, self.m_text.c_str());
 	    });
 
 	auto& menu = vbox.AddChild<HBox>();
