@@ -21,7 +21,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-class MatsuriV2Processor extends AudioWorkletProcessor {
+class MatsuriV3Processor extends AudioWorkletProcessor {
 
 	// https://developer.mozilla.org/en-US/docs/Web/API/AudioWorkletNode/parameters
 
@@ -116,4 +116,4 @@ class MatsuriV2Processor extends AudioWorkletProcessor {
 	}
 }
 
-registerProcessor("matsuri-v2-processor", MatsuriV2Processor);
+registerProcessor("matsuri-v3-processor", MatsuriV3Processor);

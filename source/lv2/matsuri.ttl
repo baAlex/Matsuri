@@ -16,7 +16,7 @@
 	lv2:minorVersion 1;
 	lv2:optionalFeature lv2:hardRTCapable;
 
-	doap:name "Matsuri v2";
+	doap:name "Matsuri v3";
 	doap:license <https://opensource.org/license/CDDL-1.0>;
 	doap:developer [
 		foaf:name     "Alexander Brandt";

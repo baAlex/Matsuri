@@ -58,8 +58,8 @@ class yuika::ScreenFriend
 			rect.size.w = (Clamp(rect.pos.x + rect.size.w, 0, fwend->m_size.w) - x1) * 4;
 			rect.size.h = (Clamp(rect.pos.y + rect.size.h, 0, fwend->m_size.h) - y1) * fwend->m_size.w * 4;
 
-			uint8_t* out = fwend->m_out + (x1 * 4) + (y1 * fwend->m_size.w * 4);
-			for (uint8_t* row = out; row < out + rect.size.h; row += fwend->m_size.w * 4)
+			uint8_t* out = fwend->m_out + static_cast<size_t>((x1 * 4) + (y1 * fwend->m_size.w * 4));
+			for (uint8_t* row = out; row < out + rect.size.h; row += static_cast<size_t>(fwend->m_size.w * 4))
 			{
 				for (uint8_t* col = row; col < row + rect.size.w; col += 4)
 				{

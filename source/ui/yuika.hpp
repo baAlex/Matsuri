@@ -10,8 +10,8 @@ If a copy of the CDDL was not distributed with this file, You
 can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
-#ifndef MATSURI_UI_YUIKA_HPP
-#define MATSURI_UI_YUIKA_HPP
+#ifndef YUIKA_HPP
+#define YUIKA_HPP
 
 #include <stddef.h>
 #include <stdint.h>
@@ -94,5 +94,4 @@ class Screen
 };
 
 } // namespace yuika
-
 #endif

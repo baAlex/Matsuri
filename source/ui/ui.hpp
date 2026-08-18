@@ -10,8 +10,8 @@ If a copy of the CDDL was not distributed with this file, You
 can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
-#ifndef MATSURI_UI_UI_HPP
-#define MATSURI_UI_UI_HPP
+#ifndef UI_HPP
+#define UI_HPP
 
 #include "yuika.hpp"
 
@@ -28,6 +28,11 @@ extern "C"
 
 class Ui
 {
+	int m_width;
+	int m_height;
+	size_t m_buffer_size;
+	void* m_buffer;
+
 	yuika::Screen m_yui;
 
   public: // Yes, some members are used from outside, thing is that,
@@ -50,12 +55,6 @@ class Ui
 	void Hide();
 
 	void Resize(int width, int height);
-
-  private:
-	int m_width;
-	int m_height;
-	size_t m_buffer_size;
-	void* m_buffer;
 };
 
 #endif

@@ -10,8 +10,8 @@ If a copy of the CDDL was not distributed with this file, You
 can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
-#ifndef MATSURI_LIBRARY_H
-#define MATSURI_LIBRARY_H
+#ifndef MATSURI_H
+#define MATSURI_H
 
 #include <stdint.h>
 

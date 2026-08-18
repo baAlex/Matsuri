@@ -13,8 +13,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #ifndef VOICE_ALLOCATOR_H
 #define VOICE_ALLOCATOR_H
 
-#include "matsuri-library.h"
-
+#include "matsuri.h"
 
 #define MAX_MAX_ITEMS 16
 

@@ -17,21 +17,19 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #define assert(e) // Nothing
 #endif
 
-#ifndef GODBOLT
-#include "matsuri-library.h"
-#endif
+#include "matsuri.h"
 
 #ifdef NDEBUG
 #pragma message("Doing a release build, be sure of check all magic numbers")
 #endif
 
 
-#define PI_TWO 6.28318530718f
-#define HALF_PI 1.57079632679f
-#define LOG_60DB -6.90775527898f        // ln(0.001)
-#define LOG_100_PERCENT -4.60517018599f // ln(0.01) = ln(1.0 / 100.0)
-#define LOG_2_SEMITONE 0.05776226504f   // ln(2) / 12
-#define NOISE_SCALE 1.1920929e-7f       // 1 / ((2 ^ 24) / 2)
+#define PI_TWO (6.28318530718f)
+#define HALF_PI (1.57079632679f)
+#define LOG_60DB (-6.90775527898f)        // ln(0.001)
+#define LOG_100_PERCENT (-4.60517018599f) // ln(0.01) = ln(1.0 / 100.0)
+#define LOG_2_SEMITONE (0.05776226504f)   // ln(2) / 12
+#define NOISE_SCALE (1.1920929e-7f)       // 1 / ((2 ^ 24) / 2)
 
 
 #if 0
@@ -117,9 +115,9 @@ float mtsr_ShapedEnvelopeStep(const struct mtsr_ShapedEnvelopeProgram* restrict 
 static FORCED_INLINE uint32_t sXorshift(uint32_t x)
 {
 	// https://en.wikipedia.org/wiki/Xorshift#Example_implementation
-	x ^= (uint32_t)((x) << 13);
-	x ^= (uint32_t)((x) >> 17);
-	x ^= (uint32_t)((x) << 5);
+	x ^= ((x) << 13);
+	x ^= ((x) >> 17);
+	x ^= ((x) << 5);
 	return x;
 }
 
@@ -281,7 +279,7 @@ void mtsr_OscillatorSetState(enum mtsr_StateState state_state, float sampling_fr
 		s->omega = s->omega * s->omega;
 		s->v = ((frequency / sampling_frequency) * PI_TWO) * volume; // It's omega before its ^2
 		s->x = 0.0f;
-		s->sweep = 1.0;
+		s->sweep = 1.0f;
 		break;
 	case MTSR_STATE_DEAD:
 		s->delay = 0;
@@ -341,7 +339,7 @@ void mtsr_ShapedEnvelopeSetProgram(float sampling_frequency, float delay_ms, flo
 	p->durations[0] = (uint32_t)((delay_ms * sampling_frequency) / 1000.0f);
 	p->durations[1] = (uint32_t)((attack_ms * sampling_frequency) / 1000.0f);
 	p->durations[2] = (uint32_t)((decay_ms * sampling_frequency) / 1000.0f);
-	p->durations[3] = 0.0f;
+	p->durations[3] = 0;
 
 	p->steps[0] = 0.0f;
 	p->steps[1] = (1.0f / (float)(p->durations[1]));
@@ -376,10 +374,10 @@ void mtsr_NoiseSet(uint32_t seed, struct mtsr_NoiseState* s)
 }
 
 
-#define C1 0.999999060898976336474926982596043563f
-#define C2 -0.166655540927576933646197607200949732f
-#define C3 0.00831189980138987918776159520367912155f
-#define C4 0.000184881402886071911033139680005197992f
+#define C1 (0.999999060898976336474926982596043563f)
+#define C2 (-0.166655540927576933646197607200949732f)
+#define C3 (0.00831189980138987918776159520367912155f)
+#define C4 (0.000184881402886071911033139680005197992f)
 
 static FORCED_INLINE float sSin(float x)
 {
@@ -540,12 +538,12 @@ void mtsr_SquareX6SetState(uint32_t seed, struct mtsr_SquareX6State* restrict s)
 	const uint32_t p4 = sXorshift(p3);
 	const uint32_t p5 = sXorshift(p4);
 
-	s->phase[0] = p0 & MASK;
-	s->phase[1] = p1 & MASK;
-	s->phase[2] = p2 & MASK;
-	s->phase[3] = p3 & MASK;
-	s->phase[4] = p4 & MASK;
-	s->phase[5] = p5 & MASK;
+	s->phase[0] = (int32_t)(p0 & MASK);
+	s->phase[1] = (int32_t)(p1 & MASK);
+	s->phase[2] = (int32_t)(p2 & MASK);
+	s->phase[3] = (int32_t)(p3 & MASK);
+	s->phase[4] = (int32_t)(p4 & MASK);
+	s->phase[5] = (int32_t)(p5 & MASK);
 }
 
 
@@ -603,7 +601,7 @@ float mtsr606_RenderKick(float mixer_volume, const struct mtsr606_KickProgram* r
 	float max_level = 0.0f;
 #endif
 
-	float signal;
+	float signal = 0.0f;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		signal = sKickStep(p, s) * mixer_volume;
@@ -626,7 +624,7 @@ float mtsr606_RenderKick(float mixer_volume, const struct mtsr606_KickProgram* r
 float mtsr606_RenderAdditiveKick(float mixer_volume, const struct mtsr606_KickProgram* restrict p,
                                  struct mtsr606_KickState* restrict s, float* out, const float* out_end)
 {
-	float signal;
+	float signal = 0.0f;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		signal = sKickStep(p, s) * mixer_volume;
@@ -691,7 +689,7 @@ float mtsr606_RenderSnare(float mixer_volume, const struct mtsr606_SnareProgram*
 	float max_level = 0.0f;
 #endif
 
-	float signal;
+	float signal = 0.0f;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		signal = sSnareStep(p, s) * mixer_volume;
@@ -714,7 +712,7 @@ float mtsr606_RenderSnare(float mixer_volume, const struct mtsr606_SnareProgram*
 float mtsr606_RenderAdditiveSnare(float mixer_volume, const struct mtsr606_SnareProgram* restrict p,
                                   struct mtsr606_SnareState* restrict s, float* out, const float* out_end)
 {
-	float signal;
+	float signal = 0.0f;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		signal = sSnareStep(p, s) * mixer_volume;
@@ -872,7 +870,7 @@ float mtsr606_RenderHat(float volume, const struct mtsr606_HatProgram* restrict 
 	float max_level_final = 0.0f;
 #endif
 
-	float signal;
+	float signal = 0.0f;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		// Render bandpass filtered metallic noise
@@ -919,7 +917,7 @@ float mtsr606_RenderHat(float volume, const struct mtsr606_HatProgram* restrict 
 float mtsr606_RenderAdditiveHat(float volume, const struct mtsr606_HatProgram* restrict p,
                                 struct mtsr606_HatState* restrict s, float* out, const float* out_end)
 {
-	float signal;
+	float signal = 0.0f;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		// Render bandpass filtered metallic noise
@@ -1018,7 +1016,7 @@ float mtsr606_RenderTom(float mixer_volume, const struct mtsr606_TomProgram* res
 	float max_level = 0.0f;
 #endif
 
-	float signal;
+	float signal = 0.0f;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		signal = sTomStep(p, s) * mixer_volume;
@@ -1041,7 +1039,7 @@ float mtsr606_RenderTom(float mixer_volume, const struct mtsr606_TomProgram* res
 float mtsr606_RenderAdditiveTom(float mixer_volume, const struct mtsr606_TomProgram* restrict p,
                                 struct mtsr606_TomState* restrict s, float* out, const float* out_end)
 {
-	float signal;
+	float signal = 0.0f;
 	for (float* sample = out; sample < out_end; sample += 1)
 	{
 		signal = sTomStep(p, s) * mixer_volume;

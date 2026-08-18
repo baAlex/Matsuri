@@ -52,9 +52,9 @@ float MaxF(float a, float b)
 
 uint32_t Xorshift(uint32_t x)
 {
-	x ^= (uint32_t)((x) << 13);
-	x ^= (uint32_t)((x) >> 17);
-	x ^= (uint32_t)((x) << 5);
+	x ^= ((x) << 13);
+	x ^= ((x) >> 17);
+	x ^= ((x) << 5);
 	return x;
 }
 

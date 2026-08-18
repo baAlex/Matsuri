@@ -13,15 +13,15 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #ifndef VERSION_H
 #define VERSION_H
 
-#define MATSURI_URI "com.github.baAlex.Matsuri.v2"
-#define MATSURI_NAME "Matsuri v2"
+#define MATSURI_URI "com.github.baAlex.Matsuri.v3"
+#define MATSURI_NAME "Matsuri v3"
 #define MATSURI_VENDOR "Alexander Brandt"
 #define MATSURI_URL "https://github.com/baAlex/Matsuri"
 #define MATSURI_DESCRIPTION "TR-606 Synthesizer"
 
-#define MATSURI_VERSION_STRING "2.1"
-#define MATSURI_VERSION_MAJOR 2
-#define MATSURI_VERSION_MINOR 1
+#define MATSURI_VERSION_STRING "3.0"
+#define MATSURI_VERSION_MAJOR 3
+#define MATSURI_VERSION_MINOR 0
 
 // clang-format off
 #define MATSURI_COPYRIGHT "\

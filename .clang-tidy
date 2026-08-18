@@ -1,0 +1,4 @@
+
+Checks: "-*, bugprone-*, cert-*, clang-analyzer-*, misc-*, performance-*, portability-*, modernize-use-auto, modernize-use-nullptr, modernize-avoid-c-style-cast, modernize-use-bool-literals, modernize-use-override, modernize-concat-nested-namespaces, modernize-return-braced-init-list, -misc-use-anonymous-namespace, -bugprone-easily-swappable-parameters, -misc-include-cleaner, -bugprone-assignment-in-if-condition, -cert-err33-c, -clang-analyzer-optin.core.EnumCastOutOfRange, -misc-use-internal-linkage, -bugprone-derived-method-shadowing-base-method, -misc-non-private-member-variables-in-classes, -performance-enum-size"
+CheckOptions:
+  - { key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic, value: '1' }

@@ -28,7 +28,8 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #define FORCED_INLINE inline // Empty, not needed, "-O3" and "-flto" are doing their job
 #endif
 
-#define LOG_100_PERCENT -4.60517018599f // ln(0.01) = ln(1.0 / 100.0)
+
+#define LOG_100_PERCENT (-4.60517018599f) // ln(0.01) = ln(1.0 / 100.0)
 
 static FORCED_INLINE float sAbs(float x)
 {
@@ -74,13 +75,13 @@ void VoiceAllocatorSet(struct VoiceAllocator* self, float sampling_frequency, in
 	self->rng = 666;
 	self->vel_vol_mod = 1.0f;
 
-	self->volume[(int)(TYPE_KICK)] = 1.0f;
-	self->volume[(int)(TYPE_SNARE)] = 1.0f;
-	self->volume[(int)(TYPE_OPEN_HAT)] = 1.0f;
-	self->volume[(int)(TYPE_CLOSED_HAT)] = 1.0f;
-	self->volume[(int)(TYPE_CYMBAL)] = 1.0f;
-	self->volume[(int)(TYPE_LOW_TOM)] = 1.0f;
-	self->volume[(int)(TYPE_HIGH_TOM)] = 1.0f;
+	self->volume[TYPE_KICK] = 1.0f;
+	self->volume[TYPE_SNARE] = 1.0f;
+	self->volume[TYPE_OPEN_HAT] = 1.0f;
+	self->volume[TYPE_CLOSED_HAT] = 1.0f;
+	self->volume[TYPE_CYMBAL] = 1.0f;
+	self->volume[TYPE_LOW_TOM] = 1.0f;
+	self->volume[TYPE_HIGH_TOM] = 1.0f;
 
 	Memset(self->voices, 0, sizeof(struct VoiceAllocatorVoice) * (size_t)(max_items));
 	Memset(self->states, 0, sizeof(struct VoiceAllocatorState) * (size_t)(max_items));

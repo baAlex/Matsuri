@@ -7,11 +7,11 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link rel="stylesheet" href="style.css">
 
-	<title>Matsuri v2.0 for Web Audio API, Guide to Programming</title>
+	<title>Matsuri v3.0 for Web Audio API, Guide to Programming</title>
 </head>
 
 <body>
-	<h1>Matsuri v2.0 for Web Audio API, <br>Guide to Programming</h1>
+	<h1>Matsuri v3.0 for Web Audio API, <br>Guide to Programming</h1>
 	<p>Thank you for downloading Matsuri, a synthesizer recreating the sound of Roland's TR-606 drum machine. Fast,
 		tiny, and faithful to the original sounds (considering that it doesn't emulate circuitry).</p>
 
@@ -40,24 +40,24 @@
 		</thead>
 		<tbody>
 			<tr>
-				<td>matsuri-v2.wasm</td>
+				<td>matsuri-v3.wasm</td>
 				<td>WASM module, there is not much you can do with it.</td>
 			</tr>
 			<tr>
-				<td>matsuri-v2-worklet.js</td>
+				<td>matsuri-v3-worklet.js</td>
 				<td>Glue between JS and WASM, a boring file.</td>
 			</tr>
 			<tr>
-				<td>matsuri-v2.js</td>
+				<td>matsuri-v3.js</td>
 				<td><strong>This is the important one</strong>, what might be called the library/module. It defines
-					<code>MatsuriV2Node</code> class (a Web Audio node), and it is in charge of fetching and initialise
+					<code>MatsuriV3Node</code> class (a Web Audio node), and it is in charge of fetching and initialise
 					the
 					worklet. <strong>You absolutely should modify this file in order to better integrate it into your
 						framework</strong> (it is under public domain).
 				</td>
 			</tr>
 			<tr>
-				<td>test-page-v2.html</td>
+				<td>test-page-v3.html</td>
 				<td>Minimal example that showcases the synth, ugly but gets things done.</td>
 			</tr>
 		</tbody>
@@ -77,7 +77,7 @@
 	<ul>
 		<li><strong>Initialisation</strong> is:
 			<code class="Block"><pre>
-<span class="Keyword">import</span> * as matsuri from "./matsuri-v2.js";
+<span class="Keyword">import</span> * as matsuri from "./matsuri-v3.js";
 
 <span class="Keyword">let</span> ctx = <span class="Keyword">new</span> AudioContext();
 
@@ -86,11 +86,11 @@
 
 <span class="Comment">// Maybe you want to fetch specifying these two:
 // await matsuri.FetchAndRegister(ctx,
-//                                "./matsuri-v2-worklet.js",
-//                                "./matsuri-v2.wasm");</span>
+//                                "./matsuri-v3-worklet.js",
+//                                "./matsuri-v3.wasm");</span>
 
 <span class="Comment">// Create and connect a Matsuri node</span>
-<span class="Keyword">let</span> node = <span class="Keyword">new</span> matsuri.MatsuriV2Node(ctx);
+<span class="Keyword">let</span> node = <span class="Keyword">new</span> matsuri.MatsuriV3Node(ctx);
 node.connect(ctx.destination);
 
 <span class="Comment">// Node will start playing, but in silence, as no note has been sent</span></pre></code>
@@ -359,7 +359,7 @@ navigator.requestMIDIAccess().then(access => {
 				this, remove the argument: <code>-DCMAKE_BUILD_TYPE=Release</code></aside>
 		</li>
 		<li>
-			<p>Output will be placed in a folder named <strong>matsuri-v2-wasm</strong>, it encompass files listed in <a
+			<p>Output will be placed in a folder named <strong>matsuri-v3-wasm</strong>, it encompass files listed in <a
 					href="#installation">Installation</a> section.</p>
 		</li>
 	</ol>

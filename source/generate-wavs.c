@@ -14,7 +14,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include <stdlib.h>
 #include <string.h>
 
-#include "matsuri-library.h"
+#include "matsuri.h"
 
 
 static int sSave(const char* filename, uint32_t frequency, const float* in, const float* in_end)

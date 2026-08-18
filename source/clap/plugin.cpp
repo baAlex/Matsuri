@@ -240,8 +240,8 @@ static bool sPluginParametersInfo(const clap_plugin*, uint32_t index, clap_param
 
 static bool sPluginParametersValue(const clap_plugin* plugin_, clap_id id, double* value)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
-	uint32_t index = static_cast<uint32_t>(id);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto index = static_cast<uint32_t>(id);
 
 	if (index < PARAMETERS_NO)
 	{
@@ -255,7 +255,7 @@ static bool sPluginParametersValue(const clap_plugin* plugin_, clap_id id, doubl
 
 static bool sPluginParametersValueToText(const clap_plugin*, clap_id id, double value, char* display, uint32_t size)
 {
-	uint32_t index = static_cast<uint32_t>(id);
+	auto index = static_cast<uint32_t>(id);
 
 	if (index < PARAMETERS_NO)
 	{
@@ -277,7 +277,7 @@ static bool sPluginParametersTextToValue(const clap_plugin*, clap_id, const char
 
 static void sPluginParametersFlush(const clap_plugin* plugin_, const clap_input_events* in, const clap_output_events*)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 #ifdef UNNECESSARY_PRINTS
 	if (plugin->host_log != nullptr)
@@ -290,9 +290,8 @@ static void sPluginParametersFlush(const clap_plugin* plugin_, const clap_input_
 		if (event->space_id != CLAP_CORE_EVENT_SPACE_ID || event->type != CLAP_EVENT_PARAM_VALUE)
 			continue;
 
-		const clap_event_param_value* param_event =
-		    reinterpret_cast<const clap_event_param_value*>(in->get(in, event_index));
-		const uint32_t index = static_cast<uint32_t>(param_event->param_id);
+		const auto param_event = reinterpret_cast<const clap_event_param_value*>(in->get(in, event_index));
+		const auto index = static_cast<uint32_t>(param_event->param_id);
 
 		if (index < PARAMETERS_NO)
 		{
@@ -319,7 +318,7 @@ static const clap_plugin_params s_plugin_parameters_extensions = {
 
 static bool sPluginStateSave(const clap_plugin* plugin_, const clap_ostream* stream)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 #ifdef UNNECESSARY_PRINTS
 	if (plugin->host_log != nullptr)
@@ -357,7 +356,7 @@ static bool sPluginStateSave(const clap_plugin* plugin_, const clap_ostream* str
 
 static bool sPluginStateLoad(const clap_plugin* plugin_, const clap_istream* stream)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 #ifdef UNNECESSARY_PRINTS
 	if (plugin->host_log != nullptr)
@@ -428,7 +427,7 @@ static bool sGetPreferredApi(const clap_plugin*, const char** api, bool* is_floa
 
 static bool sCreate(const clap_plugin* plugin_, const char* api, bool is_floating)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 #ifdef UNNECESSARY_PRINTS
 	if (plugin->host_log != nullptr)
@@ -460,7 +459,7 @@ static bool sCreate(const clap_plugin* plugin_, const char* api, bool is_floatin
 
 static void sDestroy(const clap_plugin* plugin_)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 #ifdef UNNECESSARY_PRINTS
 	if (plugin->host_log != nullptr)
@@ -486,7 +485,7 @@ static bool sSetScale(const clap_plugin* plugin_, double scale)
 
 static bool sGetSize(const clap_plugin* plugin_, uint32_t* width, uint32_t* height)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 	*width = static_cast<uint32_t>(plugin->ui_window_width);
 	*height = static_cast<uint32_t>(plugin->ui_window_height);
@@ -512,7 +511,7 @@ static bool sGetResizeHints(const clap_plugin*, clap_gui_resize_hints* hints)
 
 static bool sAdjustSize(const clap_plugin* plugin_, uint32_t* width, uint32_t* height)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 	*width = MaxU(*width, 1); // It glitches on any other value
 	*height = MaxU(*height, 1);
@@ -542,7 +541,7 @@ static bool sSetSize(const clap_plugin*, uint32_t, uint32_t)
 
 static bool sSetParent(const clap_plugin* plugin_, const clap_window* daw_window)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 #ifdef UNNECESSARY_PRINTS
 	if (plugin->host_log != nullptr)
@@ -575,7 +574,7 @@ static void sSuggestTitle(const clap_plugin*, const char*) // Just for floating 
 
 static bool sShow(const clap_plugin* plugin_)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 #ifdef UNNECESSARY_PRINTS
 	if (plugin->host_log != nullptr)
@@ -597,7 +596,7 @@ static bool sShow(const clap_plugin* plugin_)
 
 static bool sHide(const clap_plugin* plugin_)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 #ifdef UNNECESSARY_PRINTS
 	if (plugin->host_log != nullptr)
@@ -659,7 +658,7 @@ static const clap_plugin_posix_fd_support_t s_posix_fd_extension = {
 
 static bool sPluginInitialise(const clap_plugin* plugin_)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 	plugin->host_log = reinterpret_cast<const clap_host_log*>(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
 
@@ -689,13 +688,13 @@ static bool sPluginInitialise(const clap_plugin* plugin_)
 
 static void sPluginDestroy(const clap_plugin* plugin_)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 	free(plugin);
 }
 
 static bool sPluginActivate(const clap_plugin* plugin_, double sampling_frequency, uint32_t, uint32_t)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 	plugin->sampling_frequency = static_cast<float>(sampling_frequency);
 	VoiceAllocatorSet(&plugin->allocator, plugin->sampling_frequency, MAX_MAX_ITEMS);
@@ -722,7 +721,7 @@ static void sPluginStopProcessing(const clap_plugin*) {}
 
 static void sPluginReset(const clap_plugin* plugin_)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 	VoiceAllocatorSet(&plugin->allocator, plugin->sampling_frequency, MAX_MAX_ITEMS);
 	// TODO, should I set parameters again?, like in Initialise()???
@@ -739,7 +738,7 @@ static void sPluginProcessEvent(MatsuriPlugin* plugin, const clap_event_header* 
 {
 	if (event->type == CLAP_EVENT_NOTE_ON)
 	{
-		const clap_event_note* note_on_event = reinterpret_cast<const clap_event_note*>(event);
+		const auto note_on_event = reinterpret_cast<const clap_event_note*>(event);
 
 		const int byte0 = note_on_event->channel | (9 << 4); // 'channel' is the same as MIDI
 		const int byte1 = note_on_event->key;                // 'key' same as MIDI
@@ -750,7 +749,7 @@ static void sPluginProcessEvent(MatsuriPlugin* plugin, const clap_event_header* 
 	}
 	else if (event->type == CLAP_EVENT_MIDI)
 	{
-		const clap_event_midi* midi_event = reinterpret_cast<const clap_event_midi*>(event);
+		const auto midi_event = reinterpret_cast<const clap_event_midi*>(event);
 
 		const int byte0 = midi_event->data[0];
 		const int byte1 = midi_event->data[1];
@@ -760,8 +759,8 @@ static void sPluginProcessEvent(MatsuriPlugin* plugin, const clap_event_header* 
 	}
 	else if (event->type == CLAP_EVENT_PARAM_VALUE)
 	{
-		const clap_event_param_value* param_event = reinterpret_cast<const clap_event_param_value*>(event);
-		const uint32_t index = static_cast<uint32_t>(param_event->param_id);
+		const auto param_event = reinterpret_cast<const clap_event_param_value*>(event);
+		const auto index = static_cast<uint32_t>(param_event->param_id);
 
 		if (index >= PARAMETERS_NO)
 			return;
@@ -804,7 +803,7 @@ static void sPluginProcessEvent(MatsuriPlugin* plugin, const clap_event_header* 
 
 static clap_process_status sPluginProcess(const clap_plugin* plugin_, const clap_process* process)
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 	const uint32_t frames = process->frames_count;
 	const uint32_t input_events = process->in_events->size(process->in_events);
@@ -918,7 +917,7 @@ static const clap_plugin* sPluginCreate(const clap_plugin_factory*, const clap_h
 	if (clap_version_is_compatible(host->clap_version) == false || strcmp(plugin_id, s_descriptor.id) != 0)
 		return nullptr;
 
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(calloc(1, sizeof(MatsuriPlugin)));
+	auto plugin = reinterpret_cast<MatsuriPlugin*>(calloc(1, sizeof(MatsuriPlugin)));
 	if (plugin == nullptr)
 		return nullptr;
 

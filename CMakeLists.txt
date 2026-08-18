@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.16)
 project("Matsuri" C CXX)
 
 
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_CXX_STANDARD 17)
 
 
 ####
@@ -21,8 +21,8 @@ endif ()
 
 
 # Matsuri library
-add_library("matsuri-library"     OBJECT "./source/matsuri-library.c")
-add_library("matsuri-library-pic" OBJECT "./source/matsuri-library.c")
+add_library("matsuri-library"     OBJECT "./source/matsuri.c")
+add_library("matsuri-library-pic" OBJECT "./source/matsuri.c")
 
 target_compile_options("matsuri-library"     PRIVATE ${MATSURI_CFLAGS})
 target_compile_options("matsuri-library-pic" PRIVATE ${MATSURI_CFLAGS})

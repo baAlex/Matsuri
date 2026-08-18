@@ -42,7 +42,7 @@ export const MIDI_CRASH_CYMBAL_KEY = 49;
 let s_wasm_array = null;
 
 
-export async function FetchAndRegister(audio_context, worklet_url = "./matsuri-v2-worklet.js", wasm_url = "./matsuri-v2.wasm") {
+export async function FetchAndRegister(audio_context, worklet_url = "./matsuri-v3-worklet.js", wasm_url = "./matsuri-v3.wasm") {
 
 	// Fetch worklet code, register it on the context
 	await audio_context.audioWorklet.addModule(worklet_url);
@@ -54,10 +54,10 @@ export async function FetchAndRegister(audio_context, worklet_url = "./matsuri-v
 	}
 }
 
-export class MatsuriV2Node extends AudioWorkletNode {
+export class MatsuriV3Node extends AudioWorkletNode {
 
 	constructor(audio_context) {
-		super(audio_context, "matsuri-v2-processor");
+		super(audio_context, "matsuri-v3-processor");
 
 		// Send WASM to worklet so it can finish its initialisation there
 		this.port.postMessage({ type: "Initialise", array: s_wasm_array });
