@@ -638,10 +638,10 @@ float mtsr606_RenderAdditiveKick(float mixer_volume, const struct mtsr606_KickPr
 
 void mtsr606_SnareSetProgram(float sampling_frequency, struct mtsr606_SnareProgram* restrict p)
 {
-	mtsr_OscillatorSetProgram(sampling_frequency, 140.0f, -12.0f, 140.0f, &p->osc);
+	mtsr_OscillatorSetProgram(sampling_frequency, 140.0f, -9.0f, 80.0f, &p->osc);
 	mtsr_EnvelopeSetProgram(sampling_frequency, 0.0f, 2.0f, 0.0f, 1.0f, 85.0f, 3.7f, &p->env);
-	mtsr_FilterSetProgram(sampling_frequency, MTSR_HIGHPASS_12DB, 3500.0f, 0.6f, 1.0f, &p->filter[0]);
-	mtsr_FilterSetProgram(sampling_frequency, MTSR_RC_LOWPASS_6DB, 500.0f, 0.0f, 1.0f, &p->filter[1]);
+	mtsr_FilterSetProgram(sampling_frequency, MTSR_HIGHPASS_12DB, 3000.0f, 0.5f, 1.0f, &p->filter[0]);
+	mtsr_FilterSetProgram(sampling_frequency, MTSR_LOWPASS_12DB, 5000.0f, 0.5f, 1.0f, &p->filter[1]);
 }
 
 float mtsr606_SnareSetState(enum mtsr_StateState state_state, float sampling_frequency, uint32_t seed, float velocity,
@@ -657,12 +657,13 @@ float mtsr606_SnareSetState(enum mtsr_StateState state_state, float sampling_fre
 	const float tone_vel = velocity * velocity;
 
 	s->distortion = sMap(0.5f, 1.0f, 0.0f, -0.3f, sMax(velocity, 0.5f)); // Distortion is linear
-	s->noise_volume = sMap(0.25f, 1.0f, 1.0f, 1.75f, sMax(tone_vel, 0.25f)) * general_volume;
+	s->noise_volume = sMap(0.25f, 1.0f, 0.28f, 0.6f, sMax(tone_vel, 0.25f)) * general_volume;
 	const float osc_volume = sMap(0.25f, 1.0f, 1.0f, 0.6f, sMax(tone_vel, 0.25f)) * general_volume;
 
 	const float detune = sSemitoneDetune(sMap(0.5f, 1.0f, 0.0f, -2.0f, sMax(velocity, 0.5f))); // Linear as well
 
-	mtsr_OscillatorSetState(state_state, sampling_frequency, 310.0f * detune, 1.0f, 0.75f * osc_volume, &s->osc);
+	mtsr_OscillatorSetState(state_state, sampling_frequency, 200.0f * sSemitoneDetune(9.0f) * detune, 1.0f,
+	                        0.75f * osc_volume, &s->osc);
 	mtsr_NoiseSet(seed, &s->noise);
 	mtsr_EnvelopeSetState(state_state, &s->env);
 	mtsr_FilterSetState(&s->filter[0]);
