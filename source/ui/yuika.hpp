@@ -82,13 +82,12 @@ class Screen
   public:
 	void Initialise();
 	void Deinitialise() noexcept;
-	void Update(Size size, int stride, void* out);
+	void Update(Size size, void* out);
 
   private:
 	friend ScreenFriend; // :)
 
 	uint8_t* m_out;
-	int m_out_stride;
 	Size m_size;
 
 	uint8_t m_dummy[4];

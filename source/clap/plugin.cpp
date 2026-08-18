@@ -441,6 +441,13 @@ static bool sCreate(const clap_plugin* plugin_, const char* api, bool is_floatin
 	try
 	{
 		plugin->ui.Initialise(plugin->ui_window_width, plugin->ui_window_height);
+
+#ifdef MATSURI_UI_X11
+		if (plugin->posix_fd != nullptr)
+		{
+			plugin->posix_fd->register_fd(plugin->host, ConnectionNumber(plugin->ui.m_x11_display), CLAP_POSIX_FD_READ);
+		}
+#endif
 	}
 	catch (...)
 	{
@@ -461,6 +468,13 @@ static void sDestroy(const clap_plugin* plugin_)
 #endif
 
 	plugin->ui.Deinitialise();
+
+#ifdef MATSURI_UI_X11
+	if (plugin->posix_fd != nullptr)
+	{
+		plugin->posix_fd->unregister_fd(plugin->host, ConnectionNumber(plugin->ui.m_x11_display));
+	}
+#endif
 }
 
 static bool sSetScale(const clap_plugin* plugin_, double scale)
@@ -477,7 +491,7 @@ static bool sGetSize(const clap_plugin* plugin_, uint32_t* width, uint32_t* heig
 	*width = static_cast<uint32_t>(plugin->ui_window_width);
 	*height = static_cast<uint32_t>(plugin->ui_window_height);
 	// No idea why a resizable gui needs to answer this (and we are getting called).
-	// But the header doesn't mention that we are exempt of answering this (also by
+	// The header doesn't mention that we are exempt of answering this (also by
 	// returning false QTractor prints a warning, similar enough to an error)
 
 	return true;
@@ -500,12 +514,22 @@ static bool sAdjustSize(const clap_plugin* plugin_, uint32_t* width, uint32_t* h
 {
 	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
-	*width = MaxU(*width, 320);
-	*height = MaxU(*height, 240);
+	*width = MaxU(*width, 1); // It glitches on any other value
+	*height = MaxU(*height, 1);
 
-	// Store it, CLAP seems to ask it later (even if we are resizable)
+	// Store it, CLAP ask for it later
 	plugin->ui_window_width = static_cast<int>(*width);
 	plugin->ui_window_height = static_cast<int>(*height);
+
+	try
+	{
+		plugin->ui.Resize(plugin->ui_window_width, plugin->ui_window_height);
+	}
+	catch (...)
+	{
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "### Matsuri: ui.Resize()");
+		return false;
+	}
 
 	return true; // """ plugin will calculate the closest usable size which fits in the given size """".
 	             // I don't get the "fits in the given size" part.
@@ -620,12 +644,6 @@ static const clap_plugin_gui s_plugin_gui_extension = {
 void sOnFd(const clap_plugin_t* plugin_, int, clap_posix_fd_flags_t)
 {
 	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
-
-#ifdef UNNECESSARY_PRINTS
-	if (plugin->host_log != nullptr)
-		plugin->host_log->log(plugin->host, CLAP_LOG_INFO, "### Matsuri: Ui sOnFd()");
-#endif
-
 	plugin->ui.OnFd(); // No error on this one
 }
 

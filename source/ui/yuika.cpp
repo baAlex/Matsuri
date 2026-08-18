@@ -35,7 +35,6 @@ template <typename T> static T Clamp(T v, T min, T max) noexcept
 void yuika::Screen::Initialise()
 {
 	m_out = m_dummy;
-	m_out_stride = 4;
 	m_size = {1, 1};
 }
 
@@ -57,10 +56,10 @@ class yuika::ScreenFriend
 			const int x1 = Clamp(rect.pos.x, 0, fwend->m_size.w);
 			const int y1 = Clamp(rect.pos.y, 0, fwend->m_size.h);
 			rect.size.w = (Clamp(rect.pos.x + rect.size.w, 0, fwend->m_size.w) - x1) * 4;
-			rect.size.h = (Clamp(rect.pos.y + rect.size.h, 0, fwend->m_size.h) - y1) * fwend->m_out_stride;
+			rect.size.h = (Clamp(rect.pos.y + rect.size.h, 0, fwend->m_size.h) - y1) * fwend->m_size.w * 4;
 
-			uint8_t* out = fwend->m_out + (x1 * 4) + (y1 * fwend->m_out_stride);
-			for (uint8_t* row = out; row < out + rect.size.h; row += fwend->m_out_stride)
+			uint8_t* out = fwend->m_out + (x1 * 4) + (y1 * fwend->m_size.w * 4);
+			for (uint8_t* row = out; row < out + rect.size.h; row += fwend->m_size.w * 4)
 			{
 				for (uint8_t* col = row; col < row + rect.size.w; col += 4)
 				{
@@ -95,10 +94,9 @@ class yuika::ScreenFriend
 	};
 };
 
-void yuika::Screen::Update(Size size, int stride, void* out_raw)
+void yuika::Screen::Update(Size size, void* out_raw)
 {
 	m_out = reinterpret_cast<uint8_t*>(out_raw);
-	m_out_stride = stride;
 
 	if (m_size.w != size.w || m_size.h != size.h)
 	{
@@ -109,5 +107,6 @@ void yuika::Screen::Update(Size size, int stride, void* out_raw)
 		api.fwend = this;
 
 		api.DrawRectangle(BKG_COLOUR, {{0, 0}, m_size});
+		api.Draw3dBevel({{0, 0}, m_size}, DrawApi::BevelStyle::Outset);
 	}
 }

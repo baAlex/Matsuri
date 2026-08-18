@@ -30,13 +30,14 @@ class Ui
 {
 	yuika::Screen m_yui;
 
+  public: // Yes, some members are used from outside, thing is that,
+	      // I don't want to put CLAP procedures here
 #ifdef MATSURI_UI_X11
-	Display* m_display;
-	Window m_window;
-	XImage* m_image;
+	Display* m_x11_display;
+	Window m_x11_window;
+	XImage* m_x11_image;
 #endif
 
-  public:
 	void Initialise(int width, int height);
 	void Deinitialise() noexcept;
 
@@ -47,6 +48,14 @@ class Ui
 
 	void Show();
 	void Hide();
+
+	void Resize(int width, int height);
+
+  private:
+	int m_width;
+	int m_height;
+	size_t m_buffer_size;
+	void* m_buffer;
 };
 
 #endif
