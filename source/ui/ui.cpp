@@ -12,6 +12,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "ui.hpp"
 
@@ -21,89 +22,167 @@ extern "C"
 }
 
 
+// ############################
+
+
+static thread_local int s_scary_shining_red_button = 0; // 'thread_local' is pretty much what I can do,
+                                                        // other solutions depends on how DAWs handle
+                                                        // plugins.
+
+
 #ifdef MATSURI_UI_X11
-static int sX11ErrorHandler(Display* display, XErrorEvent* error)
+// Error handling robbed from GLFW (if I'm going to copy, I'm going to copy from the best):
+// https://github.com/glfw/glfw/blob/92dcf4ce74f2e2554a98fea09be7c705c17daa5a/src/x11_init.c#L1098
+
+// And not just the functions, the style as well.
+
+/*
+Copyright (c) 2002-2006 Marcus Geelnard
+
+Copyright (c) 2006-2019 Camilla Löwy
+
+This software is provided 'as-is', without any express or implied
+warranty. In no event will the authors be held liable for any damages
+arising from the use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not
+   claim that you wrote the original software. If you use this software
+   in a product, an acknowledgment in the product documentation would
+   be appreciated but is not required.
+
+2. Altered source versions must be plainly marked as such, and must not
+   be misrepresented as being the original software.
+
+3. This notice may not be removed or altered from any source
+   distribution.
+*/
+
+static thread_local XErrorHandler s_X11_previous_error_handler;
+
+static int sX11ErrorHandler(Display* display, XErrorEvent* event)
 {
-	char text[256];
+	s_scary_shining_red_button = 1;
 
-	XGetErrorText(display, error->error_code, text, sizeof(text));
-	fprintf(stderr, "X11 error: %s\n", text); // TODO?
+	{
+		char text[256];
+		strcpy(text, "X11 error: ");
+		XGetErrorText(display, event->error_code, text + strlen("X11 error: "),
+		              static_cast<int>(sizeof(text) - strlen("X11 error: ")));
 
-	// """ it is acceptable for your error handler to return; the returned value is ignored. However, the error handler
-	// should not call any functions """
-	// (https://tronche.com/gui/x/xlib/event-handling/protocol-errors/XSetErrorHandler.html)
+		fprintf(stderr, "X11 error: \"%s\"\n", text);
+		throw std::runtime_error(text);
+	}
+
 	return 0;
+}
+
+void sGrabX11ErrorHandler()
+{
+	s_X11_previous_error_handler = XSetErrorHandler(sX11ErrorHandler);
+}
+
+void sReleaseX11ErrorHandler(Display* display)
+{
+	XSync(display, False); // TODO, shouldn't this be after XSetErrorHandler?
+	                       // EDIT, observation shows that's fine
+	XSetErrorHandler(s_X11_previous_error_handler);
+	s_X11_previous_error_handler = nullptr;
 }
 #endif
 
 
+// ############################
+
+
 void Ui::Initialise(int width, int height)
 {
+	// We are a plugin, many instances can be initialised... but that
+	// doesn't mean that a broken API will somehow work on a second try
+	if (s_scary_shining_red_button != 0)
+		throw BrokenState();
+
 	// Allocate buffer
 	m_width = width;
 	m_height = height;
 	m_buffer_size = static_cast<size_t>(width * height) * sizeof(uint32_t);
 	if ((m_buffer = malloc(m_buffer_size)) == nullptr)
-		throw 666;
+		throw std::bad_alloc();
 
 	// Initialise Yui and draw first frame
 	m_yui.Initialise();
 	m_yui.Update({m_width, m_height}, m_buffer);
 
-	// X11
+	// Specific API things
 #ifdef MATSURI_UI_X11
 	{
-		// Set error handler,
-		// X11 has a server-client model, so most operations will not execute immediately, and
-		// so errors are caught reaaallllyy late
-		XSetErrorHandler(sX11ErrorHandler);
-
-		// Create display
-		if ((m_x11_display = XOpenDisplay(NULL)) == nullptr)
+		// Create display,
+		// GLFW checks nullity
+		// https://github.com/glfw/glfw/blob/92dcf4ce74f2e2554a98fea09be7c705c17daa5a/src/x11_init.c#L1292
+		if ((m_x11_display = XOpenDisplay(nullptr)) == nullptr)
 		{
-			// It seems that most X11 returns random stuff, even if the reference say otherwise,
-			// the error handler seems to be the only one with a proper final word
-
-			// For example, XChangeProperty always fails:
-			// https://stackoverflow.com/a/11354589
-
-			// Same happens with XReparentWindow
+			throw std::runtime_error("Cannot open default X11 display");
 		}
 
-		// Create window
-		XSetWindowAttributes attributes = {};
-		m_x11_window = XCreateWindow(m_x11_display, DefaultRootWindow(m_x11_display), 0, 0,
-		                             static_cast<unsigned int>(m_width), static_cast<unsigned int>(m_height), 0, 0,
-		                             InputOutput, CopyFromParent, CWOverrideRedirect, &attributes);
+		// Create window,
+		// GLFW uses error handler here
+		// https://github.com/glfw/glfw/blob/92dcf4ce74f2e2554a98fea09be7c705c17daa5a/src/x11_window.c#L609
+		sGrabX11ErrorHandler();
+		{
+			XSetWindowAttributes attributes = {};
+			m_x11_window = XCreateWindow(m_x11_display, DefaultRootWindow(m_x11_display), 0, 0,
+			                             static_cast<unsigned int>(m_width), static_cast<unsigned int>(m_height), 0, 0,
+			                             InputOutput, CopyFromParent, CWOverrideRedirect, &attributes);
+		}
+		sReleaseX11ErrorHandler(m_x11_display);
 
-		// Embeddable property
-		const Atom embed_info_atom = XInternAtom(m_x11_display, "_XEMBED_INFO", False);
+		if (m_x11_display == nullptr)
+		{
+			throw std::runtime_error("Cannot create X11 window");
+		}
 
-		uint32_t embed_info_data[2] = {0 /* version */, 0 /* not mapped */};
-		XChangeProperty(m_x11_display, m_x11_window, embed_info_atom, embed_info_atom, 32, PropModeReplace,
-		                reinterpret_cast<uint8_t*>(embed_info_data), 2);
+		// Embeddable property, name, and inputs received
+		// GLFW is not checking for properties nor hints errors
+		// https://github.com/glfw/glfw/blob/92dcf4ce74f2e2554a98fea09be7c705c17daa5a/src/x11_window.c#L692
+		sGrabX11ErrorHandler(); // ... but differently to GLFW, we don't own a window, so we better catch
+		{                       // error before the default error handler does it
+			const Atom embed_info_atom = XInternAtom(m_x11_display, "_XEMBED_INFO", False);
 
-		// Some more properties
-		XStoreName(m_x11_display, m_x11_window, MATSURI_NAME);
+			uint32_t embed_info_data[2] = {0 /* version */, 0 /* not mapped */};
+			XChangeProperty(m_x11_display, m_x11_window, embed_info_atom, embed_info_atom, 32, PropModeReplace,
+			                reinterpret_cast<uint8_t*>(embed_info_data), 2);
 
-		XSelectInput(m_x11_display, m_x11_window,
-		             SubstructureNotifyMask | ExposureMask | PointerMotionMask | ButtonPressMask | ButtonReleaseMask |
-		                 KeyPressMask | KeyReleaseMask | StructureNotifyMask | EnterWindowMask | LeaveWindowMask |
-		                 ButtonMotionMask | KeymapStateMask | FocusChangeMask | PropertyChangeMask);
+			XStoreName(m_x11_display, m_x11_window, MATSURI_NAME);
+
+			XSelectInput(m_x11_display, m_x11_window,
+			             SubstructureNotifyMask | ExposureMask | PointerMotionMask | ButtonPressMask |
+			                 ButtonReleaseMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask | EnterWindowMask |
+			                 LeaveWindowMask | ButtonMotionMask | KeymapStateMask | FocusChangeMask |
+			                 PropertyChangeMask);
+		}
+		sReleaseX11ErrorHandler(m_x11_display);
 
 		// Create image
-		m_x11_image =
-		    XCreateImage(m_x11_display, DefaultVisual(m_x11_display, 0), 24, ZPixmap, 0, nullptr, 1, 1, 32, 0);
+		sGrabX11ErrorHandler();
+		{
+			m_x11_image =
+			    XCreateImage(m_x11_display, DefaultVisual(m_x11_display, 0), 24, ZPixmap, 0, nullptr, 1, 1, 32, 0);
 
-		m_x11_image->width = m_width;
-		m_x11_image->height = m_height;
-		m_x11_image->bytes_per_line = m_width * static_cast<int>(sizeof(uint32_t));
+			m_x11_image->width = m_width;
+			m_x11_image->height = m_height;
+			m_x11_image->bytes_per_line = m_width * static_cast<int>(sizeof(uint32_t));
 
-		m_x11_image->data = reinterpret_cast<char*>(m_buffer);
+			m_x11_image->data = reinterpret_cast<char*>(m_buffer);
+		}
+		sReleaseX11ErrorHandler(m_x11_display);
 
-		// All done!
-		XSync(m_x11_display, False); // This blocks until X11 server process all instructions, triggering
-		                             // error handler if it's the case
+		if (m_x11_image == nullptr)
+		{
+			throw std::runtime_error("Cannot create X11 image");
+		}
 	}
 #endif
 }
@@ -111,8 +190,15 @@ void Ui::Initialise(int width, int height)
 
 void Ui::Deinitialise() noexcept
 {
+	// Free our stuff
 	free(m_buffer);
 
+	// Go back?, specific API objects can stay where they are,
+	// a broken X11 is horrible, it can crash the entire DAW
+	if (s_scary_shining_red_button != 0)
+		return;
+
+	// Specific API things
 #ifdef MATSURI_UI_X11
 	{
 		m_x11_image->data = nullptr; // XDestroyImage() also free data
@@ -128,6 +214,9 @@ void Ui::Deinitialise() noexcept
 #ifdef MATSURI_UI_X11
 void Ui::SetParent(Window parent_window)
 {
+	if (s_scary_shining_red_button != 0)
+		throw BrokenState();
+
 	// Running "QT_QPA_PLATFORM=xcb qtractor" makes XReparentWindow() succeed,
 	// on the other hand "QT_QPA_PLATFORM=wayland qtractor" succeeds then it crashes
 	// everything.
@@ -138,32 +227,52 @@ void Ui::SetParent(Window parent_window)
 	// Here, what it seems to be an invalid 'parent_window' is being pass:
 	// https://github.com/rncbc/qtractor/blob/04b568651c70cc8e6bd135b79e47d270314c913c/src/qtractorClapPlugin.cpp#L3128
 
-	XReparentWindow(m_x11_display, m_x11_window, parent_window, 0, 0);
-	XFlush(m_x11_display);
-	XSync(m_x11_display, False); // I need to crash here
+	sGrabX11ErrorHandler();
+	{
+		XReparentWindow(m_x11_display, m_x11_window, parent_window, 0, 0);
+		XFlush(m_x11_display);
+	}
+	sReleaseX11ErrorHandler(m_x11_display);
 }
 #endif
 
 
 void Ui::Show()
 {
+	if (s_scary_shining_red_button != 0)
+		throw BrokenState();
+
 #ifdef MATSURI_UI_X11
-	XMapRaised(m_x11_display, m_x11_window);
-	XFlush(m_x11_display);
+	sGrabX11ErrorHandler();
+	{
+		XMapRaised(m_x11_display, m_x11_window);
+		XFlush(m_x11_display);
+	}
+	sReleaseX11ErrorHandler(m_x11_display);
 #endif
 }
 
 void Ui::Hide()
 {
+	if (s_scary_shining_red_button != 0)
+		throw BrokenState();
+
 #ifdef MATSURI_UI_X11
-	XUnmapWindow(m_x11_display, m_x11_window);
-	XFlush(m_x11_display);
+	sGrabX11ErrorHandler();
+	{
+		XUnmapWindow(m_x11_display, m_x11_window);
+		XFlush(m_x11_display);
+	}
+	sReleaseX11ErrorHandler(m_x11_display);
 #endif
 }
 
 
 void Ui::Resize(int width, int height)
 {
+	if (s_scary_shining_red_button != 0)
+		throw BrokenState();
+
 	if (width == m_width && height == m_height)
 		return;
 
@@ -186,8 +295,9 @@ void Ui::Resize(int width, int height)
 	m_height = height;
 	m_yui.Update({m_width, m_height}, m_buffer);
 
-	// Update window
+	// Update specific API
 #ifdef MATSURI_UI_X11
+	sGrabX11ErrorHandler();
 	{
 		m_x11_image->width = m_width;
 		m_x11_image->height = m_height;
@@ -199,33 +309,41 @@ void Ui::Resize(int width, int height)
 		XPutImage(m_x11_display, m_x11_window, DefaultGC(m_x11_display, 0), m_x11_image, 0, 0, 0, 0,
 		          static_cast<unsigned int>(m_x11_image->width), static_cast<unsigned int>(m_x11_image->height));
 	}
+	sReleaseX11ErrorHandler(m_x11_display);
 #endif
 }
 
 
 #ifdef MATSURI_UI_X11
-void Ui::OnFd() noexcept
+void Ui::OnFd()
 {
-	XFlush(m_x11_display);
+	if (s_scary_shining_red_button != 0)
+		throw BrokenState();
 
-	while (XPending(m_x11_display))
+	sGrabX11ErrorHandler();
 	{
-		XEvent event;
-		XNextEvent(m_x11_display, &event);
-
-		if (event.type == Expose)
-		{
-			if (event.xexpose.window == m_x11_window)
-			{
-				// Am I doing this right?
-				XPutImage(m_x11_display, m_x11_window, DefaultGC(m_x11_display, 0), m_x11_image, event.xexpose.x,
-				          event.xexpose.y, event.xexpose.x, event.xexpose.y,
-				          static_cast<unsigned int>(event.xexpose.width),
-				          static_cast<unsigned int>(event.xexpose.height));
-			}
-		}
-
 		XFlush(m_x11_display);
+
+		while (XPending(m_x11_display))
+		{
+			XEvent event;
+			XNextEvent(m_x11_display, &event);
+
+			if (event.type == Expose)
+			{
+				if (event.xexpose.window == m_x11_window)
+				{
+					// Am I doing this right?
+					XPutImage(m_x11_display, m_x11_window, DefaultGC(m_x11_display, 0), m_x11_image, event.xexpose.x,
+					          event.xexpose.y, event.xexpose.x, event.xexpose.y,
+					          static_cast<unsigned int>(event.xexpose.width),
+					          static_cast<unsigned int>(event.xexpose.height));
+				}
+			}
+
+			XFlush(m_x11_display);
+		}
 	}
+	sReleaseX11ErrorHandler(m_x11_display);
 }
 #endif

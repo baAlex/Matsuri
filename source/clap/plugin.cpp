@@ -26,7 +26,7 @@ extern "C"
 #include "../voice-allocator.h"
 }
 
-#define UNNECESSARY_PRINTS 1
+// #define UNNECESSARY_PRINTS 1
 
 static const char* const s_features[] = {
     CLAP_PLUGIN_FEATURE_INSTRUMENT,
@@ -335,7 +335,7 @@ static bool sPluginStateSave(const clap_plugin* plugin_, const clap_ostream* str
 	if (stream->write(stream, &version, sizeof(int)) != sizeof(int))
 	{
 		if (plugin->host_log != nullptr)
-			plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Host error writing state/preset\n");
+			plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri error, host failed on writing state/preset\n");
 		return false;
 	}
 
@@ -345,7 +345,8 @@ static bool sPluginStateSave(const clap_plugin* plugin_, const clap_ostream* str
 		if (stream->write(stream, &p[i], sizeof(int)) != sizeof(int))
 		{
 			if (plugin->host_log != nullptr)
-				plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Host error writing state/preset\n");
+				plugin->host_log->log(plugin->host, CLAP_LOG_ERROR,
+				                      "Matsuri error, host failed on writing state/preset\n");
 			return false;
 		}
 	}
@@ -370,14 +371,15 @@ static bool sPluginStateLoad(const clap_plugin* plugin_, const clap_istream* str
 	if (stream->read(stream, &version, sizeof(int)) != sizeof(int))
 	{
 		if (plugin->host_log != nullptr)
-			plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Host error reading state/preset\n");
+			plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri error, host failed on reading state/preset\n");
 		return false;
 	}
 
-	if (version != MATSURI_VERSION_MAJOR) // There isn't old versions yet
+	if (version !=
+	    MATSURI_VERSION_MAJOR) // There isn't old versions yet, FIXME: "about that beer i owe ya" (??? I'm silly)
 	{
 		if (plugin->host_log != nullptr)
-			plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Unknown state/preset version\n");
+			plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri warning, unknown state/preset version\n");
 		return false;
 	}
 
@@ -387,7 +389,8 @@ static bool sPluginStateLoad(const clap_plugin* plugin_, const clap_istream* str
 		if (stream->read(stream, &p[i], sizeof(int)) != sizeof(int))
 		{
 			if (plugin->host_log != nullptr)
-				plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri | Host error reading state/preset\n");
+				plugin->host_log->log(plugin->host, CLAP_LOG_ERROR,
+				                      "Matsuri error, host failed on reading state/preset\n");
 			return false;
 		}
 	}
@@ -425,7 +428,7 @@ static bool sGetPreferredApi(const clap_plugin*, const char** api, bool* is_floa
 	return true;
 }
 
-static bool sCreate(const clap_plugin* plugin_, const char* api, bool is_floating)
+static bool sCreate(const clap_plugin* plugin_, const char* api, bool is_floating) noexcept
 {
 	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
@@ -448,9 +451,15 @@ static bool sCreate(const clap_plugin* plugin_, const char* api, bool is_floatin
 		}
 #endif
 	}
+	catch (const std::exception& err)
+	{
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri error, ui.Initialise()");
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, err.what());
+		return false;
+	}
 	catch (...)
 	{
-		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "### Matsuri: ui.Initialise()");
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri error, ui.Initialise()");
 		return false;
 	}
 
@@ -509,7 +518,7 @@ static bool sGetResizeHints(const clap_plugin*, clap_gui_resize_hints* hints)
 	return true;
 }
 
-static bool sAdjustSize(const clap_plugin* plugin_, uint32_t* width, uint32_t* height)
+static bool sAdjustSize(const clap_plugin* plugin_, uint32_t* width, uint32_t* height) noexcept
 {
 	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
@@ -524,9 +533,15 @@ static bool sAdjustSize(const clap_plugin* plugin_, uint32_t* width, uint32_t* h
 	{
 		plugin->ui.Resize(plugin->ui_window_width, plugin->ui_window_height);
 	}
+	catch (const std::exception& err)
+	{
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri error, ui.Resize()");
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, err.what());
+		return false;
+	}
 	catch (...)
 	{
-		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "### Matsuri: ui.Resize()");
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri error, ui.Resize()");
 		return false;
 	}
 
@@ -539,7 +554,7 @@ static bool sSetSize(const clap_plugin*, uint32_t, uint32_t)
 	return true; // """ Returns true if the plugin could adjust the given size """
 }
 
-static bool sSetParent(const clap_plugin* plugin_, const clap_window* daw_window)
+static bool sSetParent(const clap_plugin* plugin_, const clap_window* daw_window) noexcept
 {
 	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
@@ -554,9 +569,15 @@ static bool sSetParent(const clap_plugin* plugin_, const clap_window* daw_window
 		plugin->ui.SetParent(static_cast<Window>(daw_window->x11));
 #endif
 	}
+	catch (const std::exception& err)
+	{
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri error, ui.SetParent()");
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, err.what());
+		return false;
+	}
 	catch (...)
 	{
-		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "### Matsuri: ui.SetParent()");
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri error, ui.SetParent()");
 		return false;
 	}
 
@@ -572,7 +593,7 @@ static void sSuggestTitle(const clap_plugin*, const char*) // Just for floating 
 {
 }
 
-static bool sShow(const clap_plugin* plugin_)
+static bool sShow(const clap_plugin* plugin_) noexcept
 {
 	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
@@ -585,16 +606,22 @@ static bool sShow(const clap_plugin* plugin_)
 	{
 		plugin->ui.Show();
 	}
+	catch (const std::exception& err)
+	{
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri error, ui.Show()");
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, err.what());
+		return false;
+	}
 	catch (...)
 	{
-		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "### Matsuri: ui.Show()");
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri error, ui.Show()");
 		return false;
 	}
 
 	return true;
 }
 
-static bool sHide(const clap_plugin* plugin_)
+static bool sHide(const clap_plugin* plugin_) noexcept
 {
 	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
@@ -607,9 +634,15 @@ static bool sHide(const clap_plugin* plugin_)
 	{
 		plugin->ui.Hide();
 	}
+	catch (const std::exception& err)
+	{
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri error, ui.Hide()");
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, err.what());
+		return false;
+	}
 	catch (...)
 	{
-		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "### Matsuri: ui.Show()");
+		plugin->host_log->log(plugin->host, CLAP_LOG_ERROR, "Matsuri error, ui.Hide()");
 		return false;
 	}
 
@@ -640,10 +673,21 @@ static const clap_plugin_gui s_plugin_gui_extension = {
 ///////////////////
 
 #ifdef MATSURI_UI_X11
-void sOnFd(const clap_plugin_t* plugin_, int, clap_posix_fd_flags_t)
+void sOnFd(const clap_plugin_t* plugin_, int, clap_posix_fd_flags_t) noexcept
 {
-	MatsuriPlugin* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
-	plugin->ui.OnFd(); // No error on this one
+	auto* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
+
+	try
+	{
+		plugin->ui.OnFd();
+	}
+	catch (...)
+	{
+		// Keep it silent, we cannot return a failure here,
+		// other functions will catch the broken state.
+
+		// Also this functions runs in a loop
+	}
 }
 
 static const clap_plugin_posix_fd_support_t s_posix_fd_extension = {

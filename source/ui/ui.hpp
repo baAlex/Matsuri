@@ -14,8 +14,18 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #define UI_HPP
 
 #include "yuika.hpp"
+#include <stdexcept>
+
 
 // #define MATSURI_UI_X11 // CMake should define this
+
+
+class BrokenState : public std::runtime_error
+{
+  public:
+	BrokenState() : std::runtime_error("Broken state, another error may happened before") {};
+};
+
 
 #ifdef MATSURI_UI_X11
 extern "C"
@@ -48,7 +58,7 @@ class Ui
 
 #ifdef MATSURI_UI_X11
 	void SetParent(Window parent_window);
-	void OnFd() noexcept;
+	void OnFd();
 #endif
 
 	void Show();
