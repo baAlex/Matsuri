@@ -24,7 +24,7 @@ static struct VoiceAllocator s_allocator;
 
 const float* Initialise(float sampling_frequency)
 {
-	VoiceAllocatorSet(&s_allocator, sampling_frequency, MAX_MAX_ITEMS);
+	VoiceAllocatorSet(&s_allocator, sampling_frequency, MAX_MAX_VOICES);
 	return s_buffer;
 }
 

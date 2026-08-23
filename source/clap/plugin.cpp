@@ -741,7 +741,7 @@ static bool sPluginActivate(const clap_plugin* plugin_, double sampling_frequenc
 	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
 	plugin->sampling_frequency = static_cast<float>(sampling_frequency);
-	VoiceAllocatorSet(&plugin->allocator, plugin->sampling_frequency, MAX_MAX_ITEMS);
+	VoiceAllocatorSet(&plugin->allocator, plugin->sampling_frequency, MAX_MAX_VOICES);
 	// TODO, should I set parameters again?, like in Initialise()???
 
 	plugin->host_log = reinterpret_cast<const clap_host_log*>(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
@@ -767,7 +767,7 @@ static void sPluginReset(const clap_plugin* plugin_)
 {
 	auto plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
 
-	VoiceAllocatorSet(&plugin->allocator, plugin->sampling_frequency, MAX_MAX_ITEMS);
+	VoiceAllocatorSet(&plugin->allocator, plugin->sampling_frequency, MAX_MAX_VOICES);
 	// TODO, should I set parameters again?, like in Initialise()???
 
 	plugin->host_log = reinterpret_cast<const clap_host_log*>(plugin->host->get_extension(plugin->host, CLAP_EXT_LOG));
@@ -1011,12 +1011,12 @@ static const void* sEntryGetFactory(const char* factory_id)
 
 extern "C"
 {
-	EXPORT const clap_plugin_entry clap_entry = {
+	CLAP_EXPORT const clap_plugin_entry clap_entry = {
 	    /* .clap_version */ CLAP_VERSION_INIT,
 	    /* .init */ sEntryInitialisation,
 	    /* .deinit */ sEntryDeinitialisation,
 	    /* .get_factory */ sEntryGetFactory,
 	};
 
-	EXPORT const char* copyright = MATSURI_COPYRIGHT;
+	CLAP_EXPORT const char* copyright = MATSURI_COPYRIGHT;
 }

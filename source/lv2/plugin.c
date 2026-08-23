@@ -73,7 +73,7 @@ static LV2_Handle sInitialize(const LV2_Descriptor* descriptor, double rate, con
 		return NULL;
 
 	memset(plugin, 0, sizeof(struct Matsuri));
-	VoiceAllocatorSet(&plugin->allocator, (float)(rate), MAX_MAX_ITEMS);
+	VoiceAllocatorSet(&plugin->allocator, (float)(rate), MAX_MAX_VOICES);
 
 	// Scan host features for URID map
 	const char* missing =

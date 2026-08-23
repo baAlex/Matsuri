@@ -15,7 +15,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 
 #include "matsuri.h"
 
-#define MAX_MAX_ITEMS 16
+#define MAX_MAX_VOICES 16
 
 
 struct TailProgram
@@ -64,7 +64,7 @@ struct VoiceAllocatorState // Big as instruments require it, we don't access thi
 struct VoiceAllocator
 {
 	float sampling_frequency;
-	uint32_t max_items;
+	uint32_t max_voices;
 
 	uint32_t rng;
 	float vel_vol_mod;
@@ -72,8 +72,8 @@ struct VoiceAllocator
 	float reference_vel;
 	float volume[7]; // One for each VoiceAllocatorVoiceType
 
-	struct VoiceAllocatorVoice voices[MAX_MAX_ITEMS];
-	struct VoiceAllocatorState states[MAX_MAX_ITEMS];
+	struct VoiceAllocatorVoice voices[MAX_MAX_VOICES];
+	struct VoiceAllocatorState states[MAX_MAX_VOICES];
 
 	struct TailProgram tail_p;
 	struct TailState tail_s;
@@ -106,7 +106,7 @@ enum AllocationStrategy
 	STRATEGY_COPE, // Only uses stopped voices, if not available, doesn't play anything new.
 };
 
-void VoiceAllocatorSet(struct VoiceAllocator* allocator, float sampling_frequency, int max_items);
+void VoiceAllocatorSet(struct VoiceAllocator* allocator, float sampling_frequency, int max_voices);
 void VoiceAllocatorPlay(struct VoiceAllocator* allocator, enum AllocationStrategy, uint32_t id,
                         enum VoiceAllocatorVoiceType type, float velocity);
 void VoiceAllocatorConfigureVoice(struct VoiceAllocator* allocator, enum VoiceAllocatorVoiceType type, float volume);

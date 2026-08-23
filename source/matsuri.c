@@ -23,6 +23,12 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #pragma message("Doing a release build, be sure of check all magic numbers")
 #endif
 
+#if 0
+#define FORCED_INLINE __attribute__((always_inline))
+#else
+#define FORCED_INLINE // Empty, not needed, "-O3" and "-flto" are doing their job
+#endif
+
 
 #define PI_TWO (6.28318530718f)
 #define HALF_PI (1.57079632679f)
@@ -32,11 +38,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #define NOISE_SCALE (1.1920929e-7f)       // 1 / ((2 ^ 24) / 2)
 
 
-#if 0
-#define FORCED_INLINE __attribute__((always_inline))
-#else
-#define FORCED_INLINE // Empty, not needed, "-O3" and "-flto" are doing their job
-#endif
+// ############################
 
 
 float mtsr_OscillatorStep(const struct mtsr_OscillatorProgram* restrict p, struct mtsr_OscillatorState* restrict s)
@@ -183,7 +185,7 @@ float mtsr_CheapDistortion(float x, float f)
 }
 
 
-//
+// ############################
 
 
 static FORCED_INLINE float sMax(float a, float b)
@@ -480,7 +482,7 @@ void mtsr_FilterSetProgram(float sampling_frequency, enum mtsr_FilterType type, 
 		p->c[A2] = 1.0f - alpha;
 		break;
 	}
-	default: // MTSR_LOWPASS_12DB, Robert Bristow-Johnson
+	case MTSR_LOWPASS_12DB: // Robert Bristow-Johnson
 	{
 		p->c_b0 = (1.0f - sCos(wo)) / 2.0f;
 		p->c[B1] = 1.0f - sCos(wo);
@@ -545,6 +547,9 @@ void mtsr_SquareX6SetState(uint32_t seed, struct mtsr_SquareX6State* restrict s)
 	s->phase[4] = (int32_t)(p4 & MASK);
 	s->phase[5] = (int32_t)(p5 & MASK);
 }
+
+
+// ############################
 
 
 void mtsr606_KickSetProgram(float sampling_frequency, struct mtsr606_KickProgram* restrict p)
@@ -634,6 +639,9 @@ float mtsr606_RenderAdditiveKick(float mixer_volume, const struct mtsr606_KickPr
 }
 
 
+// ############################
+
+
 void mtsr606_SnareSetProgram(float sampling_frequency, struct mtsr606_SnareProgram* restrict p)
 {
 	mtsr_OscillatorSetProgram(sampling_frequency, 140.0f, -9.0f, 80.0f, &p->osc);
@@ -720,6 +728,9 @@ float mtsr606_RenderAdditiveSnare(float mixer_volume, const struct mtsr606_Snare
 	}
 	return signal;
 }
+
+
+// ############################
 
 
 void mtsr606_HatSetProgram(float sampling_frequency, enum mtsr_HatType type, struct mtsr606_HatProgram* restrict p)
@@ -946,6 +957,9 @@ float mtsr606_RenderAdditiveHat(float volume, const struct mtsr606_HatProgram* r
 
 	return signal;
 }
+
+
+// ############################
 
 
 void mtsr606_TomSetProgram(float sampling_frequency, enum mtsr_TomType type, struct mtsr606_TomProgram* restrict p)
