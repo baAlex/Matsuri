@@ -109,12 +109,8 @@ void Ui::Initialise(int width, int height)
 	m_width = width;
 	m_height = height;
 	m_buffer_size = static_cast<size_t>(width * height) * sizeof(uint32_t);
-	if ((m_buffer = malloc(m_buffer_size)) == nullptr)
+	if ((m_buffer = realloc(nullptr, m_buffer_size)) == nullptr)
 		throw std::bad_alloc();
-
-	// Initialise Yui and draw first frame
-	m_yui.Initialise();
-	m_yui.Update({m_width, m_height}, m_buffer);
 
 	// Specific API things
 #ifdef MATSURI_UI_X11
@@ -123,9 +119,7 @@ void Ui::Initialise(int width, int height)
 		// GLFW checks nullity
 		// https://github.com/glfw/glfw/blob/92dcf4ce74f2e2554a98fea09be7c705c17daa5a/src/x11_init.c#L1292
 		if ((m_x11_display = XOpenDisplay(nullptr)) == nullptr)
-		{
 			throw std::runtime_error("Cannot open default X11 display");
-		}
 
 		// Create window,
 		// GLFW uses error handler here
@@ -140,9 +134,7 @@ void Ui::Initialise(int width, int height)
 		sReleaseX11ErrorHandler(m_x11_display);
 
 		if (m_x11_display == nullptr)
-		{
 			throw std::runtime_error("Cannot create X11 window");
-		}
 
 		// Embeddable property, name, and inputs received
 		// GLFW is not checking for properties nor hints errors
@@ -168,8 +160,29 @@ void Ui::Initialise(int width, int height)
 		// Create image
 		sGrabX11ErrorHandler();
 		{
-			m_x11_image =
-			    XCreateImage(m_x11_display, DefaultVisual(m_x11_display, 0), 24, ZPixmap, 0, nullptr, 1, 1, 32, 0);
+			m_x11_image = XCreateImage(m_x11_display, DefaultVisual(m_x11_display, 0),
+			                           24,      // depth
+			                           ZPixmap, // format (XYBitmap, XYPixmap, or ZPixmap)
+			                           0,       // offset
+			                           nullptr, // data
+			                           1,       // width
+			                           1,       // height
+			                           32,      // bitmap_pad
+			                           0        // bytes_per_line
+			);
+
+			// """ The XCreateImage function allocates the memory needed for an XImage structure for the specified
+			// display but does not allocate space for the image itself. """
+			// (https://xorg.freedesktop.org/releases/current/doc/libX11/libX11/libX11.html#XCreateImage)
+
+			// """ The red, green, and blue mask values are defined for Z format images only and are derived from the
+			// Visual structure passed in. """ (ditto)
+
+			// """ XDestroyImage function calls frees both the image structure and the data pointed to by the image
+			// structure. """ (ditto)
+
+			// """ The red, green, and blue mask values are defined for Z format images only and are derived from the
+			// Visual structure passed in. """ (ditto)
 
 			m_x11_image->width = m_width;
 			m_x11_image->height = m_height;
@@ -180,8 +193,16 @@ void Ui::Initialise(int width, int height)
 		sReleaseX11ErrorHandler(m_x11_display);
 
 		if (m_x11_image == nullptr)
-		{
 			throw std::runtime_error("Cannot create X11 image");
+
+		// Initialise Yui and draw first frame
+		{
+			const auto v = DefaultVisual(m_x11_display, 0);
+
+			m_yui.Initialise(static_cast<uint32_t>(v->red_mask), static_cast<uint32_t>(v->green_mask),
+			                 static_cast<uint32_t>(v->blue_mask));
+
+			m_yui.Update({m_width, m_height}, reinterpret_cast<uint32_t*>(m_buffer));
 		}
 	}
 #endif
@@ -280,20 +301,22 @@ void Ui::Resize(int width, int height)
 	if (static_cast<size_t>(width * height) * sizeof(uint32_t) > m_buffer_size)
 	{
 		m_buffer_size = static_cast<size_t>(width * height) * sizeof(uint32_t);
+		m_buffer_size = (m_buffer_size * 3) / 2;
+
+		// printf("%zu, %f MB\n", m_buffer_size, static_cast<double>(m_buffer_size) / 1000.0 / 1000.0);
 
 		void* prev = m_buffer;
 		if ((m_buffer = realloc(m_buffer, m_buffer_size)) == nullptr)
 		{
 			m_buffer = prev;
-			// throw 666; // TODO?
-			return;
+			throw std::bad_alloc();
 		}
 	}
 
 	// Update Yui
 	m_width = width;
 	m_height = height;
-	m_yui.Update({m_width, m_height}, m_buffer);
+	m_yui.Update({m_width, m_height}, reinterpret_cast<uint32_t*>(m_buffer));
 
 	// Update specific API
 #ifdef MATSURI_UI_X11
@@ -333,7 +356,7 @@ void Ui::OnFd()
 			{
 				if (event.xexpose.window == m_x11_window)
 				{
-					// Am I doing this right?
+					// TODO, Am I doing this right?
 					XPutImage(m_x11_display, m_x11_window, DefaultGC(m_x11_display, 0), m_x11_image, event.xexpose.x,
 					          event.xexpose.y, event.xexpose.x, event.xexpose.y,
 					          static_cast<unsigned int>(event.xexpose.width),

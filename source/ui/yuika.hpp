@@ -40,29 +40,23 @@ struct Rect
 	Size size;
 };
 
-struct Colour
-{
-	uint8_t r;
-	uint8_t g;
-	uint8_t b;
-	uint8_t a;
-};
-
-static constexpr Colour BLACK = {0xFF, 0x00, 0x00, 0x00};
-static constexpr Colour WHITE = {0xFF, 0xFF, 0xFF, 0xFF};
-static constexpr Colour RED = {0xFF, 0xFF, 0x00, 0x00};
-static constexpr Colour GREEN = {0xFF, 0x00, 0xFF, 0x00};
-static constexpr Colour BLUE = {0xFF, 0x00, 0x00, 0xFF};
-
-static constexpr Colour BKG_COLOUR = {0xFF, 0xE6, 0x28, 0x28};
-
-static constexpr Colour BEVEL_LIGHT_COLOUR = WHITE;
-static constexpr Colour BEVEL_SHADOW_COLOUR = BLACK;
-static constexpr Colour BEVEL_MID_COLOUR = {0xFF, 0x73, 0x14, 0x14}; // BKG_COLOUR / 2
-
 class DrawApi
 {
   public:
+	enum class Colour
+	{
+		Black = 0,
+		White = 1,
+		Red = 2,
+		Green = 3,
+		Blue = 4,
+
+		Background = 5,
+		BevelMid = 6,
+		BevelLight = White,
+		BevelShadow = Black,
+	};
+
 	virtual void SetClickableArea(Rect rect) = 0;
 	virtual void DrawRectangle(Colour colour, Rect rect) = 0;
 
@@ -80,17 +74,17 @@ class ScreenFriend;
 class Screen
 {
   public:
-	void Initialise();
+	void Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask);
 	void Deinitialise() noexcept;
-	void Update(Size size, void* out);
+	void Update(Size size, uint32_t* out);
 
   private:
 	friend ScreenFriend; // :)
 
-	uint8_t* m_out;
 	Size m_size;
-
-	uint8_t m_dummy[4];
+	uint32_t* m_out;
+	uint32_t m_dummy;
+	uint32_t m_palette[7];
 };
 
 } // namespace yuika
