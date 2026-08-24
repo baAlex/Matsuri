@@ -111,7 +111,7 @@ struct MatsuriPlugin
 	std::atomic<int> ui_window_width;
 	std::atomic<int> ui_window_height;
 
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 	const clap_host_posix_fd_support* posix_fd;
 #endif
 };
@@ -418,13 +418,20 @@ static bool sPluginIsAPISupported(const clap_plugin*, const char* api, bool is_f
 {
 	if (strcmp(api, CLAP_WINDOW_API_X11) == 0 && is_floating == false)
 		return true;
+	if (strcmp(api, CLAP_WINDOW_API_WIN32) == 0 && is_floating == false)
+		return true;
 	return false;
 }
 
 static bool sGetPreferredApi(const clap_plugin*, const char** api, bool* is_floating)
 {
+#if (MATSURI_UI == MATSURI_UI_X11)
 	*api = CLAP_WINDOW_API_X11;
 	*is_floating = false;
+#elif (MATSURI_UI == MATSURI_UI_WIN32)
+	*api = CLAP_WINDOW_API_WIN32;
+	*is_floating = false;
+#endif
 	return true;
 }
 
@@ -444,7 +451,7 @@ static bool sCreate(const clap_plugin* plugin_, const char* api, bool is_floatin
 	{
 		plugin->ui.Initialise(plugin->ui_window_width, plugin->ui_window_height);
 
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 		if (plugin->posix_fd != nullptr)
 		{
 			plugin->posix_fd->register_fd(plugin->host, ConnectionNumber(plugin->ui.m_x11_display), CLAP_POSIX_FD_READ);
@@ -477,7 +484,7 @@ static void sDestroy(const clap_plugin* plugin_)
 
 	plugin->ui.Deinitialise();
 
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 	if (plugin->posix_fd != nullptr)
 	{
 		plugin->posix_fd->unregister_fd(plugin->host, ConnectionNumber(plugin->ui.m_x11_display));
@@ -565,8 +572,10 @@ static bool sSetParent(const clap_plugin* plugin_, const clap_window* daw_window
 
 	try
 	{
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 		plugin->ui.SetParent(static_cast<Window>(daw_window->x11));
+#elif (MATSURI_UI == MATSURI_UI_WIN32)
+		plugin->ui.SetParent_(static_cast<HWND>(daw_window->win32));
 #endif
 	}
 	catch (const std::exception& err)
@@ -672,7 +681,7 @@ static const clap_plugin_gui s_plugin_gui_extension = {
 // clap_posix_fd //
 ///////////////////
 
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 void sOnFd(const clap_plugin_t* plugin_, int, clap_posix_fd_flags_t) noexcept
 {
 	auto* plugin = reinterpret_cast<MatsuriPlugin*>(plugin_->plugin_data);
@@ -722,7 +731,7 @@ static bool sPluginInitialise(const clap_plugin* plugin_)
 	std::atomic_init(&plugin->ui_window_width, 640);
 	std::atomic_init(&plugin->ui_window_height, 480);
 
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 	plugin->posix_fd = reinterpret_cast<const clap_host_posix_fd_support_t*>(
 	    plugin->host->get_extension(plugin->host, CLAP_EXT_POSIX_FD_SUPPORT));
 #endif
@@ -931,7 +940,7 @@ static const void* sPluginGetExtension(const clap_plugin*, const char* id)
 	if (strcmp(id, CLAP_EXT_GUI) == 0)
 		return &s_plugin_gui_extension;
 
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 	if (strcmp(id, CLAP_EXT_POSIX_FD_SUPPORT) == 0)
 		return &s_posix_fd_extension;
 #endif
@@ -1011,12 +1020,12 @@ static const void* sEntryGetFactory(const char* factory_id)
 
 extern "C"
 {
-	CLAP_EXPORT const clap_plugin_entry clap_entry = {
+	CLAP_EXPORT extern const clap_plugin_entry clap_entry = {
 	    /* .clap_version */ CLAP_VERSION_INIT,
 	    /* .init */ sEntryInitialisation,
 	    /* .deinit */ sEntryDeinitialisation,
 	    /* .get_factory */ sEntryGetFactory,
 	};
 
-	CLAP_EXPORT const char* copyright = MATSURI_COPYRIGHT;
+	CLAP_EXPORT extern const char* copyright = MATSURI_COPYRIGHT;
 }

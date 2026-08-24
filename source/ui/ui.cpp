@@ -30,7 +30,7 @@ static thread_local int s_scary_shining_red_button = 0; // 'thread_local' is pre
                                                         // plugins.
 
 
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 // Error handling robbed from GLFW (if I'm going to copy, I'm going to copy from the best):
 // https://github.com/glfw/glfw/blob/92dcf4ce74f2e2554a98fea09be7c705c17daa5a/src/x11_init.c#L1098
 
@@ -98,6 +98,11 @@ void sReleaseX11ErrorHandler(Display* display)
 // ############################
 
 
+#if (MATSURI_UI == MATSURI_UI_WIN32)
+static int globalOpenGUICount = 0;
+LRESULT CALLBACK GUIWindowProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
+#endif
+
 void Ui::Initialise(int width, int height)
 {
 	// We are a plugin, many instances can be initialised... but that
@@ -113,7 +118,7 @@ void Ui::Initialise(int width, int height)
 		throw std::bad_alloc();
 
 	// Specific API things
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 	{
 		// Create display,
 		// GLFW checks nullity
@@ -205,6 +210,34 @@ void Ui::Initialise(int width, int height)
 			m_yui.Update({m_width, m_height}, reinterpret_cast<uint32_t*>(m_buffer));
 		}
 	}
+#elif (MATSURI_UI == MATSURI_UI_WIN32)
+	{
+		// MessageBoxW(nullptr, L"Ui::Initialise", L"Matsuri", MB_OK);
+
+		if (globalOpenGUICount == 0)
+		{
+			WNDCLASS temp = {};
+			temp.lpfnWndProc = GUIWindowProcedure;
+			temp.cbWndExtra = sizeof(Ui*); // TODO, read reference to confirm what I think it is
+			temp.lpszClassName = MATSURI_URI;
+			temp.hCursor = LoadCursor(nullptr, IDC_ARROW);
+			temp.style = CS_DBLCLKS;
+
+			RegisterClass(&temp);
+			globalOpenGUICount++;
+		}
+
+		m_win32_window = CreateWindow(MATSURI_URI, MATSURI_NAME, WS_CHILDWINDOW | WS_CLIPSIBLINGS, CW_USEDEFAULT, 0,
+		                              m_width, m_height, GetDesktopWindow(), nullptr, nullptr, nullptr);
+
+		SetWindowLongPtr(m_win32_window, 0, (LONG_PTR)(this)); // TODO, read reference to confirm what I think it is
+
+		// Initialise Yui and draw first frame
+		{
+			m_yui.Initialise(0x00FF0000, 0x0000FF00, 0x000000FF); // BI_RGB below
+			m_yui.Update({m_width, m_height}, reinterpret_cast<uint32_t*>(m_buffer));
+		}
+	}
 #endif
 }
 
@@ -220,7 +253,7 @@ void Ui::Deinitialise() noexcept
 		return;
 
 	// Specific API things
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 	{
 		m_x11_image->data = nullptr; // XDestroyImage() also free data
 		XDestroyImage(m_x11_image);
@@ -232,7 +265,7 @@ void Ui::Deinitialise() noexcept
 }
 
 
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 void Ui::SetParent(Window parent_window)
 {
 	if (s_scary_shining_red_button != 0)
@@ -255,6 +288,11 @@ void Ui::SetParent(Window parent_window)
 	}
 	sReleaseX11ErrorHandler(m_x11_display);
 }
+#elif (MATSURI_UI == MATSURI_UI_WIN32)
+void Ui::SetParent_(HWND parent_window)
+{
+	SetParent(m_win32_window, parent_window); // TODO, check error
+}
 #endif
 
 
@@ -263,13 +301,16 @@ void Ui::Show()
 	if (s_scary_shining_red_button != 0)
 		throw BrokenState();
 
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 	sGrabX11ErrorHandler();
 	{
 		XMapRaised(m_x11_display, m_x11_window);
 		XFlush(m_x11_display);
 	}
 	sReleaseX11ErrorHandler(m_x11_display);
+
+#elif (MATSURI_UI == MATSURI_UI_WIN32)
+	ShowWindow(m_win32_window, SW_SHOW);
 #endif
 }
 
@@ -278,13 +319,16 @@ void Ui::Hide()
 	if (s_scary_shining_red_button != 0)
 		throw BrokenState();
 
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 	sGrabX11ErrorHandler();
 	{
 		XUnmapWindow(m_x11_display, m_x11_window);
 		XFlush(m_x11_display);
 	}
 	sReleaseX11ErrorHandler(m_x11_display);
+
+#elif (MATSURI_UI == MATSURI_UI_WIN32)
+	ShowWindow(m_win32_window, SW_HIDE);
 #endif
 }
 
@@ -319,7 +363,7 @@ void Ui::Resize(int width, int height)
 	m_yui.Update({m_width, m_height}, reinterpret_cast<uint32_t*>(m_buffer));
 
 	// Update specific API
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 	sGrabX11ErrorHandler();
 	{
 		m_x11_image->width = m_width;
@@ -337,7 +381,7 @@ void Ui::Resize(int width, int height)
 }
 
 
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 void Ui::OnFd()
 {
 	if (s_scary_shining_red_button != 0)
@@ -368,5 +412,46 @@ void Ui::OnFd()
 		}
 	}
 	sReleaseX11ErrorHandler(m_x11_display);
+}
+#elif (MATSURI_UI == MATSURI_UI_WIN32)
+LRESULT CALLBACK GUIWindowProcedure(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
+{
+	Ui* self = (Ui*)(GetWindowLongPtr(window, 0)); // TODO, read reference to confirm what I think it is
+
+	if (self == nullptr) // TODO What does this means?, is not a message for us?
+		return DefWindowProc(window, message, w_param, l_param);
+
+	if (message == WM_PAINT)
+	{
+		PAINTSTRUCT paint;
+		HDC dc = BeginPaint(window, &paint);
+		BITMAPINFO info = {{sizeof(BITMAPINFOHEADER), self->m_width, -self->m_height, 1, 32, BI_RGB}};
+		StretchDIBits(dc, 0, 0, self->m_width, self->m_height, 0, 0, self->m_width, self->m_height, self->m_buffer,
+		              &info, DIB_RGB_COLORS, SRCCOPY); // TODO, check error
+		EndPaint(window, &paint); // TODO, same
+	}
+	/*else if (message == WM_MOUSEMOVE)
+	{
+	    PluginProcessMouseDrag(self, GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param));
+	    GUIPaint(self, true);
+	}
+	else if (message == WM_LBUTTONDOWN)
+	{
+	    SetCapture(window);
+	    PluginProcessMousePress(self, GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param));
+	    GUIPaint(self, true);
+	}
+	else if (message == WM_LBUTTONUP)
+	{
+	    ReleaseCapture();
+	    PluginProcessMouseRelease(self);
+	    GUIPaint(self, true);
+	}*/
+	else
+	{
+		return DefWindowProc(window, message, w_param, l_param);
+	}
+
+	return 0;
 }
 #endif

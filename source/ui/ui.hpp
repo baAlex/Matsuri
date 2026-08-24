@@ -17,7 +17,8 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include <stdexcept>
 
 
-// #define MATSURI_UI_X11 // CMake should define this
+#define MATSURI_UI_X11 1
+#define MATSURI_UI_WIN32 2
 
 
 class BrokenState : public std::runtime_error
@@ -27,17 +28,21 @@ class BrokenState : public std::runtime_error
 };
 
 
-#ifdef MATSURI_UI_X11
 extern "C"
 {
+#if (MATSURI_UI == MATSURI_UI_X11)
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-}
+#elif (MATSURI_UI == MATSURI_UI_WIN32)
+#include <windows.h>
 #endif
+}
+
 
 class Ui
 {
+  public:
 	int m_width;
 	int m_height;
 	size_t m_buffer_size;
@@ -45,20 +50,22 @@ class Ui
 
 	yuika::Screen m_yui;
 
-  public: // Yes, some members are used from outside, thing is that,
-	      // I don't want to put CLAP procedures here
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 	Display* m_x11_display;
 	Window m_x11_window;
 	XImage* m_x11_image;
+#elif (MATSURI_UI == MATSURI_UI_WIN32)
+	HWND m_win32_window;
 #endif
 
 	void Initialise(int width, int height);
 	void Deinitialise() noexcept;
 
-#ifdef MATSURI_UI_X11
+#if (MATSURI_UI == MATSURI_UI_X11)
 	void SetParent(Window parent_window);
 	void OnFd();
+#elif (MATSURI_UI == MATSURI_UI_WIN32)
+	void SetParent_(HWND parent_window);
 #endif
 
 	void Show();

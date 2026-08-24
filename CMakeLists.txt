@@ -48,13 +48,14 @@ set_target_properties("ui-library-pic" PROPERTIES CXX_VISIBILITY_PRESET hidden)
 set_target_properties("ui-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 if (UNIX) # ???, I want to assume that X11 doesn't exist outside unixes
-	target_compile_definitions("ui-library"     PRIVATE MATSURI_UI_X11)
-	target_compile_definitions("ui-library-pic" PRIVATE MATSURI_UI_X11)
-
-	target_link_libraries("ui-library"     PRIVATE "X11")
-	target_link_libraries("ui-library-pic" PRIVATE "X11")
+	target_compile_definitions("ui-library"     PRIVATE MATSURI_UI=1)
+	target_compile_definitions("ui-library-pic" PRIVATE MATSURI_UI=1)
+	target_link_libraries("ui-library"          PRIVATE "X11")
+	target_link_libraries("ui-library-pic"      PRIVATE "X11")
+elseif (WIN32)
+	target_compile_definitions("ui-library"     PRIVATE MATSURI_UI=2)
+	target_compile_definitions("ui-library-pic" PRIVATE MATSURI_UI=2)
 endif ()
-
 
 # Executable "generate-wavs"
 add_executable("generate-wavs" "./source/generate-wavs.c")
@@ -167,7 +168,18 @@ if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES
 endif ()
 
 if (UNIX)
-	target_compile_definitions("matsuri-clap" PRIVATE MATSURI_UI_X11)
+	target_compile_definitions("matsuri-clap" PRIVATE MATSURI_UI=1)
+elseif (WIN32)
+	target_compile_definitions("matsuri-clap" PRIVATE MATSURI_UI=2)
+
+	# TODO, investigate how not static-link everything
+	if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
+		target_link_options("matsuri-clap" PRIVATE
+			-static-libstdc++
+			-static-libgcc
+			-Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive
+		)
+	endif ()
 endif ()
 
 
@@ -227,7 +239,7 @@ if (WASM AND "${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
 	message(STATUS "WASM32 build set")
 
 	set(WASM_SOURCES "${CMAKE_SOURCE_DIR}/source/wasm/plugin.c"
-	                 "${CMAKE_SOURCE_DIR}/source/matsuri-library.c"
+	                 "${CMAKE_SOURCE_DIR}/source/matsuri.c"
 	                 "${CMAKE_SOURCE_DIR}/source/voice-allocator.c"
 	                 "${CMAKE_SOURCE_DIR}/source/misc.c"
 	)
