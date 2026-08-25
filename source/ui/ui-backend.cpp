@@ -217,7 +217,7 @@ void UiBackend::Initialise(int width, int height)
 
 #elif (MATSURI_UI == MATSURI_UI_WIN32)
 	{
-		// MessageBoxW(nullptr, L"Ui::Initialise", L"Matsuri", MB_OK);
+		// MessageBoxW(nullptr, L"UiBackend::Initialise", L"Matsuri", MB_OK);
 
 		// Register a window class
 		if (s_initialisations == 0)
@@ -225,7 +225,7 @@ void UiBackend::Initialise(int width, int height)
 			WNDCLASS window_class = {};
 
 			window_class.lpfnWndProc = OnEvent;
-			window_class.cbWndExtra = sizeof(Ui*);
+			window_class.cbWndExtra = sizeof(UiBackend*);
 			window_class.lpszClassName = MATSURI_URI;
 			window_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
 			window_class.style = CS_DBLCLKS;
@@ -256,7 +256,7 @@ void UiBackend::Initialise(int width, int height)
 		}
 
 		// Initialise Yui
-		m_yui.Initialise(0x00FF0000, 0x0000FF00, 0x000000FF); // BI_RGB in Ui::OnEvent()
+		m_yui.Initialise(0x00FF0000, 0x0000FF00, 0x000000FF); // BI_RGB in UiBackend::OnEvent()
 	}
 #endif
 }
@@ -476,7 +476,7 @@ void UiBackend::OnFdEvent()
 #elif (MATSURI_UI == MATSURI_UI_WIN32)
 LRESULT CALLBACK UiBackend::OnEvent(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
 {
-	auto self = reinterpret_cast<Ui*>(GetWindowLongPtr(window, 0));
+	auto self = reinterpret_cast<UiBackend*>(GetWindowLongPtr(window, 0));
 
 	if (self == nullptr) // TODO, what?, is not a message for us?
 		return DefWindowProc(window, message, w_param, l_param);
