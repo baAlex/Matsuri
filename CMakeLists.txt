@@ -33,7 +33,8 @@ set_target_properties("matsuri-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE
 
 
 # UI library
-set(UI_LIBRARY_SOURCES "./source/ui/ui.cpp"
+set(UI_LIBRARY_SOURCES "./source/ui/ui-backend.cpp"
+                       "./source/ui/ui-frontend.cpp"
                        "./source/ui/yuika.cpp"
 )
 

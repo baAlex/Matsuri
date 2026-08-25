@@ -688,7 +688,7 @@ void sOnFd(const clap_plugin_t* plugin_, int, clap_posix_fd_flags_t) noexcept
 
 	try
 	{
-		plugin->ui.OnFd();
+		plugin->ui.OnFdEvent();
 	}
 	catch (...)
 	{

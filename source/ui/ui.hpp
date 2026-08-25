@@ -16,17 +16,8 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include "yuika.hpp"
 #include <stdexcept>
 
-
 #define MATSURI_UI_X11 1
 #define MATSURI_UI_WIN32 2
-
-
-class BrokenState : public std::runtime_error
-{
-  public:
-	BrokenState() : std::runtime_error("Broken state, another error may happened before") {};
-};
-
 
 extern "C"
 {
@@ -40,7 +31,7 @@ extern "C"
 }
 
 
-class Ui
+class UiBackend
 {
   public:
 	int m_width;
@@ -49,6 +40,12 @@ class Ui
 	void* m_buffer;
 
 	yuika::Screen m_yui;
+
+	class BrokenState : public std::runtime_error
+	{
+	  public:
+		BrokenState() : std::runtime_error("Broken state, another error may happened before") {};
+	};
 
 #if (MATSURI_UI == MATSURI_UI_X11)
 	Display* m_x11_display;
@@ -63,7 +60,7 @@ class Ui
 
 #if (MATSURI_UI == MATSURI_UI_X11)
 	void SetParent(Window parent_window);
-	void OnFd();
+	void OnFdEvent();
 #elif (MATSURI_UI == MATSURI_UI_WIN32)
 	void SetParent_(HWND parent_window);
 	static LRESULT CALLBACK OnEvent(HWND window, UINT message, WPARAM w_param, LPARAM l_param);
@@ -73,6 +70,13 @@ class Ui
 	void Hide();
 
 	void Resize(int width, int height);
+};
+
+
+class Ui : public UiBackend
+{
+  public:
+	void Initialise(int width, int height);
 };
 
 #endif

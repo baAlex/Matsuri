@@ -110,7 +110,7 @@ static int s_initialisations = 0;
 // ############################
 
 
-void Ui::Initialise(int width, int height)
+void UiBackend::Initialise(int width, int height)
 {
 	// We are a plugin, many instances can be initialised... but that
 	// doesn't mean that a broken API will somehow work on a second try
@@ -207,16 +207,14 @@ void Ui::Initialise(int width, int height)
 		if (m_x11_image == nullptr)
 			throw std::runtime_error("Cannot create X11 image");
 
-		// Initialise Yui and draw first frame
+		// Initialise Yui
 		{
 			const auto v = DefaultVisual(m_x11_display, 0);
-
 			m_yui.Initialise(static_cast<uint32_t>(v->red_mask), static_cast<uint32_t>(v->green_mask),
 			                 static_cast<uint32_t>(v->blue_mask));
-
-			m_yui.Update({m_width, m_height}, reinterpret_cast<uint32_t*>(m_buffer));
 		}
 	}
+
 #elif (MATSURI_UI == MATSURI_UI_WIN32)
 	{
 		// MessageBoxW(nullptr, L"Ui::Initialise", L"Matsuri", MB_OK);
@@ -257,17 +255,14 @@ void Ui::Initialise(int width, int height)
 				throw std::runtime_error("SetWindowLongPtr() error");
 		}
 
-		// Initialise Yui and draw first frame
-		{
-			m_yui.Initialise(0x00FF0000, 0x0000FF00, 0x000000FF); // BI_RGB in Ui::OnEvent()
-			m_yui.Update({m_width, m_height}, reinterpret_cast<uint32_t*>(m_buffer));
-		}
+		// Initialise Yui
+		m_yui.Initialise(0x00FF0000, 0x0000FF00, 0x000000FF); // BI_RGB in Ui::OnEvent()
 	}
 #endif
 }
 
 
-void Ui::Deinitialise() noexcept
+void UiBackend::Deinitialise() noexcept
 {
 	// Free our stuff
 	free(m_buffer);
@@ -286,12 +281,19 @@ void Ui::Deinitialise() noexcept
 		XDestroyWindow(m_x11_display, m_x11_window);
 		XCloseDisplay(m_x11_display);
 	}
+
+#elif (MATSURI_UI == MATSURI_UI_WIN32)
+	{
+		DestroyWindow(m_win32_window);
+		if (--s_initialisations == 0)
+			UnregisterClass(MATSURI_URI, nullptr);
+	}
 #endif
 }
 
 
 #if (MATSURI_UI == MATSURI_UI_X11)
-void Ui::SetParent(Window parent_window)
+void UiBackend::SetParent(Window parent_window)
 {
 	if (s_scary_shining_red_button != 0)
 		throw BrokenState();
@@ -314,7 +316,7 @@ void Ui::SetParent(Window parent_window)
 	sReleaseX11ErrorHandler(m_x11_display);
 }
 #elif (MATSURI_UI == MATSURI_UI_WIN32)
-void Ui::SetParent_(HWND parent_window)
+void UiBackend::SetParent_(HWND parent_window)
 {
 	if (s_scary_shining_red_button != 0)
 		throw BrokenState();
@@ -328,7 +330,7 @@ void Ui::SetParent_(HWND parent_window)
 #endif
 
 
-void Ui::Show()
+void UiBackend::Show()
 {
 	if (s_scary_shining_red_button != 0)
 		throw BrokenState();
@@ -348,7 +350,7 @@ void Ui::Show()
 #endif
 }
 
-void Ui::Hide()
+void UiBackend::Hide()
 {
 	if (s_scary_shining_red_button != 0)
 		throw BrokenState();
@@ -367,7 +369,7 @@ void Ui::Hide()
 }
 
 
-void Ui::Resize(int width, int height)
+void UiBackend::Resize(int width, int height)
 {
 	if (s_scary_shining_red_button != 0)
 		throw BrokenState();
@@ -438,7 +440,7 @@ void Ui::Resize(int width, int height)
 
 
 #if (MATSURI_UI == MATSURI_UI_X11)
-void Ui::OnFd()
+void UiBackend::OnFdEvent()
 {
 	if (s_scary_shining_red_button != 0)
 		throw BrokenState();
@@ -472,7 +474,7 @@ void Ui::OnFd()
 
 
 #elif (MATSURI_UI == MATSURI_UI_WIN32)
-LRESULT CALLBACK Ui::OnEvent(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
+LRESULT CALLBACK UiBackend::OnEvent(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
 {
 	auto self = reinterpret_cast<Ui*>(GetWindowLongPtr(window, 0));
 
