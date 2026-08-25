@@ -71,6 +71,10 @@ if(SDL3_FOUND)
 		target_link_options("ui-test" PRIVATE -fsanitize=address,undefined)
 		set(TEST_CFLAGS ${TEST_CFLAGS} -fsanitize=address,undefined)
 	endif ()
+
+	if (CMAKE_BUILD_TYPE STREQUAL "Release")
+		set_target_properties("ui-test" PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+	endif ()
 endif ()
 
 
@@ -322,7 +326,6 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
 	set_target_properties("matsuri-library-pic" PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("ui-library"          PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("ui-library-pic"      PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
-	set_target_properties("ui-test"             PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("generate-wavs"       PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("matsuri-clap"        PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("matsuri-lv2"         PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
