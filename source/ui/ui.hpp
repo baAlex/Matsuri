@@ -66,6 +66,7 @@ class Ui
 	void OnFd();
 #elif (MATSURI_UI == MATSURI_UI_WIN32)
 	void SetParent_(HWND parent_window);
+	static LRESULT CALLBACK OnEvent(HWND window, UINT message, WPARAM w_param, LPARAM l_param);
 #endif
 
 	void Show();

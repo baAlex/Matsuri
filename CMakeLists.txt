@@ -172,13 +172,9 @@ if (UNIX)
 elseif (WIN32)
 	target_compile_definitions("matsuri-clap" PRIVATE MATSURI_UI=2)
 
-	# TODO, investigate how not static-link everything
 	if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
-		target_link_options("matsuri-clap" PRIVATE
-			-static-libstdc++
-			-static-libgcc
-			-Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive
-		)
+		# (btw, MSVC doesn't need this)
+		target_link_options("matsuri-clap" PRIVATE -static)
 	endif ()
 endif ()
 

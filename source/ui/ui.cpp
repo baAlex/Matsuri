@@ -22,6 +22,13 @@ extern "C"
 }
 
 
+// Based on Nakst tutorial:
+// https://nakst.gitlab.io/tutorial/clap-part-1.html
+// https://nakst.gitlab.io/tutorial/clap-part-2.html
+// https://nakst.gitlab.io/tutorial/clap-part-3.html
+// Thanks mate!
+
+
 // ############################
 
 
@@ -95,13 +102,13 @@ void sReleaseX11ErrorHandler(Display* display)
 #endif
 
 
+#if (MATSURI_UI == MATSURI_UI_WIN32)
+static int s_initialisations = 0;
+#endif
+
+
 // ############################
 
-
-#if (MATSURI_UI == MATSURI_UI_WIN32)
-static int globalOpenGUICount = 0;
-LRESULT CALLBACK GUIWindowProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
-#endif
 
 void Ui::Initialise(int width, int height)
 {
@@ -141,7 +148,7 @@ void Ui::Initialise(int width, int height)
 		if (m_x11_display == nullptr)
 			throw std::runtime_error("Cannot create X11 window");
 
-		// Embeddable property, name, and inputs received
+		// Embeddable property, name, and inputs to receive
 		// GLFW is not checking for properties nor hints errors
 		// https://github.com/glfw/glfw/blob/92dcf4ce74f2e2554a98fea09be7c705c17daa5a/src/x11_window.c#L692
 		sGrabX11ErrorHandler(); // ... but differently to GLFW, we don't own a window, so we better catch
@@ -214,27 +221,45 @@ void Ui::Initialise(int width, int height)
 	{
 		// MessageBoxW(nullptr, L"Ui::Initialise", L"Matsuri", MB_OK);
 
-		if (globalOpenGUICount == 0)
+		// Register a window class
+		if (s_initialisations == 0)
 		{
-			WNDCLASS temp = {};
-			temp.lpfnWndProc = GUIWindowProcedure;
-			temp.cbWndExtra = sizeof(Ui*); // TODO, read reference to confirm what I think it is
-			temp.lpszClassName = MATSURI_URI;
-			temp.hCursor = LoadCursor(nullptr, IDC_ARROW);
-			temp.style = CS_DBLCLKS;
+			WNDCLASS window_class = {};
 
-			RegisterClass(&temp);
-			globalOpenGUICount++;
+			window_class.lpfnWndProc = OnEvent;
+			window_class.cbWndExtra = sizeof(Ui*);
+			window_class.lpszClassName = MATSURI_URI;
+			window_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
+			window_class.style = CS_DBLCLKS;
+
+			if (RegisterClass(&window_class) == 0)
+				throw std::runtime_error("Cannot register window class");
+
+			s_initialisations++;
 		}
 
+		// Create window
 		m_win32_window = CreateWindow(MATSURI_URI, MATSURI_NAME, WS_CHILDWINDOW | WS_CLIPSIBLINGS, CW_USEDEFAULT, 0,
 		                              m_width, m_height, GetDesktopWindow(), nullptr, nullptr, nullptr);
 
-		SetWindowLongPtr(m_win32_window, 0, (LONG_PTR)(this)); // TODO, read reference to confirm what I think it is
+		if (m_win32_window == nullptr)
+			throw std::runtime_error("Cannot create window");
+
+		SetLastError(0);
+		if (SetWindowLongPtr(m_win32_window, 0, reinterpret_cast<LONG_PTR>(this)) == 0)
+		{
+			// """ To determine success or failure, clear the last error information by calling SetLastError with 0,
+			// then call SetWindowLongPtr. Function failure will be indicated by a return value of zero and a
+			// GetLastError result that is nonzero. """
+			// (https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowlongptra)
+
+			if (GetLastError() != 0)
+				throw std::runtime_error("SetWindowLongPtr() error");
+		}
 
 		// Initialise Yui and draw first frame
 		{
-			m_yui.Initialise(0x00FF0000, 0x0000FF00, 0x000000FF); // BI_RGB below
+			m_yui.Initialise(0x00FF0000, 0x0000FF00, 0x000000FF); // BI_RGB in Ui::OnEvent()
 			m_yui.Update({m_width, m_height}, reinterpret_cast<uint32_t*>(m_buffer));
 		}
 	}
@@ -291,7 +316,14 @@ void Ui::SetParent(Window parent_window)
 #elif (MATSURI_UI == MATSURI_UI_WIN32)
 void Ui::SetParent_(HWND parent_window)
 {
-	SetParent(m_win32_window, parent_window); // TODO, check error
+	if (s_scary_shining_red_button != 0)
+		throw BrokenState();
+
+	if (SetParent(m_win32_window, parent_window) == nullptr)
+	{
+		s_scary_shining_red_button = 1;
+		throw std::runtime_error("SetParent() error");
+	}
 }
 #endif
 
@@ -310,6 +342,8 @@ void Ui::Show()
 	sReleaseX11ErrorHandler(m_x11_display);
 
 #elif (MATSURI_UI == MATSURI_UI_WIN32)
+	// """ If the window was previously visible, the return value is nonzero. If the window was previously hidden, the
+	// return value is zero. """ (https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow)
 	ShowWindow(m_win32_window, SW_SHOW);
 #endif
 }
@@ -377,6 +411,28 @@ void Ui::Resize(int width, int height)
 		          static_cast<unsigned int>(m_x11_image->width), static_cast<unsigned int>(m_x11_image->height));
 	}
 	sReleaseX11ErrorHandler(m_x11_display);
+
+#elif (MATSURI_UI == MATSURI_UI_WIN32)
+	// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-movewindow
+	// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-invalidaterect
+
+	// FALSE to avoid a partial WM_PAINT
+	if (MoveWindow(m_win32_window, 0, 0, m_width, m_height, FALSE) == 0)
+	{
+		s_scary_shining_red_button = 1;
+		throw std::runtime_error("MoveWindow() error");
+	}
+
+	// Now send a WM_PAINT for the entire window
+	if (InvalidateRect(m_win32_window, nullptr, TRUE) == 0)
+	{
+		s_scary_shining_red_button = 1;
+		throw std::runtime_error("InvalidateRect() error");
+	}
+
+	// Nakst uses this function instead of InvalidateRect()
+	// https://nakst.gitlab.io/tutorial/clap-part-3.html
+	// RedrawWindow(m_win32_window, nullptr, nullptr, RDW_INVALIDATE);
 #endif
 }
 
@@ -413,40 +469,48 @@ void Ui::OnFd()
 	}
 	sReleaseX11ErrorHandler(m_x11_display);
 }
-#elif (MATSURI_UI == MATSURI_UI_WIN32)
-LRESULT CALLBACK GUIWindowProcedure(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
-{
-	Ui* self = (Ui*)(GetWindowLongPtr(window, 0)); // TODO, read reference to confirm what I think it is
 
-	if (self == nullptr) // TODO What does this means?, is not a message for us?
+
+#elif (MATSURI_UI == MATSURI_UI_WIN32)
+LRESULT CALLBACK Ui::OnEvent(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
+{
+	auto self = reinterpret_cast<Ui*>(GetWindowLongPtr(window, 0));
+
+	if (self == nullptr) // TODO, what?, is not a message for us?
 		return DefWindowProc(window, message, w_param, l_param);
 
 	if (message == WM_PAINT)
 	{
 		PAINTSTRUCT paint;
+		BITMAPINFO info = {};
+
 		HDC dc = BeginPaint(window, &paint);
-		BITMAPINFO info = {{sizeof(BITMAPINFOHEADER), self->m_width, -self->m_height, 1, 32, BI_RGB}};
-		StretchDIBits(dc, 0, 0, self->m_width, self->m_height, 0, 0, self->m_width, self->m_height, self->m_buffer,
-		              &info, DIB_RGB_COLORS, SRCCOPY); // TODO, check error
-		EndPaint(window, &paint); // TODO, same
+		if (dc == nullptr)
+		{
+			s_scary_shining_red_button = 1;
+			throw std::runtime_error("BeginPaint() error");
+		}
+
+		info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+		info.bmiHeader.biWidth = self->m_width;
+		info.bmiHeader.biHeight = -self->m_height;
+		info.bmiHeader.biPlanes = 1;
+		info.bmiHeader.biBitCount = 32;
+		info.bmiHeader.biCompression = BI_RGB;
+
+		if (StretchDIBits(dc, 0, 0, self->m_width, self->m_height, 0, 0, self->m_width, self->m_height, self->m_buffer,
+		                  &info, DIB_RGB_COLORS, SRCCOPY) == 0)
+		{
+			s_scary_shining_red_button = 1;
+			throw std::runtime_error("StretchDIBits() error");
+		}
+
+		EndPaint(window, &paint);
 	}
-	/*else if (message == WM_MOUSEMOVE)
+	else if (message == WM_SIZE) // We only get called when MoveWindow() is called
 	{
-	    PluginProcessMouseDrag(self, GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param));
-	    GUIPaint(self, true);
+		// printf("%i x %i\n", LOWORD(l_param), HIWORD(l_param));
 	}
-	else if (message == WM_LBUTTONDOWN)
-	{
-	    SetCapture(window);
-	    PluginProcessMousePress(self, GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param));
-	    GUIPaint(self, true);
-	}
-	else if (message == WM_LBUTTONUP)
-	{
-	    ReleaseCapture();
-	    PluginProcessMouseRelease(self);
-	    GUIPaint(self, true);
-	}*/
 	else
 	{
 		return DefWindowProc(window, message, w_param, l_param);

@@ -728,8 +728,8 @@ static bool sPluginInitialise(const clap_plugin* plugin_)
 		                 sFloatToFixed(s_parameters_info[i].default_value, s_parameters_info[i].fixed_conversion));
 	}
 
-	std::atomic_init(&plugin->ui_window_width, 640);
-	std::atomic_init(&plugin->ui_window_height, 480);
+	std::atomic_init(&plugin->ui_window_width, 1280 / 2);
+	std::atomic_init(&plugin->ui_window_height, 720 / 2);
 
 #if (MATSURI_UI == MATSURI_UI_X11)
 	plugin->posix_fd = reinterpret_cast<const clap_host_posix_fd_support_t*>(
