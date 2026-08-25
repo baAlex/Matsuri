@@ -107,7 +107,7 @@ struct MatsuriPlugin
 	std::atomic<int> parameters_changed_offline;
 	std::atomic<int> parameter[PARAMETERS_NO];
 
-	Ui ui;
+	UiFrontend ui;
 	std::atomic<int> ui_window_width;
 	std::atomic<int> ui_window_height;
 

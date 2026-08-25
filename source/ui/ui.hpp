@@ -73,7 +73,7 @@ class UiBackend
 };
 
 
-class Ui : public UiBackend
+class UiFrontend : public UiBackend
 {
   public:
 	void Initialise(int width, int height);

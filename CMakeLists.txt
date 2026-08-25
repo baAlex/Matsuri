@@ -58,6 +58,22 @@ elseif (WIN32)
 	target_compile_definitions("ui-library-pic" PRIVATE MATSURI_UI=2)
 endif ()
 
+find_package(SDL3)
+if(SDL3_FOUND)
+	set(TEST_CFLAGS -Wall -Wextra -Wconversion -pedantic)
+
+	add_executable("ui-test" "./source/ui/test.cpp")
+	target_compile_options("ui-test" PRIVATE ${MATSURI_CFLAGS} ${TEST_CFLAGS})
+	target_link_libraries("ui-test" PRIVATE "ui-library" SDL3::SDL3)
+
+	if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND "${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
+		# Can be noisy:
+		target_link_options("ui-test" PRIVATE -fsanitize=address,undefined)
+		set(TEST_CFLAGS ${TEST_CFLAGS} -fsanitize=address,undefined)
+	endif ()
+endif ()
+
+
 # Executable "generate-wavs"
 add_executable("generate-wavs" "./source/generate-wavs.c")
 
@@ -306,6 +322,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
 	set_target_properties("matsuri-library-pic" PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("ui-library"          PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("ui-library-pic"      PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+	set_target_properties("ui-test"             PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("generate-wavs"       PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("matsuri-clap"        PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	set_target_properties("matsuri-lv2"         PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
