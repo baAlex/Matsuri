@@ -51,6 +51,7 @@ class MatsuriV3Processor extends AudioWorkletProcessor {
 
 		this.m_wasm = null;
 		this.m_view = null;
+		this.m_ready = false;
 		this.early_events = [];
 
 		this.port.onmessage = async (event) => {
@@ -64,24 +65,15 @@ class MatsuriV3Processor extends AudioWorkletProcessor {
 				const pointer = this.m_wasm.Initialise(sampleRate);
 				this.m_view = new Float32Array(this.m_wasm.memory.buffer, pointer, 128);
 
-				if (pointer == null)
-				{
+				if (pointer == null) {
 					this.port.postMessage("Error, cannot initialise WASM");
 					return;
 				}
-
-				// Queued events?
-				for (const q of this.early_events) {
-					if (q.type == "Midi")
-						this.m_wasm.Midi(q.byte0, q.byte1, q.byte2);
-				}
-
-				this.early_events.length = 0;
 			}
 
 			// Midi
 			else if (event.data.type == "Midi") {
-				if (this.m_wasm == null)
+				if (this.m_ready == false)
 					this.early_events.push(event.data);
 				else
 					this.m_wasm.Midi(event.data.byte0, event.data.byte1, event.data.byte2);
@@ -112,6 +104,15 @@ class MatsuriV3Processor extends AudioWorkletProcessor {
 		for (let ch = 0; ch < out.length; ch += 1)
 			out[ch].set(this.m_view);
 
+		// We are only ready after first render
+		// (otherwise parameters will be all wrong)
+		this.m_ready = true;
+		for (const q of this.early_events) {
+			this.m_wasm.Midi(q.byte0, q.byte1, q.byte2);
+		}
+		this.early_events.length = 0;
+
+		// Bye!
 		return true;
 	}
 }
