@@ -346,7 +346,7 @@ int main(int argc, const char* argv[])
 		assert(input_channels == 1);
 
 		//
-		const size_t output_samples = sMillisecondsToSamples((float)(FREQUENCY), 1000.0f * 10.0f); // Just 10 seconds
+		const size_t output_samples = sMillisecondsToSamples((float)(FREQUENCY), 1000.0f * 60.0f); // 1 minute
 		float* output_data = calloc(1, sizeof(float) * output_samples);
 		assert(output_data != NULL);
 
