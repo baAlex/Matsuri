@@ -15,6 +15,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include <string.h>
 
 #include "matsuri.h"
+#include "sampler.h"
 
 
 static int sSave(const char* filename, uint32_t frequency, const float* in, const float* in_end)
@@ -82,7 +83,11 @@ static size_t sMillisecondsToSamples(float sampling_frequency, float millisecond
 #define VEL_TONE_MOD 1.0f
 #define REFERENCE_VEL 0.5f
 
-int main(void)
+#define DR_WAV_IMPLEMENTATION
+#include "thirdparty/dr_wav.h"
+
+
+int main(int argc, const char* argv[])
 {
 	if (1)
 	{
@@ -320,6 +325,46 @@ int main(void)
 		mtsr606_RenderTom(1.0f, &p, &s, s_buffer, s_buffer + BUFFER_LEN);
 		if (sSave("606-tom-high-max.wav", FREQUENCY, s_buffer, s_buffer + samples) != 0)
 			return EXIT_FAILURE;
+	}
+
+	if (1)
+	{
+		if (argc <= 1)
+		{
+			fprintf(stderr, "No WAV specified\n");
+			return EXIT_FAILURE;
+		}
+
+		//
+		unsigned input_channels;
+		unsigned input_frequency;
+		drwav_uint64 input_samples;
+
+		float* input_data =
+		    drwav_open_file_and_read_pcm_frames_f32(argv[1], &input_channels, &input_frequency, &input_samples, NULL);
+		assert(input_data != NULL);
+		assert(input_channels == 1);
+
+		//
+		const size_t output_samples = sMillisecondsToSamples((float)(FREQUENCY), 1000.0f * 10.0f); // Just 10 seconds
+		float* output_data = calloc(1, sizeof(float) * output_samples);
+		assert(output_data != NULL);
+
+		struct SamplerState s;
+
+		// The difference from a memcpy() is that pitch can be changed (two octaves low here)... and that's a lot slower
+		// (weird comparison... but seriously, a sampler and a memcpy() are similar)
+		SamplerSetState(SAMPLER_STATE_START, (float)(FREQUENCY), (float)(input_frequency) / 4.0f, input_data,
+		                input_data + input_samples, &s);
+
+		SamplerRenderAdditive(&s, output_data, output_data + output_samples);
+
+		if (sSave("sampler.wav", FREQUENCY, output_data, output_data + output_samples) != 0)
+			return EXIT_FAILURE;
+
+		//
+		drwav_free(input_data, NULL);
+		free(output_data);
 	}
 
 	return EXIT_SUCCESS;

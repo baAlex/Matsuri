@@ -79,10 +79,23 @@ endif ()
 
 
 # Executable "generate-wavs"
-add_executable("generate-wavs" "./source/generate-wavs.c")
+set(GENERATE_WAVS_CFLAGS -Wall -Wextra -Wconversion -pedantic)
 
-target_compile_options("generate-wavs" PRIVATE ${MATSURI_CFLAGS})
+set(GENERATE_WAVS_SOURCES "./source/generate-wavs.c"
+                          "./source/sampler.c"
+)
+
+add_executable("generate-wavs" ${GENERATE_WAVS_SOURCES})
+
+target_compile_options("generate-wavs" PRIVATE ${MATSURI_CFLAGS} ${GENERATE_WAVS_CFLAGS})
 target_link_libraries("generate-wavs" PRIVATE "matsuri-library")
+target_compile_definitions("generate-wavs" PRIVATE INCLUDE_SAMPLER)
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND "${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
+	# Can be noisy:
+	target_link_options("generate-wavs" PRIVATE -fsanitize=address,undefined)
+	set(GENERATE_WAVS_CFLAGS ${GENERATE_WAVS_CFLAGS} -fsanitize=address,undefined)
+endif ()
 
 
 # Freetype library

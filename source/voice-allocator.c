@@ -208,6 +208,14 @@ void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy str
 	case TYPE_HIGH_TOM:
 		duration = mtsr606_TomSetState(MTSR_STATE_START, self->sampling_frequency, MTSR_HIGH_TOM, velocity,
 		                               self->vel_vol_mod, self->vel_tone_mod, self->reference_vel, &s->state.tom);
+		break;
+
+#ifdef INCLUDE_SAMPLER
+	case TYPE_SAMPLER:
+		// duration = SamplerSetState(SAMPLER_STATE_START, self->sampling_frequency, &s->state.sampler); //
+		duration = 0;
+		break;
+#endif
 	}
 
 	// Set voice
@@ -307,6 +315,13 @@ void VoiceAllocatorRender(struct VoiceAllocator* self, uint32_t samples, float* 
 		case TYPE_HIGH_TOM:
 			s->last_signal = mtsr606_RenderAdditiveTom(self->volume[TYPE_HIGH_TOM], &self->program.high_tom,
 			                                           &s->state.tom, out, out + samples_to_render);
+			break;
+
+#ifdef INCLUDE_SAMPLER
+		case TYPE_SAMPLER:
+			s->last_signal = SamplerRenderAdditive(&s->state.sampler, out, out + samples_to_render);
+			break;
+#endif
 		}
 
 		// Update voice

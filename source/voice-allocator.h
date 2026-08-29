@@ -14,6 +14,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #define VOICE_ALLOCATOR_H
 
 #include "matsuri.h"
+#include "sampler.h"
 
 #define MAX_MAX_VOICES 16
 
@@ -45,6 +46,10 @@ enum VoiceAllocatorVoiceType
 	TYPE_CYMBAL,
 	TYPE_LOW_TOM,
 	TYPE_HIGH_TOM,
+
+#ifdef INCLUDE_SAMPLER
+	TYPE_SAMPLER,
+#endif
 };
 
 struct VoiceAllocatorState // Big as instruments require it, we don't access this frequently
@@ -56,6 +61,10 @@ struct VoiceAllocatorState // Big as instruments require it, we don't access thi
 		struct mtsr606_SnareState snare;
 		struct mtsr606_HatState hat;
 		struct mtsr606_TomState tom;
+
+#ifdef INCLUDE_SAMPLER
+		struct SamplerState sampler;
+#endif
 	} state;
 
 	float last_signal;
