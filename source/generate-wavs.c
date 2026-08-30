@@ -355,9 +355,14 @@ int main(int argc, const char* argv[])
 		// The difference from a memcpy() is that pitch can be changed (two octaves low here)... and that's a lot slower
 		// (weird comparison... but seriously, a sampler and a memcpy() are similar)
 		SamplerSetState(SAMPLER_STATE_START, (float)(FREQUENCY), (float)(input_frequency) / 4.0f, input_data,
-		                input_data + input_samples, &s);
+		                input_samples, &s);
 
+#if 1
+		for (float* out = output_data; out < output_data + output_samples - 128; out += 128)
+			SamplerRenderAdditive(&s, out, out + 128);
+#else
 		SamplerRenderAdditive(&s, output_data, output_data + output_samples);
+#endif
 
 		if (sSave("sampler.wav", FREQUENCY, output_data, output_data + output_samples) != 0)
 			return EXIT_FAILURE;

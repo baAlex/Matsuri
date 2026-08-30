@@ -10,9 +10,6 @@ If a copy of the CDDL was not distributed with this file, You
 can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
-#include <assert.h>
-#include <stddef.h>
-
 #include "sampler.h"
 
 
@@ -42,42 +39,38 @@ static size_t sMinZU(size_t a, size_t b)
 // juice. Samples must be well created/curated anyways.
 
 float SamplerSetState(enum SamplerStateState state_state, float sampling_frequency, float sample_frequency,
-                      const float* sample_start, const float* sample_end, struct SamplerState* s)
+                      const float* sample_start, size_t sample_len, struct SamplerState* s)
 {
-	const size_t len = (size_t)(sample_end - sample_start);
-
 	switch (state_state)
 	{
 	case SAMPLER_STATE_START:
 		s->decimal = 0;
-		s->step = (uint32_t)((sample_frequency / sampling_frequency) * SAMPLER_MAX);
 		s->cursor = sample_start;
 
-		// Hacky, it saves one multiplication per Render() call, also, the
-		// less one/three is because interpolation always reads some extra samples
+		// Using 'uint64_t' because WASM32 seems to have a 'size_t' of 32 bits
+		// (TODO, move operations around so it fits on a 32bits register)
+		s->step = (uint32_t)(((uint64_t)(sample_frequency) * (uint64_t)(SAMPLER_MAX)) / (uint64_t)(sampling_frequency));
+
 #if INTERPOLATION == 0
-		s->end = sample_start + (len) * (SAMPLER_MAX / s->step);
+		s->end = sample_start + sample_len;
 		break;
 #elif INTERPOLATION == 1
-		s->end = sample_start + (len - 1) * (SAMPLER_MAX / s->step);
+		s->remaining = (size_t)(((sample_len - 1) * (uint64_t)(sampling_frequency)) / (uint64_t)(sample_frequency));
 		break;
 #elif INTERPOLATION == 2
-		s->end = sample_start + (len - 3) * (SAMPLER_MAX / s->step);
+		s->remaining = (size_t)(((sample_len - 3) * (uint64_t)(sampling_frequency)) / (uint64_t)(sample_frequency));
 		break;
 #endif
-	case SAMPLER_STATE_DEAD:
-		s->cursor = NULL; //
-		s->end = NULL;
+	case SAMPLER_STATE_DEAD: s->remaining = 0;
 	}
 
-	return ((float)(len) * 1000.0f) / sample_frequency;
+	return ((float)(sample_len) * 1000.0f) / sample_frequency;
 }
 
 
 #if INTERPOLATION == 2
 static float sCubic(float xm1, float x0, float x1, float x2, float f)
 {
-	assert(f >= 0.0f && f <= 1.0f);
 	// TODO, check generated assembly, one form should be better than the others
 	// (and there is many more in musicdsp.org)
 
@@ -112,7 +105,7 @@ static float sCubic(float xm1, float x0, float x1, float x2, float f)
 
 float SamplerRenderAdditive(struct SamplerState* s, float* out, const float* out_end)
 {
-	const float* end = out + sMinZU((size_t)(s->end - s->cursor), (size_t)(out_end - out));
+	const float* end = out + sMinZU(s->remaining, (size_t)(out_end - out));
 	float signal = 0.0f;
 
 #if INTERPOLATION > 0
@@ -123,6 +116,7 @@ float SamplerRenderAdditive(struct SamplerState* s, float* out, const float* out
 			s->decimal += s->step;
 			s->cursor += s->decimal >> SAMPLER_SHIFT;
 			s->decimal &= SAMPLER_MAX;
+			s->remaining -= 1;
 
 #if INTERPOLATION == 1
 			signal = s->cursor[0] + (s->cursor[1] - s->cursor[0]) * (float)(s->decimal) * SAMPLER_INV;
@@ -141,6 +135,7 @@ float SamplerRenderAdditive(struct SamplerState* s, float* out, const float* out
 			s->decimal += s->step;
 			s->cursor += s->decimal >> SAMPLER_SHIFT;
 			s->decimal &= SAMPLER_MAX;
+			s->remaining -= 1;
 
 			signal = s->cursor[0];
 			*out += signal;

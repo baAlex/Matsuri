@@ -165,6 +165,11 @@ static uint32_t sFindVoiceIndex(struct VoiceAllocator* self, enum AllocationStra
 void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy strategy, uint32_t id,
                         enum VoiceAllocatorVoiceType type, float velocity)
 {
+#ifdef INCLUDE_SAMPLER
+	if (type == TYPE_SAMPLER)
+		return;
+#endif
+
 	const uint32_t index = sFindVoiceIndex(self, strategy, id);
 	if (index == MAX_MAX_VOICES)
 		return;
@@ -211,10 +216,7 @@ void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy str
 		break;
 
 #ifdef INCLUDE_SAMPLER
-	case TYPE_SAMPLER:
-		// duration = SamplerSetState(SAMPLER_STATE_START, self->sampling_frequency, &s->state.sampler); //
-		duration = 0;
-		break;
+	case TYPE_SAMPLER: return;
 #endif
 	}
 
@@ -222,6 +224,33 @@ void VoiceAllocatorPlay(struct VoiceAllocator* self, enum AllocationStrategy str
 	v->id = id;
 	v->remaining = (uint32_t)((duration * self->sampling_frequency) / 1000.0f);
 }
+
+
+#ifdef INCLUDE_SAMPLER
+void VoiceAllocatorPlaySample(struct VoiceAllocator* self, enum AllocationStrategy strategy, uint32_t id,
+                              float sample_frequency, const float* sample_start, size_t sample_len)
+{
+	const uint32_t index = sFindVoiceIndex(self, strategy, id);
+	if (index == MAX_MAX_VOICES)
+		return;
+
+	self->rng = Xorshift(self->rng);
+
+	struct VoiceAllocatorVoice* v = self->voices + index;
+	struct VoiceAllocatorState* s = self->states + index;
+
+	// Set state
+	s->type = TYPE_SAMPLER;
+	s->last_signal = 0.0f;
+
+	const float duration = SamplerSetState(SAMPLER_STATE_START, self->sampling_frequency, sample_frequency,
+	                                       sample_start, sample_len, &s->state.sampler);
+
+	// Set voice
+	v->id = id;
+	v->remaining = (uint32_t)((duration * self->sampling_frequency) / 1000.0f);
+}
+#endif
 
 
 void VoiceAllocatorStop(struct VoiceAllocator* self, uint32_t id)

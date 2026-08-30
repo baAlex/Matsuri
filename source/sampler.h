@@ -13,6 +13,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #ifndef SAMPLER_H
 #define SAMPLER_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 enum SamplerStateState
@@ -24,13 +25,13 @@ enum SamplerStateState
 struct SamplerState
 {
 	const float* cursor;
-	const float* end;
+	size_t remaining;
 	uint32_t decimal;
 	uint32_t step;
 };
 
 float SamplerSetState(enum SamplerStateState state_state, float sampling_frequency, float sample_frequency,
-                      const float* sample_start, const float* sample_end, struct SamplerState* s);
+                      const float* sample_start, size_t sample_len, struct SamplerState* s);
 float SamplerRenderAdditive(struct SamplerState* s, float* out, const float* out_end);
 
 #endif
