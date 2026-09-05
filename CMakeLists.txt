@@ -62,18 +62,18 @@ find_package(SDL3)
 if(SDL3_FOUND)
 	set(TEST_CFLAGS -Wall -Wextra -Wconversion -pedantic)
 
-	add_executable("ui-test" "./source/ui/test.cpp")
-	target_compile_options("ui-test" PRIVATE ${MATSURI_CFLAGS} ${TEST_CFLAGS})
-	target_link_libraries("ui-test" PRIVATE "ui-library" SDL3::SDL3)
+	add_executable("yuika-test" "./source/ui/yuika-test.cpp")
+	target_compile_options("yuika-test" PRIVATE ${MATSURI_CFLAGS} ${TEST_CFLAGS})
+	target_link_libraries("yuika-test" PRIVATE "ui-library" SDL3::SDL3)
 
 	if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND "${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
 		# Can be noisy:
-		target_link_options("ui-test" PRIVATE -fsanitize=address,undefined)
+		target_link_options("yuika-test" PRIVATE -fsanitize=address,undefined)
 		set(TEST_CFLAGS ${TEST_CFLAGS} -fsanitize=address,undefined)
 	endif ()
 
 	if (CMAKE_BUILD_TYPE STREQUAL "Release")
-		set_target_properties("ui-test" PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+		set_target_properties("yuika-test" PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 	endif ()
 endif ()
 

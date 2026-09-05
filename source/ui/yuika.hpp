@@ -45,6 +45,18 @@ struct Rect
 	Size size;
 };
 
+enum class MouseGesture
+{
+	Press,  // Primary button
+	Release // Same
+};
+
+enum class EventReturn
+{
+	PassItDown,
+	DontPassItDown
+};
+
 class DrawApi
 {
   public:
@@ -58,8 +70,8 @@ class DrawApi
 
 		Background = 5,
 		BevelMid = 6,
+		BevelShadow = 7,
 		BevelLight = White,
-		BevelShadow = Black,
 	};
 
 	virtual void SetClickableArea(Rect rect) = 0;
@@ -101,7 +113,7 @@ class Widget
 	virtual Size UpdateNaturalSize() = 0; // Also returns natural size
 	virtual Size GetNaturalSize() const;
 	virtual Size GetSize(Size available_size) const;
-	virtual void Draw(DrawApi& api, Rect allowed_area) const;
+	virtual void Draw(DrawApi& api, Rect allowed_draw_area) const;
 
 	virtual Widget& SetStretch(bool x, bool y);
 	virtual bool GetStretchX() const;
@@ -109,7 +121,7 @@ class Widget
 
 	virtual void SetReceivingEvents(uint32_t events);
 	virtual uint32_t GetReceivingEvents() const;
-	// virtual void OnMouseClick(MouseClickGesture gesture, Position mouse_pos);
+	virtual EventReturn OnMouse(MouseGesture gesture, Position cursor_pos);
 
   protected:
 	Size m_natural_size = {};
@@ -214,13 +226,13 @@ class VBox : public Box
 class Button : public Wrapper
 {
   public:
-	// using MouseClickCallback = void(Button& self, MouseClickGesture gesture, Position mouse_pos);
+	// using MouseClickCallback = void(Button& self, MouseGesture gesture, Position cursor_pos);
 
 	Button(std::string text);
 	std::string_view GetType() const override;
-	void Draw(DrawApi& api, Rect allowed_area) const override;
+	void Draw(DrawApi& api, Rect allowed_draw_area) const override;
 
-	// void OnMouseClick(MouseClickGesture gesture, Position mouse_pos) override;
+	// void OnMouse(MouseGesture gesture, Position cursor_pos) override;
 	// void SetMouseClickCallback(std::function<MouseClickCallback> callback);
 
 	std::string m_text; // TODO, create a label
@@ -237,6 +249,7 @@ class Screen
 	void Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask);
 	void Deinitialise() noexcept;
 	void Update(Size size, uint32_t* out);
+	void MouseEvent(MouseGesture gesture, Position cursor_pos);
 
 	Wrapper& GetRoot();
 
@@ -246,7 +259,7 @@ class Screen
 	Size m_size;
 	uint32_t* m_out;
 	uint32_t m_dummy;
-	uint32_t m_palette[7];
+	uint32_t m_palette[8];
 
 	class Root final : public Wrapper
 	{
@@ -256,6 +269,36 @@ class Screen
 	};
 
 	Root* m_root; // A pointer, so it can survive a memset and being in a C struct
+
+	struct MiniTreeEntry;
+
+	struct StackEntry
+	{
+		size_t depth;
+		Widget* widget;
+		MiniTreeEntry* parent_mini;
+		MiniTreeEntry* mini;
+
+		Rect allowed_draw_area;
+	};
+
+	static constexpr size_t STACK_LEN = 256; // TODO, hardcoded
+	StackEntry m_stack[STACK_LEN];
+
+	struct MiniTreeEntry
+	{
+		size_t depth;
+		Widget* widget;
+		MiniTreeEntry* last_child;
+
+		bool clickable;
+		Rect clickable_area;
+
+		bool pressed;
+	};
+
+	MiniTreeEntry m_mini_tree[STACK_LEN]; // It has to be the same as stack
+	size_t m_mini_tree_len;
 };
 
 } // namespace yuika

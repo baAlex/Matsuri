@@ -92,8 +92,9 @@ void yuika::Screen::Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask
 	set_colour(DrawApi::Colour::Green, 0x00, 0xFF, 0x00);
 	set_colour(DrawApi::Colour::Blue, 0x00, 0x00, 0xFF);
 
-	set_colour(DrawApi::Colour::Background, 0xE6, 0x28, 0x28);
-	set_colour(DrawApi::Colour::BevelMid, 0xE6 / 2, 0x28 / 2, 0x28 / 2);
+	set_colour(DrawApi::Colour::Background, 212, 208, 200); // Windows Me
+	set_colour(DrawApi::Colour::BevelMid, 128, 128, 128);
+	set_colour(DrawApi::Colour::BevelShadow, 64, 64, 64);
 
 	m_root = new Root();
 	m_root->SetStretch(true, true); // A good default value
@@ -105,27 +106,23 @@ void yuika::Screen::Deinitialise() noexcept
 }
 
 
-struct DrawStackEntry
-{
-	unsigned depth;
-	yuika::Widget* widget;
-	yuika::Rect rect;
-};
-
-static constexpr size_t STACK_LEN = 256;
-static thread_local DrawStackEntry s_stack[STACK_LEN];
-
 class yuika::ScreenFriend
 {
   public:
-	class DrawApiImplementation final : public yuika::DrawApi
+	class DrawApiImplementation final : public DrawApi
 	{
 	  public:
-		yuika::Screen* fwend;
+		Screen* fwend;
+		bool clickable_set;
+		struct Rect clickable_area;
 
-		void SetClickableArea(yuika::Rect) noexcept override {}
+		void SetClickableArea(Rect rect) noexcept override
+		{
+			clickable_set = true;  // If already set, we overwrite last one
+			clickable_area = rect; // TODO, validate and clamp area
+		}
 
-		void DrawRectangle(Colour colour, yuika::Rect rect) noexcept override
+		void DrawRectangle(Colour colour, Rect rect) noexcept override
 		{
 			const int x1 = Clamp(rect.pos.x, 0, fwend->m_size.w);
 			const int y1 = Clamp(rect.pos.y, 0, fwend->m_size.h);
@@ -142,7 +139,7 @@ class yuika::ScreenFriend
 			}
 		}
 
-		void Draw3dBevel(yuika::Rect rect, BevelStyle style) noexcept override
+		void Draw3dBevel(Rect rect, BevelStyle style) noexcept override
 		{
 			if (style == BevelStyle::Inset)
 			{
@@ -167,34 +164,67 @@ class yuika::ScreenFriend
 	static void DrawWidgets(DrawApiImplementation& api)
 	{
 		// Non-recursive draw, it has the good feature of carry information while
-		// descending the tree, like depth, and also from our end we can identify
-		// on which widget we are without asking it to widgets themselves
+		// descending the tree, like depth, drawable area, and more; also from our
+		// end we can identify on which widget we are without asking it to widgets
+		// themselves
+
+		Screen::StackEntry* stack = api.fwend->m_stack;
+		api.fwend->m_mini_tree_len = 0;
 
 		size_t cursor = 0;
-		s_stack[cursor++] = {0, api.fwend->m_root, Rect{{0, 0}, api.fwend->m_size}};
+		stack[cursor++] = {0, api.fwend->m_root, nullptr, nullptr, Rect{{0, 0}, api.fwend->m_size}};
 
 		while (cursor > 0)
 		{
-			DrawStackEntry current = s_stack[--cursor]; // Yes, copy it
+			Screen::StackEntry current = stack[--cursor]; // Yes, copy it
 
 			// Draw
-			current.widget->Draw(api, current.rect);
+			api.clickable_set = false;
+			api.clickable_area = {};
+			current.widget->Draw(api, current.allowed_draw_area);
 
-			// Stack children
-			if (cursor + current.widget->GetChildrenNo() >= STACK_LEN)
+			// Update mini tree entry
+			if (current.mini != nullptr)
+			{
+				current.mini->clickable = api.clickable_set;
+				current.mini->clickable_area = api.clickable_area;
+			}
+
+			if (current.parent_mini != nullptr)
+				current.parent_mini->last_child = current.mini;
+
+			// Iterate children
+			if (cursor + current.widget->GetChildrenNo() >= Screen::STACK_LEN)
 			{
 				fprintf(stderr, "Too many widgets\n"); // TODO, use a exception
 				return;
 			}
 
+			cursor += current.widget->GetChildrenNo();
 			for (size_t i = 0; i < current.widget->GetChildrenNo(); i += 1)
 			{
-				const auto [child, delta, child_size] = current.widget->GetChild(i, current.rect.size);
+				const auto [child, delta, child_size] = current.widget->GetChild(i, current.allowed_draw_area.size);
 
-				s_stack[cursor++] = {current.depth + 1, &child, {current.rect.pos, child_size}};
+				// Stack children,
+				// just for iteration in this function
+				stack[cursor - 1 - i] = {/* depth */ current.depth + 1,
+				                         /* widget */ &child,
+				                         /* parent_mini */ current.mini,
+				                         /* mini */ &api.fwend->m_mini_tree[api.fwend->m_mini_tree_len],
+				                         /* allowed_draw_area */ {current.allowed_draw_area.pos, child_size}};
 
-				current.rect.pos.x += delta.x;
-				current.rect.pos.y += delta.y;
+				current.allowed_draw_area.pos.x += delta.x;
+				current.allowed_draw_area.pos.y += delta.y;
+
+				// Store children in mini tree,
+				// other parts of the code will use it
+				api.fwend->m_mini_tree[api.fwend->m_mini_tree_len] = {/* depth */ current.depth + 1,
+				                                                      /* widget */ &child,
+				                                                      /* last_child*/ nullptr,
+				                                                      /* clickable */ false,
+				                                                      /* clickable_area */ {},
+				                                                      /* pressed*/ false};
+				api.fwend->m_mini_tree_len++;
 			}
 		}
 	}
@@ -222,6 +252,90 @@ void yuika::Screen::Update(Size size, uint32_t* out)
 
 		// Draw
 		ScreenFriend::DrawWidgets(api);
+
+		// Developers, developers, developers
+		if (false)
+		{
+			for (MiniTreeEntry* m = m_mini_tree; m < m_mini_tree + m_mini_tree_len; m += 1)
+			{
+				printf("%p | ", reinterpret_cast<const void*>(m));
+				for (size_t d = 0; d < m->depth - 1; d += 1)
+					printf("   ");
+
+				const Button* button = dynamic_cast<Button*>(m->widget);
+				if (button != nullptr)
+					printf("%s, \"%s\" (childs: %zu, last one: %p)\n", m->widget->GetType().cbegin(),
+					       button->m_text.c_str(), m->widget->GetChildrenNo(),
+					       reinterpret_cast<const void*>(m->last_child));
+				else
+					printf("%s (childs: %zu, last one: %p)\n", m->widget->GetType().cbegin(),
+					       m->widget->GetChildrenNo(), reinterpret_cast<const void*>(m->last_child));
+			}
+		}
+	}
+}
+
+void yuika::Screen::MouseEvent(MouseGesture gesture, Position cursor_pos)
+{
+	if (gesture == MouseGesture::Press)
+	{
+		// Iterate mini tree
+		MiniTreeEntry* current = nullptr;
+		MiniTreeEntry* next = m_mini_tree;
+
+		while (next != nullptr)
+		{
+			current = next;
+
+			// Developers, developers, developers
+			if (false)
+			{
+				for (size_t d = 0; d < current->depth - 1; d += 1)
+					printf("   ");
+
+				const Button* button = dynamic_cast<Button*>(current->widget);
+				if (button != nullptr)
+					printf("%p, %s, \"%s\"\n", reinterpret_cast<const void*>(current->widget),
+					       current->widget->GetType().cbegin(), button->m_text.c_str());
+				else
+					printf("%p, %s\n", reinterpret_cast<const void*>(current->widget),
+					       current->widget->GetType().cbegin());
+			}
+
+			// Send event
+			current->pressed = true;
+			if (current->widget->OnMouse(MouseGesture::Press, cursor_pos) == EventReturn::DontPassItDown)
+				return;
+
+			// Go down, iterate children
+			next = nullptr;
+
+			MiniTreeEntry* child = current->last_child;
+			for (size_t i = 0; i < current->widget->GetChildrenNo(); i += 1, child -= 1)
+			{
+				if (child->clickable == false)
+					continue;
+
+				if (cursor_pos.x > child->clickable_area.pos.x && cursor_pos.y > child->clickable_area.pos.y &&
+				    cursor_pos.x < child->clickable_area.pos.x + child->clickable_area.size.w &&
+				    cursor_pos.y < child->clickable_area.pos.y + child->clickable_area.size.h)
+				{
+					next = child;
+					break;
+				}
+			}
+		}
+	}
+	else if (gesture == MouseGesture::Release)
+	{
+		// Iterate mini tree
+		for (MiniTreeEntry* m = m_mini_tree; m < m_mini_tree + m_mini_tree_len; m += 1)
+		{
+			if (m->pressed == false)
+				continue;
+			m->pressed = false;
+			m->widget->OnMouse(MouseGesture::Release, cursor_pos); // Ignoring if pass it down or not
+		}
 	}
 }
 
@@ -277,11 +391,11 @@ yuika::Size yuika::Widget::GetSize(Size available_size) const
 	return size;
 }
 
-void yuika::Widget::Draw(DrawApi& api, Rect allowed_area) const
+void yuika::Widget::Draw(DrawApi& api, Rect allowed_draw_area) const
 {
 	// There are less surprises by setting a clickable area by default,
 	// it still can be overridden if more fine control is needed
-	api.SetClickableArea({allowed_area.pos, GetSize(allowed_area.size)});
+	api.SetClickableArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
 }
 
 void yuika::Widget::SetReceivingEvents(uint32_t events)
@@ -292,9 +406,12 @@ void yuika::Widget::SetReceivingEvents(uint32_t events)
 uint32_t yuika::Widget::GetReceivingEvents() const
 {
 	return m_receiving_events;
-};
+}
 
-// void yuika::Widget::OnMouseClick(MouseClickGesture, Position){};
+yuika::EventReturn yuika::Widget::OnMouse(MouseGesture, Position)
+{
+	return EventReturn::PassItDown;
+}
 
 
 // ############################
@@ -348,7 +465,7 @@ yuika::Size yuika::Wrapper::UpdateNaturalSize()
 	{
 		// DEBUGPRINT("%u | yuika::Wrapper::UpdateNaturalSize\n", s_frame);
 		m_natural_size_updated = true;
-		m_natural_size = (m_content != nullptr) ? m_content->UpdateNaturalSize() : Size{32, 32}; // [Recursion]
+		m_natural_size = (m_content != nullptr) ? m_content->UpdateNaturalSize() : Size{30, 30}; // [Recursion]
 	}
 
 	return m_natural_size;
@@ -379,7 +496,7 @@ yuika::Widget& yuika::Box::AddChild(std::unique_ptr<Widget> widget)
 class yuika::BoxFriend
 {
   public:
-	template <typename T> static yuika::Widget::ChildGet GetChild(T& fwend, size_t no, yuika::Size available_size)
+	template <typename T> static Widget::ChildGet GetChild(T& fwend, size_t no, Size available_size)
 	{
 		Delta delta;
 		Size size;
@@ -391,7 +508,7 @@ class yuika::BoxFriend
 
 		switch (fwend.m_direction)
 		{
-		case yuika::Box::Direction::Horizontal:
+		case Box::Direction::Horizontal:
 		{
 			if (child->GetStretchX() == true)
 			{
@@ -403,7 +520,7 @@ class yuika::BoxFriend
 			delta = {(no < fwend.m_children.size() - 1) ? size.w : 0, 0};
 		}
 		break;
-		case yuika::Box::Direction::Vertical:
+		case Box::Direction::Vertical:
 		{
 			if (child->GetStretchY() == true)
 			{
@@ -505,11 +622,11 @@ std::string_view yuika::Button::GetType() const
 	return "Button";
 }
 
-void yuika::Button::Draw(DrawApi& api, Rect allowed_area) const
+void yuika::Button::Draw(DrawApi& api, Rect allowed_draw_area) const
 {
 	// DEBUGPRINT("%u | yuika::Button::Draw\n", s_frame);
-	api.SetClickableArea({allowed_area.pos, GetSize(allowed_area.size)});
-	api.Draw3dBevel({allowed_area.pos, GetSize(allowed_area.size)}, DrawApi::BevelStyle::Outset);
+	api.SetClickableArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
+	api.Draw3dBevel({allowed_draw_area.pos, GetSize(allowed_draw_area.size)}, DrawApi::BevelStyle::Outset);
 }
 
 /*void yuika::Button::SetMouseClickCallback(std::function<MouseClickCallback> callback)

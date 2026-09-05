@@ -17,6 +17,8 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <utility>
+
 #include "yuika.hpp"
 namespace yui = yuika;
 
@@ -50,6 +52,22 @@ static int sUpdateTexture(App* app)
 }
 
 
+class CustomButton : public yuika::Button
+{
+  public:
+	CustomButton(std::string text) : yuika::Button(std::move(text)) {}
+
+	yuika::EventReturn OnMouse(yuika::MouseGesture gesture, yuika::Position) override
+	{
+		switch (gesture)
+		{
+		case yuika::MouseGesture::Press: printf("Mouse press, \"%s\"\n", m_text.c_str()); break;
+		case yuika::MouseGesture::Release: printf("Mouse release, \"%s\"\n", m_text.c_str()); break;
+		}
+		return yuika::EventReturn::DontPassItDown;
+	}
+};
+
 static void sCreateUi(yui::Wrapper& root)
 {
 	auto& main_container = root.SetChild<yui::VBox>();
@@ -60,7 +78,7 @@ static void sCreateUi(yui::Wrapper& root)
 	titlebar.AddChild<yui::Button>("Microsoft Word - Document 1").SetStretch(true, false);
 	titlebar.AddChild<yui::Button>("_");
 	titlebar.AddChild<yui::Button>("[]");
-	titlebar.AddChild<yui::Button>("X");
+	titlebar.AddChild<CustomButton>("X");
 
 	auto& menu = main_container.AddChild<yui::HBox>();
 	menu.AddChild<yui::Button>("File");
@@ -165,13 +183,13 @@ SDL_AppResult SDL_AppEvent(void* app_raw, SDL_Event* event)
 	}
 	else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
 	{
-		// app->screen.MouseClick(Ui::MouseClickGesture::Press,
-		//                        {static_cast<int>(event->button.x), static_cast<int>(event->button.y)});
+		app->screen.MouseEvent(yui::MouseGesture::Press,
+		                       {static_cast<int>(event->button.x), static_cast<int>(event->button.y)});
 	}
 	else if (event->type == SDL_EVENT_MOUSE_BUTTON_UP)
 	{
-		// app->screen.MouseClick(Ui::MouseClickGesture::Release,
-		//                        {static_cast<int>(event->button.x), static_cast<int>(event->button.y)});
+		app->screen.MouseEvent(yui::MouseGesture::Release,
+		                       {static_cast<int>(event->button.x), static_cast<int>(event->button.y)});
 	}
 	else if (event->type == SDL_EVENT_WINDOW_RESIZED)
 	{
