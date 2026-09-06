@@ -16,7 +16,6 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include <stddef.h>
 #include <stdint.h>
 
-// #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -47,14 +46,17 @@ struct Rect
 
 enum class MouseGesture
 {
-	Press,  // Primary button
-	Release // Same
+	Press,   // Primary button, triggers if cursor is on top of widget
+	Release, // Primary button, triggers only if widget was previously
+	         // pressed, also, it does it regardless of where cursor is
+
+	Click // Similar to release, except it checks if cursor is over widget
 };
 
-enum class EventReturn
+enum class EventPropagation
 {
-	PassItDown,
-	DontPassItDown
+	KeepPassingIt,
+	StopIt
 };
 
 class DrawApi
@@ -115,17 +117,22 @@ class Widget
 	virtual Size GetSize(Size available_size) const;
 	virtual void Draw(DrawApi& api, Rect allowed_draw_area) const;
 
+	virtual void SetId(const char* id);
+	virtual const char* GetId() const;
+
 	virtual Widget& SetStretch(bool x, bool y);
 	virtual bool GetStretchX() const;
 	virtual bool GetStretchY() const;
 
 	virtual void SetReceivingEvents(uint32_t events);
 	virtual uint32_t GetReceivingEvents() const;
-	virtual EventReturn OnMouse(MouseGesture gesture, Position cursor_pos);
+	virtual EventPropagation OnMouseCapturing(MouseGesture gesture, Position cursor_pos);
+	virtual EventPropagation OnMouseBubbling(MouseGesture gesture, Position cursor_pos, Widget& target);
 
   protected:
 	Size m_natural_size = {};
 	uint32_t m_receiving_events = 0;
+	const char* m_id;
 	bool m_stretch_x : 1; // Most widgets should implement these
 	bool m_stretch_y : 1;
 	bool m_natural_size_updated : 1;
@@ -226,19 +233,11 @@ class VBox : public Box
 class Button : public Wrapper
 {
   public:
-	// using MouseClickCallback = void(Button& self, MouseGesture gesture, Position cursor_pos);
-
 	Button(std::string text);
 	std::string_view GetType() const override;
 	void Draw(DrawApi& api, Rect allowed_draw_area) const override;
 
-	// void OnMouse(MouseGesture gesture, Position cursor_pos) override;
-	// void SetMouseClickCallback(std::function<MouseClickCallback> callback);
-
 	std::string m_text; // TODO, create a label
-
-  protected:
-	// std::function<MouseClickCallback> m_mouse_click_callback;
 };
 
 
@@ -290,8 +289,8 @@ class Screen
 		size_t depth;
 		Widget* widget;
 		MiniTreeEntry* last_child;
+		MiniTreeEntry* parent_mini;
 
-		bool clickable;
 		Rect clickable_area;
 
 		bool pressed;

@@ -11,6 +11,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
 #include "yuika.hpp"
+#include <assert.h>
 
 #if 1
 #define DEBUGPRINT(...) __builtin_printf(__VA_ARGS__)
@@ -113,13 +114,11 @@ class yuika::ScreenFriend
 	{
 	  public:
 		Screen* fwend;
-		bool clickable_set;
 		struct Rect clickable_area;
 
 		void SetClickableArea(Rect rect) noexcept override
 		{
-			clickable_set = true;  // If already set, we overwrite last one
-			clickable_area = rect; // TODO, validate and clamp area
+			clickable_area = rect; // If already set, we overwrite last one (TODO, validate and clamp area)
 		}
 
 		void DrawRectangle(Colour colour, Rect rect) noexcept override
@@ -179,16 +178,12 @@ class yuika::ScreenFriend
 			Screen::StackEntry current = stack[--cursor]; // Yes, copy it
 
 			// Draw
-			api.clickable_set = false;
 			api.clickable_area = {};
 			current.widget->Draw(api, current.allowed_draw_area);
 
 			// Update mini tree entry
 			if (current.mini != nullptr)
-			{
-				current.mini->clickable = api.clickable_set;
 				current.mini->clickable_area = api.clickable_area;
-			}
 
 			if (current.parent_mini != nullptr)
 				current.parent_mini->last_child = current.mini;
@@ -220,10 +215,10 @@ class yuika::ScreenFriend
 				// other parts of the code will use it
 				api.fwend->m_mini_tree[api.fwend->m_mini_tree_len] = {/* depth */ current.depth + 1,
 				                                                      /* widget */ &child,
-				                                                      /* last_child*/ nullptr,
-				                                                      /* clickable */ false,
+				                                                      /* last_child */ nullptr,
+				                                                      /* parent_mini */ current.mini,
 				                                                      /* clickable_area */ {},
-				                                                      /* pressed*/ false};
+				                                                      /* pressed */ false};
 				api.fwend->m_mini_tree_len++;
 			}
 		}
@@ -275,13 +270,16 @@ void yuika::Screen::Update(Size size, uint32_t* out)
 	}
 }
 
-void yuika::Screen::MouseEvent(MouseGesture gesture, Position cursor_pos)
+void yuika::Screen::MouseEvent(MouseGesture gesture, Position cursor_pos) // TODO, lot of copy-paste
 {
+	// https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Event_bubbling
+	assert(gesture != MouseGesture::Click);
+
 	if (gesture == MouseGesture::Press)
 	{
-		// Iterate mini tree
-		MiniTreeEntry* current = nullptr;
+		// Capture phase
 		MiniTreeEntry* next = m_mini_tree;
+		MiniTreeEntry* current = nullptr;
 
 		while (next != nullptr)
 		{
@@ -290,6 +288,7 @@ void yuika::Screen::MouseEvent(MouseGesture gesture, Position cursor_pos)
 			// Developers, developers, developers
 			if (false)
 			{
+				printf("Capturing | ");
 				for (size_t d = 0; d < current->depth - 1; d += 1)
 					printf("   ");
 
@@ -304,8 +303,8 @@ void yuika::Screen::MouseEvent(MouseGesture gesture, Position cursor_pos)
 
 			// Send event
 			current->pressed = true;
-			if (current->widget->OnMouse(MouseGesture::Press, cursor_pos) == EventReturn::DontPassItDown)
-				return;
+			if (current->widget->OnMouseCapturing(MouseGesture::Press, cursor_pos) == EventPropagation::StopIt)
+				break;
 
 			// Go down, iterate children
 			next = nullptr;
@@ -313,10 +312,10 @@ void yuika::Screen::MouseEvent(MouseGesture gesture, Position cursor_pos)
 			MiniTreeEntry* child = current->last_child;
 			for (size_t i = 0; i < current->widget->GetChildrenNo(); i += 1, child -= 1)
 			{
-				if (child->clickable == false)
+				if (child->clickable_area.size.w <= 0 || child->clickable_area.size.h <= 0)
 					continue;
 
-				if (cursor_pos.x > child->clickable_area.pos.x && cursor_pos.y > child->clickable_area.pos.y &&
+				if (cursor_pos.x >= child->clickable_area.pos.x && cursor_pos.y >= child->clickable_area.pos.y &&
 				    cursor_pos.x < child->clickable_area.pos.x + child->clickable_area.size.w &&
 				    cursor_pos.y < child->clickable_area.pos.y + child->clickable_area.size.h)
 				{
@@ -325,16 +324,80 @@ void yuika::Screen::MouseEvent(MouseGesture gesture, Position cursor_pos)
 				}
 			}
 		}
+
+		// Bubble phase
+		Widget* target = current->widget;
+		next = current;
+
+		while (next != nullptr)
+		{
+			// Developers, developers, developers
+			if (false)
+			{
+				printf("Bubbling  | ");
+				for (size_t d = 0; d < next->depth - 1; d += 1)
+					printf("   ");
+
+				const Button* button = dynamic_cast<Button*>(next->widget);
+				if (button != nullptr)
+					printf("%p, %s, \"%s\"\n", reinterpret_cast<const void*>(next->widget),
+					       next->widget->GetType().cbegin(), button->m_text.c_str());
+				else
+					printf("%p, %s\n", reinterpret_cast<const void*>(next->widget), next->widget->GetType().cbegin());
+			}
+
+			// Send event
+			if (next->widget->OnMouseBubbling(MouseGesture::Press, cursor_pos, *target) == EventPropagation::StopIt)
+				break;
+
+			// Go up
+			next = next->parent_mini;
+		}
 	}
 	else if (gesture == MouseGesture::Release)
 	{
-		// Iterate mini tree
 		for (MiniTreeEntry* m = m_mini_tree; m < m_mini_tree + m_mini_tree_len; m += 1)
 		{
 			if (m->pressed == false)
 				continue;
+
+			// """Capture""" phase
 			m->pressed = false;
-			m->widget->OnMouse(MouseGesture::Release, cursor_pos); // Ignoring if pass it down or not
+			m->widget->OnMouseCapturing(MouseGesture::Release, cursor_pos); // I'm ignoring if pass or not the event
+
+			if (cursor_pos.x >= m->clickable_area.pos.x && cursor_pos.y >= m->clickable_area.pos.y &&
+			    cursor_pos.x < m->clickable_area.pos.x + m->clickable_area.size.w &&
+			    cursor_pos.y < m->clickable_area.pos.y + m->clickable_area.size.h)
+			{
+				m->widget->OnMouseCapturing(MouseGesture::Click, cursor_pos); // Same
+			}
+
+			// Bubble phase
+			MiniTreeEntry* next = m;
+			while (next != nullptr)
+			{
+				if (next->widget->OnMouseBubbling(MouseGesture::Release, cursor_pos, *m->widget) ==
+				    EventPropagation::StopIt)
+					break;
+
+				next = next->parent_mini;
+			}
+
+			// Click event, bubble phase
+			next = m;
+			while (next != nullptr)
+			{
+				if (cursor_pos.x >= next->clickable_area.pos.x && cursor_pos.y >= next->clickable_area.pos.y &&
+				    cursor_pos.x < next->clickable_area.pos.x + next->clickable_area.size.w &&
+				    cursor_pos.y < next->clickable_area.pos.y + next->clickable_area.size.h)
+				{
+					if (next->widget->OnMouseBubbling(MouseGesture::Click, cursor_pos, *m->widget) ==
+					    EventPropagation::StopIt)
+						break;
+				}
+
+				next = next->parent_mini;
+			}
 		}
 	}
 }
@@ -359,11 +422,22 @@ yuika::Widget::Widget()
 	m_stretch_x = false; // Is not possible to set bitfields on headers
 	m_stretch_y = false; // (a C++ quirk)
 	m_natural_size_updated = false;
+	m_id = "";
 }
 
 yuika::Size yuika::Widget::GetNaturalSize() const
 {
 	return m_natural_size;
+}
+
+void yuika::Widget::SetId(const char* id)
+{
+	m_id = id;
+}
+
+const char* yuika::Widget::GetId() const
+{
+	return m_id;
 }
 
 yuika::Widget& yuika::Widget::SetStretch(bool x, bool y)
@@ -408,9 +482,14 @@ uint32_t yuika::Widget::GetReceivingEvents() const
 	return m_receiving_events;
 }
 
-yuika::EventReturn yuika::Widget::OnMouse(MouseGesture, Position)
+yuika::EventPropagation yuika::Widget::OnMouseCapturing(MouseGesture, Position)
 {
-	return EventReturn::PassItDown;
+	return EventPropagation::KeepPassingIt;
+}
+
+yuika::EventPropagation yuika::Widget::OnMouseBubbling(MouseGesture, Position, Widget&)
+{
+	return EventPropagation::KeepPassingIt;
 }
 
 
@@ -628,14 +707,3 @@ void yuika::Button::Draw(DrawApi& api, Rect allowed_draw_area) const
 	api.SetClickableArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
 	api.Draw3dBevel({allowed_draw_area.pos, GetSize(allowed_draw_area.size)}, DrawApi::BevelStyle::Outset);
 }
-
-/*void yuika::Button::SetMouseClickCallback(std::function<MouseClickCallback> callback)
-{
-    SetReceivingEvents(GetReceivingEvents() | yuika::EVENT_MOUSE_CLICK);
-    m_mouse_click_callback = callback;
-}
-
-void yuika::Button::OnMouseClick(yuika::MouseClickGesture gesture, yuika::Position mouse_pos)
-{
-    m_mouse_click_callback(*this, gesture, mouse_pos);
-}*/
