@@ -86,6 +86,7 @@ class DrawApi
 	};
 
 	virtual void Draw3dBevel(Rect rect, BevelStyle style) = 0;
+	virtual void DrawText(Position pos, const char* text) = 0;
 };
 
 
@@ -105,12 +106,10 @@ class Widget
 	};
 
 	virtual size_t GetChildrenNo() const = 0;
-	virtual ChildGet GetChild(size_t no, Size available_size) = 0;             // Throws is there is no child
+	virtual ChildGet GetChild(size_t no, Size available_size) = 0;             // Throws if there is no child
 	virtual const ChildGet GetChild(size_t no, Size available_size) const = 0; // Ditto
 	virtual Widget& GetChild(size_t no) = 0;                                   // Ditto
 	virtual const Widget& GetChild(size_t no) const = 0;                       // Ditto
-
-	virtual std::string_view GetType() const = 0;
 
 	virtual Size UpdateNaturalSize() = 0; // Also returns natural size
 	virtual Size GetNaturalSize() const;
@@ -124,14 +123,11 @@ class Widget
 	virtual bool GetStretchX() const;
 	virtual bool GetStretchY() const;
 
-	virtual void SetReceivingEvents(uint32_t events);
-	virtual uint32_t GetReceivingEvents() const;
 	virtual EventPropagation OnMouseCapturing(MouseGesture gesture, Position cursor_pos);
 	virtual EventPropagation OnMouseBubbling(MouseGesture gesture, Position cursor_pos, Widget& target);
 
   protected:
 	Size m_natural_size = {};
-	uint32_t m_receiving_events = 0;
 	const char* m_id;
 	bool m_stretch_x : 1; // Most widgets should implement these
 	bool m_stretch_y : 1;
@@ -145,7 +141,7 @@ class Wrapper : public Widget
 	size_t GetChildrenNo() const override; // Always returns 1
 	Widget& SetChild(std::unique_ptr<Widget> widget);
 
-	template <typename T, typename... ARGS> T& SetChild(ARGS&&... args)
+	template <typename T, typename... ARGS> T& SetNewChild(ARGS&&... args)
 	{
 		auto widget = std::make_unique<T>(std::forward<ARGS>(args)...);
 		auto& ret = *widget; // Manoeuvre to return T
@@ -190,7 +186,7 @@ class Box : public Container
 	size_t GetChildrenNo() const override;
 	Widget& AddChild(std::unique_ptr<Widget> widget) override;
 
-	template <typename T, typename... ARGS> T& AddChild(ARGS&&... args)
+	template <typename T, typename... ARGS> T& AddNewChild(ARGS&&... args)
 	{
 		auto widget = std::make_unique<T>(std::forward<ARGS>(args)...);
 		auto& ret = *widget;
@@ -202,8 +198,6 @@ class Box : public Container
 	const ChildGet GetChild(size_t no, Size available_size) const override;
 	Widget& GetChild(size_t no) override;
 	const Widget& GetChild(size_t no) const override;
-
-	std::string_view GetType() const override;
 
 	Size UpdateNaturalSize() override;
 
@@ -230,14 +224,39 @@ class VBox : public Box
 };
 
 
+class Text final : public Widget
+{
+  public:
+	Text(std::string text);
+	void Draw(DrawApi& api, Rect allowed_draw_area) const override;
+
+	size_t GetChildrenNo() const override;
+	ChildGet GetChild(size_t, Size) override;
+	const ChildGet GetChild(size_t, Size) const override;
+	Widget& GetChild(size_t) override;
+	const Widget& GetChild(size_t) const override;
+	Size UpdateNaturalSize() override;
+
+  private:
+	std::string m_text;
+};
+
+
 class Button : public Wrapper
 {
   public:
-	Button(std::string text);
-	std::string_view GetType() const override;
+	Button();
 	void Draw(DrawApi& api, Rect allowed_draw_area) const override;
+};
 
-	std::string m_text; // TODO, create a label
+
+class ButtonWithLabel : public Button
+{
+  public:
+	ButtonWithLabel(const std::string& text)
+	{
+		SetNewChild<Text>(text);
+	}
 };
 
 
@@ -264,7 +283,6 @@ class Screen
 	{
 	  public:
 		Root() = default;
-		std::string_view GetType() const override;
 	};
 
 	Root* m_root; // A pointer, so it can survive a memset and being in a C struct

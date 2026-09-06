@@ -3,7 +3,9 @@
 CXX_FILES="
 ../source/clap/plugin.cpp \
 ../source/ui/ui-backend.cpp \
-../source/ui/ui-frontend.cpp \
+../source/ui/ui-frontend.cpp"
+
+YUIKA_FILES="
 ../source/ui/yuika.cpp"
 
 C_FILES="
@@ -17,3 +19,4 @@ C_FLAGS="-std=c17 -Wall -Wextra -Wconversion -pedantic -I../source/ -I../source/
 
 clang-tidy $CXX_FILES -- $CXX_FLAGS
 clang-tidy $C_FILES -- $C_FLAGS
+clang-tidy $YUIKA_FILES -- $CXX_FLAGS

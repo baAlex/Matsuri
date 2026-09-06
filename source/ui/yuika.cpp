@@ -158,6 +158,40 @@ class yuika::ScreenFriend
 				DrawRectangle(Colour::BevelMid, {{rect.pos.x + 1, rect.pos.y + rect.size.h - 2}, {rect.size.w - 2, 1}});
 			}
 		}
+
+		void DrawKikiBoba(Colour colour, Rect rect) noexcept
+		{
+			const int x1 = Clamp(rect.pos.x, 0, fwend->m_size.w);
+			const int y1 = Clamp(rect.pos.y, 0, fwend->m_size.h);
+			rect.size.w = (Clamp(rect.pos.x + rect.size.w, 0, fwend->m_size.w) - x1);
+			rect.size.h = (Clamp(rect.pos.y + rect.size.h, 0, fwend->m_size.h) - y1) * fwend->m_size.w;
+
+			uint8_t kiki = 0;
+			uint8_t boba = 0;
+
+			uint32_t* out = fwend->m_out + static_cast<size_t>(x1 + y1 * fwend->m_size.w);
+			for (uint32_t* row = out; row < out + rect.size.h; row += static_cast<size_t>(fwend->m_size.w))
+			{
+				for (uint32_t* col = row; col < row + rect.size.w; col += 1)
+				{
+					*col = (((kiki ^ boba) & 1) != 0) ? fwend->m_palette[static_cast<int>(colour)] : *col;
+					boba++;
+				}
+				kiki++;
+				boba = 0;
+			}
+		}
+
+		void DrawText(Position pos, const char* text) noexcept override
+		{
+			for (const char* c = text; *c != '\0'; c += 1)
+			{
+				if (*c != ' ')
+					DrawKikiBoba(Colour::Red, {pos, {16, 20}}); // TODO, hardcoded size
+
+				pos.x += 16 + 1;
+			}
+		}
 	};
 
 	static void DrawWidgets(DrawApiImplementation& api)
@@ -190,10 +224,7 @@ class yuika::ScreenFriend
 
 			// Iterate children
 			if (cursor + current.widget->GetChildrenNo() >= Screen::STACK_LEN)
-			{
-				fprintf(stderr, "Too many widgets\n"); // TODO, use a exception
-				return;
-			}
+				throw 1; // TODO
 
 			cursor += current.widget->GetChildrenNo();
 			for (size_t i = 0; i < current.widget->GetChildrenNo(); i += 1)
@@ -237,7 +268,6 @@ void yuika::Screen::Update(Size size, uint32_t* out)
 
 	if (m_size.w != size.w || m_size.h != size.h || DRAW_LIKE_CRAZY == true)
 	{
-		// Set stuff
 		m_size = size;
 
 		ScreenFriend::DrawApiImplementation api;
@@ -251,20 +281,14 @@ void yuika::Screen::Update(Size size, uint32_t* out)
 		// Developers, developers, developers
 		if (false)
 		{
-			for (MiniTreeEntry* m = m_mini_tree; m < m_mini_tree + m_mini_tree_len; m += 1)
+			for (const MiniTreeEntry* m = m_mini_tree; m < m_mini_tree + m_mini_tree_len; m += 1)
 			{
 				printf("%p | ", reinterpret_cast<const void*>(m));
 				for (size_t d = 0; d < m->depth - 1; d += 1)
 					printf("   ");
 
-				const Button* button = dynamic_cast<Button*>(m->widget);
-				if (button != nullptr)
-					printf("%s, \"%s\" (childs: %zu, last one: %p)\n", m->widget->GetType().cbegin(),
-					       button->m_text.c_str(), m->widget->GetChildrenNo(),
-					       reinterpret_cast<const void*>(m->last_child));
-				else
-					printf("%s (childs: %zu, last one: %p)\n", m->widget->GetType().cbegin(),
-					       m->widget->GetChildrenNo(), reinterpret_cast<const void*>(m->last_child));
+				printf("%s (childs: %zu, last one: %p)\n", m->widget->GetId(), m->widget->GetChildrenNo(),
+				       reinterpret_cast<const void*>(m->last_child));
 			}
 		}
 	}
@@ -292,13 +316,7 @@ void yuika::Screen::MouseEvent(MouseGesture gesture, Position cursor_pos) // TOD
 				for (size_t d = 0; d < current->depth - 1; d += 1)
 					printf("   ");
 
-				const Button* button = dynamic_cast<Button*>(current->widget);
-				if (button != nullptr)
-					printf("%p, %s, \"%s\"\n", reinterpret_cast<const void*>(current->widget),
-					       current->widget->GetType().cbegin(), button->m_text.c_str());
-				else
-					printf("%p, %s\n", reinterpret_cast<const void*>(current->widget),
-					       current->widget->GetType().cbegin());
+				printf("%p, %s\n", reinterpret_cast<const void*>(current->widget), current->widget->GetId());
 			}
 
 			// Send event
@@ -326,9 +344,7 @@ void yuika::Screen::MouseEvent(MouseGesture gesture, Position cursor_pos) // TOD
 		}
 
 		// Bubble phase
-		Widget* target = current->widget;
 		next = current;
-
 		while (next != nullptr)
 		{
 			// Developers, developers, developers
@@ -338,16 +354,12 @@ void yuika::Screen::MouseEvent(MouseGesture gesture, Position cursor_pos) // TOD
 				for (size_t d = 0; d < next->depth - 1; d += 1)
 					printf("   ");
 
-				const Button* button = dynamic_cast<Button*>(next->widget);
-				if (button != nullptr)
-					printf("%p, %s, \"%s\"\n", reinterpret_cast<const void*>(next->widget),
-					       next->widget->GetType().cbegin(), button->m_text.c_str());
-				else
-					printf("%p, %s\n", reinterpret_cast<const void*>(next->widget), next->widget->GetType().cbegin());
+				printf("%p, %s\n", reinterpret_cast<const void*>(next->widget), next->widget->GetId());
 			}
 
 			// Send event
-			if (next->widget->OnMouseBubbling(MouseGesture::Press, cursor_pos, *target) == EventPropagation::StopIt)
+			if (next->widget->OnMouseBubbling(MouseGesture::Press, cursor_pos, *current->widget) ==
+			    EventPropagation::StopIt)
 				break;
 
 			// Go up
@@ -363,7 +375,7 @@ void yuika::Screen::MouseEvent(MouseGesture gesture, Position cursor_pos) // TOD
 
 			// """Capture""" phase
 			m->pressed = false;
-			m->widget->OnMouseCapturing(MouseGesture::Release, cursor_pos); // I'm ignoring if pass or not the event
+			m->widget->OnMouseCapturing(MouseGesture::Release, cursor_pos); // I'm ignoring propagation
 
 			if (cursor_pos.x >= m->clickable_area.pos.x && cursor_pos.y >= m->clickable_area.pos.y &&
 			    cursor_pos.x < m->clickable_area.pos.x + m->clickable_area.size.w &&
@@ -384,19 +396,19 @@ void yuika::Screen::MouseEvent(MouseGesture gesture, Position cursor_pos) // TOD
 			}
 
 			// Click event, bubble phase
-			next = m;
-			while (next != nullptr)
+			if (cursor_pos.x >= m->clickable_area.pos.x && cursor_pos.y >= m->clickable_area.pos.y &&
+			    cursor_pos.x < m->clickable_area.pos.x + m->clickable_area.size.w &&
+			    cursor_pos.y < m->clickable_area.pos.y + m->clickable_area.size.h)
 			{
-				if (cursor_pos.x >= next->clickable_area.pos.x && cursor_pos.y >= next->clickable_area.pos.y &&
-				    cursor_pos.x < next->clickable_area.pos.x + next->clickable_area.size.w &&
-				    cursor_pos.y < next->clickable_area.pos.y + next->clickable_area.size.h)
+				next = m;
+				while (next != nullptr)
 				{
 					if (next->widget->OnMouseBubbling(MouseGesture::Click, cursor_pos, *m->widget) ==
 					    EventPropagation::StopIt)
 						break;
-				}
 
-				next = next->parent_mini;
+					next = next->parent_mini;
+				}
 			}
 		}
 	}
@@ -406,11 +418,6 @@ void yuika::Screen::MouseEvent(MouseGesture gesture, Position cursor_pos) // TOD
 yuika::Wrapper& yuika::Screen::GetRoot()
 {
 	return *m_root;
-}
-
-std::string_view yuika::Screen::Root::GetType() const
-{
-	return "Root";
 }
 
 
@@ -467,19 +474,8 @@ yuika::Size yuika::Widget::GetSize(Size available_size) const
 
 void yuika::Widget::Draw(DrawApi& api, Rect allowed_draw_area) const
 {
-	// There are less surprises by setting a clickable area by default,
-	// it still can be overridden if more fine control is needed
+	// There are less surprises by setting a clickable area by default
 	api.SetClickableArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
-}
-
-void yuika::Widget::SetReceivingEvents(uint32_t events)
-{
-	m_receiving_events = events;
-}
-
-uint32_t yuika::Widget::GetReceivingEvents() const
-{
-	return m_receiving_events;
 }
 
 yuika::EventPropagation yuika::Widget::OnMouseCapturing(MouseGesture, Position)
@@ -498,9 +494,7 @@ yuika::EventPropagation yuika::Widget::OnMouseBubbling(MouseGesture, Position, W
 
 size_t yuika::Wrapper::GetChildrenNo() const
 {
-	if (m_content == nullptr)
-		return 0;
-	return 1;
+	return (m_content == nullptr) ? 0 : 1;
 }
 
 yuika::Widget& yuika::Wrapper::SetChild(std::unique_ptr<Widget> widget)
@@ -545,6 +539,11 @@ yuika::Size yuika::Wrapper::UpdateNaturalSize()
 		// DEBUGPRINT("%u | yuika::Wrapper::UpdateNaturalSize\n", s_frame);
 		m_natural_size_updated = true;
 		m_natural_size = (m_content != nullptr) ? m_content->UpdateNaturalSize() : Size{30, 30}; // [Recursion]
+
+		if (m_natural_size.w < 30) // TODO, hardcoded, and also this should be done with styles
+			m_natural_size.w = 30;
+		if (m_natural_size.h < 30)
+			m_natural_size.h = 30;
 	}
 
 	return m_natural_size;
@@ -641,11 +640,6 @@ const yuika::Widget& yuika::Box::GetChild(size_t no) const
 	return *m_children.at(no);
 }
 
-std::string_view yuika::Box::GetType() const
-{
-	return "Box";
-}
-
 yuika::Size yuika::Box::UpdateNaturalSize()
 {
 	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
@@ -691,15 +685,59 @@ yuika::VBox::VBox() : Box(Direction::Vertical) {}
 // ############################
 
 
-yuika::Button::Button(std::string text) : Wrapper()
+yuika::Text::Text(std::string text) : Widget()
 {
-	m_text = std::move(text); // TODO, it has to create a label
+	m_text = std::move(text);
 }
 
-std::string_view yuika::Button::GetType() const
+void yuika::Text::Draw(DrawApi& api, Rect allowed_draw_area) const
 {
-	return "Button";
+	allowed_draw_area.pos.x += 1;
+	allowed_draw_area.pos.y += 1;
+	allowed_draw_area.size.w -= 2;
+	allowed_draw_area.size.h -= 2;
+
+	// DEBUGPRINT("%u | yuika::Text::Draw\n", s_frame);
+	api.SetClickableArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
+	api.DrawText(allowed_draw_area.pos, m_text.c_str());
 }
+
+
+size_t yuika::Text::GetChildrenNo() const
+{
+	return 0;
+};
+
+yuika::Widget::ChildGet yuika::Text::GetChild(size_t, Size)
+{
+	throw 1;
+};
+
+const yuika::Widget::ChildGet yuika::Text::GetChild(size_t, Size) const
+{
+	throw 1;
+};
+
+yuika::Widget& yuika::Text::GetChild(size_t)
+{
+	throw 1;
+};
+
+const yuika::Widget& yuika::Text::GetChild(size_t) const
+{
+	throw 1;
+};
+
+yuika::Size yuika::Text::UpdateNaturalSize()
+{
+	return Size{static_cast<int>(m_text.size()) * (16 + 1), 20}; // TODO, hardcoded size
+};
+
+
+// ############################
+
+
+yuika::Button::Button() : Wrapper() {}
 
 void yuika::Button::Draw(DrawApi& api, Rect allowed_draw_area) const
 {

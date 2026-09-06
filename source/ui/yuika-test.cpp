@@ -52,50 +52,49 @@ static int sUpdateTexture(App* app)
 }
 
 
-class DisabledHBox : public yuika::HBox
+class DisabledHBox : public yui::HBox
 {
   public:
-	DisabledHBox() : yuika::HBox() {}
+	DisabledHBox() : yui::HBox() {}
 
-	yuika::EventPropagation OnMouseCapturing(yuika::MouseGesture, yuika::Position) override
+	yui::EventPropagation OnMouseCapturing(yui::MouseGesture, yui::Position) override
 	{
-		return yuika::EventPropagation::StopIt;
+		return yui::EventPropagation::StopIt;
 	}
 };
 
-class NoisyButton : public yuika::Button
+class NoisyButton : public yui::ButtonWithLabel
 {
   public:
-	NoisyButton(std::string text) : yuika::Button(std::move(text)) {}
+	NoisyButton(const std::string& text) : yui::ButtonWithLabel(text) {}
 
-	yuika::EventPropagation OnMouseCapturing(yuika::MouseGesture gesture, yuika::Position) override
+	yui::EventPropagation OnMouseCapturing(yui::MouseGesture gesture, yui::Position) override
 	{
-		switch (gesture)
+		/*switch (gesture)
 		{
-		case yuika::MouseGesture::Press: printf("Capture, mouse press, \"%s\"\n", m_text.c_str()); break;
-		case yuika::MouseGesture::Release: printf("Capture, mouse release, \"%s\"\n", m_text.c_str()); break;
-		case yuika::MouseGesture::Click: printf("Capture, mouse click, \"%s\"\n", m_text.c_str()); break;
-		}
-		return yuika::EventPropagation::KeepPassingIt;
+		case yui::MouseGesture::Press: printf("Capture, mouse press, \"%s\"\n", m_text.c_str()); break;
+		case yui::MouseGesture::Release: printf("Capture, mouse release, \"%s\"\n", m_text.c_str()); break;
+		case yui::MouseGesture::Click: printf("Capture, mouse click, \"%s\"\n", m_text.c_str()); break;
+		}*/
+		return yui::EventPropagation::KeepPassingIt;
 	}
 
-	yuika::EventPropagation OnMouseBubbling(yuika::MouseGesture gesture, yuika::Position,
-	                                        yuika::Widget& target) override
+	yui::EventPropagation OnMouseBubbling(yui::MouseGesture gesture, yui::Position, yui::Widget& target) override
 	{
 		if (&target != this)
-			return yuika::EventPropagation::KeepPassingIt;
+			return yui::EventPropagation::KeepPassingIt;
 
-		switch (gesture)
+		/*switch (gesture)
 		{
-		case yuika::MouseGesture::Press: printf("Bubble, mouse press, \"%s\"\n", m_text.c_str()); break;
-		case yuika::MouseGesture::Release: printf("Bubble, mouse release, \"%s\"\n", m_text.c_str()); break;
-		case yuika::MouseGesture::Click: printf("Bubble, mouse click, \"%s\"\n", m_text.c_str()); break;
-		}
-		return yuika::EventPropagation::KeepPassingIt;
+		case yui::MouseGesture::Press: printf("Bubble, mouse press, \"%s\"\n", m_text.c_str()); break;
+		case yui::MouseGesture::Release: printf("Bubble, mouse release, \"%s\"\n", m_text.c_str()); break;
+		case yui::MouseGesture::Click: printf("Bubble, mouse click, \"%s\"\n", m_text.c_str()); break;
+		}*/
+		return yui::EventPropagation::KeepPassingIt;
 	}
 };
 
-class VoiceRack : public yuika::HBox
+class VoiceRack : public yui::HBox
 {
   public:
 	VoiceRack(const std::string& name)
@@ -103,37 +102,36 @@ class VoiceRack : public yuika::HBox
 		m_name = name;
 		SetStretch(true, false);
 
-		AddChild<yui::Button>(name);
+		AddNewChild<yui::ButtonWithLabel>(name);
 
-		AddChild<yui::Button>("100%").SetStretch(true, true);
-		AddChild<yui::Button>("Volume -").SetId("vol-");
-		AddChild<yui::Button>("Volume +").SetId("vol+");
+		AddNewChild<yui::Button>().SetStretch(true, true);
+		AddNewChild<yui::ButtonWithLabel>("Vol -").SetId("#vol-");
+		AddNewChild<yui::ButtonWithLabel>("Vol +").SetId("#vol+");
 
-		AddChild<yui::Button>("Centre").SetStretch(true, true);
-		AddChild<yui::Button>("Panning -").SetId("pan-");
-		AddChild<yui::Button>("Panning +").SetId("pan+");
+		AddNewChild<yui::Button>().SetStretch(true, true);
+		AddNewChild<yui::ButtonWithLabel>("Pan -").SetId("#pan-");
+		AddNewChild<yui::ButtonWithLabel>("Pan +").SetId("#pan+");
 	}
 
-	yuika::EventPropagation OnMouseBubbling(yuika::MouseGesture gesture, yuika::Position,
-	                                        yuika::Widget& target) override
+	yui::EventPropagation OnMouseBubbling(yui::MouseGesture gesture, yui::Position, yui::Widget& target) override
 	{
 		// Event delegation example, not sure if is right,
 		// just now I learned about it:
 		// https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Event_bubbling
 
-		if (gesture == yuika::MouseGesture::Click)
+		if (gesture == yui::MouseGesture::Click)
 		{
-			if (strcmp(target.GetId(), "vol-") == 0)
+			if (strcmp(target.GetId(), "#vol-") == 0)
 				printf("%s | Click on Vol-\n", m_name.c_str());
-			else if (strcmp(target.GetId(), "vol+") == 0)
+			else if (strcmp(target.GetId(), "#vol+") == 0)
 				printf("%s | Click on Vol+\n", m_name.c_str());
-			else if (strcmp(target.GetId(), "pan-") == 0)
+			else if (strcmp(target.GetId(), "#pan-") == 0)
 				printf("%s | Click on Pan-\n", m_name.c_str());
-			else if (strcmp(target.GetId(), "pan+") == 0)
+			else if (strcmp(target.GetId(), "#pan+") == 0)
 				printf("%s | Click on Pan+\n", m_name.c_str());
 		}
 
-		return yuika::EventPropagation::KeepPassingIt;
+		return yui::EventPropagation::KeepPassingIt;
 	}
 
   private:
@@ -142,58 +140,58 @@ class VoiceRack : public yuika::HBox
 
 static void sCreateUi(yui::Wrapper& root)
 {
-	auto& main_container = root.SetChild<yui::VBox>();
+	auto& main_container = root.SetNewChild<yui::VBox>();
 
-	auto& titlebar = main_container.AddChild<yui::HBox>();
+	auto& titlebar = main_container.AddNewChild<yui::HBox>();
 	titlebar.SetStretch(true, false);
-	titlebar.AddChild<NoisyButton>("");
-	titlebar.AddChild<yui::Button>("Microsoft Word - Document 1").SetStretch(true, false);
-	titlebar.AddChild<yui::Button>("_");
-	titlebar.AddChild<yui::Button>("[]");
-	titlebar.AddChild<NoisyButton>("X");
+	titlebar.AddNewChild<NoisyButton>("");
+	titlebar.AddNewChild<yui::ButtonWithLabel>("Microsoft Word - Document 1").SetStretch(true, false);
+	titlebar.AddNewChild<yui::ButtonWithLabel>("_");
+	titlebar.AddNewChild<yui::ButtonWithLabel>("[]");
+	titlebar.AddNewChild<NoisyButton>("X");
 
-	auto& menu = main_container.AddChild<yui::HBox>();
-	menu.AddChild<NoisyButton>("File");
-	menu.AddChild<NoisyButton>("Edit");
-	menu.AddChild<NoisyButton>("View");
-	menu.AddChild<NoisyButton>("Insert");
-	menu.AddChild<NoisyButton>("Format");
-	menu.AddChild<NoisyButton>("Tools");
-	menu.AddChild<NoisyButton>("Table");
-	menu.AddChild<NoisyButton>("Window");
-	menu.AddChild<NoisyButton>("Help");
+	auto& menu = main_container.AddNewChild<yui::HBox>();
+	menu.AddNewChild<NoisyButton>("File");
+	menu.AddNewChild<NoisyButton>("Edit");
+	menu.AddNewChild<NoisyButton>("View");
+	menu.AddNewChild<NoisyButton>("Insert");
+	menu.AddNewChild<NoisyButton>("Format");
+	menu.AddNewChild<NoisyButton>("Tools");
+	menu.AddNewChild<NoisyButton>("Table");
+	menu.AddNewChild<NoisyButton>("Window");
+	menu.AddNewChild<NoisyButton>("Help");
 
-	auto& top_toolbar = main_container.AddChild<DisabledHBox>(); // Intercepts events
-	// auto& top_toolbar = main_container.AddChild<yui::HBox>();
-	top_toolbar.AddChild<NoisyButton>("0"); // New
-	top_toolbar.AddChild<NoisyButton>("1"); // Open
-	top_toolbar.AddChild<NoisyButton>("2"); // Save
-	top_toolbar.AddChild<NoisyButton>("3"); // Print
-	top_toolbar.AddChild<NoisyButton>("4"); // Search
-	top_toolbar.AddChild<NoisyButton>("5"); // Spell
-	top_toolbar.AddChild<NoisyButton>("6"); // Cut
-	top_toolbar.AddChild<NoisyButton>("7"); // Copy
-	top_toolbar.AddChild<NoisyButton>("8"); // Paste
-	top_toolbar.AddChild<NoisyButton>("9"); // Format
-	top_toolbar.AddChild<NoisyButton>("A"); // Undo
-	top_toolbar.AddChild<NoisyButton>("B"); // Redo
+	auto& top_toolbar = main_container.AddNewChild<DisabledHBox>(); // Intercepts events
+	// auto& top_toolbar = main_container.AddNewChild<yui::HBox>();
+	top_toolbar.AddNewChild<NoisyButton>("0"); // New
+	top_toolbar.AddNewChild<NoisyButton>("1"); // Open
+	top_toolbar.AddNewChild<NoisyButton>("2"); // Save
+	top_toolbar.AddNewChild<NoisyButton>("3"); // Print
+	top_toolbar.AddNewChild<NoisyButton>("4"); // Search
+	top_toolbar.AddNewChild<NoisyButton>("5"); // Spell
+	top_toolbar.AddNewChild<NoisyButton>("6"); // Cut
+	top_toolbar.AddNewChild<NoisyButton>("7"); // Copy
+	top_toolbar.AddNewChild<NoisyButton>("8"); // Paste
+	top_toolbar.AddNewChild<NoisyButton>("9"); // Format
+	top_toolbar.AddNewChild<NoisyButton>("A"); // Undo
+	top_toolbar.AddNewChild<NoisyButton>("B"); // Redo
 
-	auto& bottom_toolbar = main_container.AddChild<yui::HBox>();
-	bottom_toolbar.AddChild<yui::Button>("Normal");          // Style
-	bottom_toolbar.AddChild<yui::Button>("Times New Roman"); // Font
-	bottom_toolbar.AddChild<yui::Button>("10");              // Size
-	bottom_toolbar.AddChild<yui::Button>("C");               // Bold
-	bottom_toolbar.AddChild<yui::Button>("D");               // Italic
-	bottom_toolbar.AddChild<yui::Button>("E");               // Underline
-	bottom_toolbar.AddChild<yui::Button>("F");               // Left
-	bottom_toolbar.AddChild<yui::Button>("?");               // Center
-	bottom_toolbar.AddChild<yui::Button>("!");               // Right
+	auto& bottom_toolbar = main_container.AddNewChild<yui::HBox>();
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("Normal");          // Style
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("Times New Roman"); // Font
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("10");              // Size
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("C");               // Bold
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("D");               // Italic
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("E");               // Underline
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("F");               // Left
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("?");               // Center
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("!");               // Right
 
-	auto& content = main_container.AddChild<yui::VBox>();
+	auto& content = main_container.AddNewChild<yui::VBox>();
 	content.SetStretch(true, true);
 
-	main_container.AddChild<VoiceRack>("Bass drum");
-	main_container.AddChild<VoiceRack>("Snare");
+	main_container.AddNewChild<VoiceRack>("Bass drum");
+	main_container.AddNewChild<VoiceRack>("Snare");
 }
 
 

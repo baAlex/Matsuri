@@ -20,62 +20,62 @@ void UiFrontend::Initialise(int width, int height)
 	// Create UI
 	namespace yui = yuika;
 
-	auto& main_container = m_yui.GetRoot().SetChild<yui::VBox>();
+	auto& main_container = m_yui.GetRoot().SetNewChild<yui::VBox>();
 
-	auto& titlebar = main_container.AddChild<yui::HBox>();
+	auto& titlebar = main_container.AddNewChild<yui::HBox>();
 	titlebar.SetStretch(true, false);
-	titlebar.AddChild<yui::Button>("");
-	titlebar.AddChild<yui::Button>("Microsoft Word - Document 1").SetStretch(true, false);
-	titlebar.AddChild<yui::Button>("_");
-	titlebar.AddChild<yui::Button>("[]");
-	titlebar.AddChild<yui::Button>("X");
+	titlebar.AddNewChild<yui::ButtonWithLabel>("");
+	titlebar.AddNewChild<yui::ButtonWithLabel>("Microsoft Word - Document 1").SetStretch(true, false);
+	titlebar.AddNewChild<yui::ButtonWithLabel>("_");
+	titlebar.AddNewChild<yui::ButtonWithLabel>("[]");
+	titlebar.AddNewChild<yui::ButtonWithLabel>("X");
 
-	auto& menu = main_container.AddChild<yui::HBox>();
-	menu.AddChild<yui::Button>("File");
-	menu.AddChild<yui::Button>("Edit");
-	menu.AddChild<yui::Button>("View");
-	menu.AddChild<yui::Button>("Insert");
-	menu.AddChild<yui::Button>("Format");
-	menu.AddChild<yui::Button>("Tools");
-	menu.AddChild<yui::Button>("Table");
-	menu.AddChild<yui::Button>("Window");
-	menu.AddChild<yui::Button>("Help");
+	auto& menu = main_container.AddNewChild<yui::HBox>();
+	menu.AddNewChild<yui::ButtonWithLabel>("File");
+	menu.AddNewChild<yui::ButtonWithLabel>("Edit");
+	menu.AddNewChild<yui::ButtonWithLabel>("View");
+	menu.AddNewChild<yui::ButtonWithLabel>("Insert");
+	menu.AddNewChild<yui::ButtonWithLabel>("Format");
+	menu.AddNewChild<yui::ButtonWithLabel>("Tools");
+	menu.AddNewChild<yui::ButtonWithLabel>("Table");
+	menu.AddNewChild<yui::ButtonWithLabel>("Window");
+	menu.AddNewChild<yui::ButtonWithLabel>("Help");
 
-	auto& top_toolbar = main_container.AddChild<yui::HBox>();
-	top_toolbar.AddChild<yui::Button>("0"); // New
-	top_toolbar.AddChild<yui::Button>("1"); // Open
-	top_toolbar.AddChild<yui::Button>("2"); // Save
-	top_toolbar.AddChild<yui::Button>("3"); // Print
-	top_toolbar.AddChild<yui::Button>("4"); // Search
-	top_toolbar.AddChild<yui::Button>("5"); // Spell
-	top_toolbar.AddChild<yui::Button>("6"); // Cut
-	top_toolbar.AddChild<yui::Button>("7"); // Copy
-	top_toolbar.AddChild<yui::Button>("8"); // Paste
-	top_toolbar.AddChild<yui::Button>("9"); // Format
-	top_toolbar.AddChild<yui::Button>("A"); // Undo
-	top_toolbar.AddChild<yui::Button>("B"); // Redo
+	auto& top_toolbar = main_container.AddNewChild<yui::HBox>();
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("0"); // New
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("1"); // Open
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("2"); // Save
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("3"); // Print
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("4"); // Search
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("5"); // Spell
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("6"); // Cut
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("7"); // Copy
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("8"); // Paste
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("9"); // Format
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("A"); // Undo
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("B"); // Redo
 
-	auto& bottom_toolbar = main_container.AddChild<yui::HBox>();
-	bottom_toolbar.AddChild<yui::Button>("Normal");          // Style
-	bottom_toolbar.AddChild<yui::Button>("Times New Roman"); // Font
-	bottom_toolbar.AddChild<yui::Button>("10");              // Size
-	bottom_toolbar.AddChild<yui::Button>("C");               // Bold
-	bottom_toolbar.AddChild<yui::Button>("D");               // Italic
-	bottom_toolbar.AddChild<yui::Button>("E");               // Underline
-	bottom_toolbar.AddChild<yui::Button>("F");               // Left
-	bottom_toolbar.AddChild<yui::Button>("?");               // Center
-	bottom_toolbar.AddChild<yui::Button>("!");               // Right
+	auto& bottom_toolbar = main_container.AddNewChild<yui::HBox>();
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("Normal");          // Style
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("Times New Roman"); // Font
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("10");              // Size
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("C");               // Bold
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("D");               // Italic
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("E");               // Underline
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("F");               // Left
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("?");               // Center
+	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("!");               // Right
 
-	auto& content = main_container.AddChild<yui::VBox>();
+	auto& content = main_container.AddNewChild<yui::VBox>();
 	content.SetStretch(true, true);
 
-	auto& status_bar = main_container.AddChild<yui::HBox>();
+	auto& status_bar = main_container.AddNewChild<yui::HBox>();
 	status_bar.SetStretch(true, false);
-	status_bar.AddChild<yui::Button>("Bass Drum");
-	status_bar.AddChild<yui::Button>("100%").SetStretch(true, true);
-	status_bar.AddChild<yui::Button>("Center").SetStretch(true, true);
-	status_bar.AddChild<yui::Button>("606");
-	status_bar.AddChild<yui::Button>("Snare");
+	status_bar.AddNewChild<yui::ButtonWithLabel>("Bass Drum");
+	status_bar.AddNewChild<yui::ButtonWithLabel>("100%").SetStretch(true, true);
+	status_bar.AddNewChild<yui::ButtonWithLabel>("Center").SetStretch(true, true);
+	status_bar.AddNewChild<yui::ButtonWithLabel>("606");
+	status_bar.AddNewChild<yui::ButtonWithLabel>("Snare");
 
 	// Draw first frame,
 	// TODO, ugly design, the backend should do this
