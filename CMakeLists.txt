@@ -60,9 +60,10 @@ endif ()
 
 find_package(SDL3)
 if(SDL3_FOUND)
-	set(TEST_CFLAGS -Wall -Wextra -Wconversion -pedantic)
+	set(TEST_CFLAGS "")
 
 	add_executable("yuika-test" "./source/ui/yuika-test.cpp")
+
 	target_compile_options("yuika-test" PRIVATE ${MATSURI_CFLAGS} ${TEST_CFLAGS})
 	target_link_libraries("yuika-test" PRIVATE "ui-library" SDL3::SDL3)
 
@@ -85,82 +86,11 @@ target_compile_options("generate-wavs" PRIVATE ${MATSURI_CFLAGS})
 target_link_libraries("generate-wavs" PRIVATE "matsuri-library")
 
 
-# Freetype library
-set(FREETYPE_SOURCES "./source/thirdparty/freetype/src/base/ftbase.c"
-                     "./source/thirdparty/freetype/src/base/ftbbox.c"
-                     "./source/thirdparty/freetype/src/base/ftbdf.c"
-                     "./source/thirdparty/freetype/src/base/ftbitmap.c"
-                     "./source/thirdparty/freetype/src/base/ftcid.c"
-                     "./source/thirdparty/freetype/src/base/ftdebug.c"
-                     "./source/thirdparty/freetype/src/base/ftfstype.c"
-                     "./source/thirdparty/freetype/src/base/ftgasp.c"
-                     "./source/thirdparty/freetype/src/base/ftglyph.c"
-                     "./source/thirdparty/freetype/src/base/ftgxval.c"
-                     "./source/thirdparty/freetype/src/base/ftinit.c"
-                     "./source/thirdparty/freetype/src/base/ftmm.c"
-                     "./source/thirdparty/freetype/src/base/ftotval.c"
-                     "./source/thirdparty/freetype/src/base/ftpatent.c"
-                     "./source/thirdparty/freetype/src/base/ftpfr.c"
-                     "./source/thirdparty/freetype/src/base/ftstroke.c"
-                     "./source/thirdparty/freetype/src/base/ftsynth.c"
-                     "./source/thirdparty/freetype/src/base/fttype1.c"
-                     "./source/thirdparty/freetype/src/base/ftwinfnt.c"
-
-                     # Configured modules:
-                     "./source/thirdparty/freetype/src/autofit/autofit.c"
-                     "./source/thirdparty/freetype/src/cff/cff.c"
-                     "./source/thirdparty/freetype/src/raster/raster.c"
-                     "./source/thirdparty/freetype/src/smooth/smooth.c"
-                     "./source/thirdparty/freetype/src/truetype/truetype.c"
-                     "./source/thirdparty/freetype/src/sfnt/sfnt.c"
-                     "./source/thirdparty/freetype/src/psaux/psaux.c"
-                     "./source/thirdparty/freetype/src/psnames/psnames.c"
-
-                     # Doesn't break the compilation and doesn't throw runtime
-                     # errors, but it if absent, it breaks glyph sizes in a
-                     # disgusting manner:
-                     "./source/thirdparty/freetype/src/pshinter/pshinter.c"
-
-                     # In case something is missing:
-                     #"./source/thirdparty/freetype/src/svg/svg.c"
-                     #"./source/thirdparty/freetype/src/sdf/sdf.c"
-                     #"./source/thirdparty/freetype/src/bdf/bdf.c"
-                     #"./source/thirdparty/freetype/src/winfonts/winfnt.c"
-                     #"./source/thirdparty/freetype/src/pcf/pcf.c"
-                     #"./source/thirdparty/freetype/src/cid/type1cid.c"
-                     #"./source/thirdparty/freetype/src/hvf/hvf.c"
-                     #"./source/thirdparty/freetype/src/pfr/pfr.c"
-                     #"./source/thirdparty/freetype/src/type1/type1.c"
-                     #"./source/thirdparty/freetype/src/type42/type42.c"
-                     #"./source/thirdparty/freetype/src/gzip/ftgzip.c"
-                     #"./source/thirdparty/freetype/src/lzw/ftlzw.c"
-)
-
-if (WIN32)
-	list(APPEND FREETYPE_SOURCES "./source/thirdparty/freetype/builds/windows/ftsystem.c")
-elseif (UNIX)
-	list(APPEND FREETYPE_SOURCES "./source/thirdparty/freetype/builds/unix/ftsystem.c")
-else ()
-	# This one is ANSI C:
-	# (previous two are doing some sort of mmap trick to speed up file readings)
-	list(APPEND FREETYPE_SOURCES "./source/thirdparty/freetype/src/base/ftsystem.c")
-endif ()
-
-add_library("freetype-library-pic" OBJECT ${FREETYPE_SOURCES})
-
-target_compile_definitions("freetype-library-pic" PRIVATE
-	FT2_BUILD_LIBRARY # Needed
-	FT_CONFIG_MODULES_H="${CMAKE_SOURCE_DIR}/source/thirdparty/freetype-custom/ftmodule.h"
-	FT_CONFIG_OPTIONS_H="${CMAKE_SOURCE_DIR}/source/thirdparty/freetype-custom/ftoption.h")
-
-set_target_properties("freetype-library-pic" PROPERTIES C_VISIBILITY_PRESET hidden)
-set_target_properties("freetype-library-pic" PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
-target_include_directories("freetype-library-pic" PRIVATE "./source/thirdparty/freetype/include")
-
-if (UNIX)
-	# It's 2026, it's illegal to a non-POSIX UNIX to even exist
-	target_compile_definitions("freetype-library-pic" PRIVATE HAVE_UNISTD_H)
-	target_compile_definitions("freetype-library-pic" PRIVATE HAVE_FCNTL_H)
+# Executable "generate-font-atlas"
+find_package(Freetype)
+if (Freetype_FOUND)
+	add_executable("generate-font-atlas" "./source/ui/generate-font-atlas.cpp")
+	target_link_libraries("generate-font-atlas" PRIVATE Freetype::Freetype)
 endif ()
 
 
@@ -194,8 +124,7 @@ elseif (WIN32)
 	target_compile_definitions("matsuri-clap" PRIVATE MATSURI_UI=2)
 
 	if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_C_COMPILER_ID}" MATCHES "GNU")
-		# (btw, MSVC doesn't need this)
-		target_link_options("matsuri-clap" PRIVATE -static)
+		target_link_options("matsuri-clap" PRIVATE -static) # (btw, MSVC doesn't need this)
 	endif ()
 endif ()
 

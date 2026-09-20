@@ -144,8 +144,8 @@ static void sCreateUi(yui::Wrapper& root)
 
 	auto& titlebar = main_container.AddNewChild<yui::HBox>();
 	titlebar.SetStretch(true, false);
-	titlebar.AddNewChild<NoisyButton>("");
-	titlebar.AddNewChild<yui::ButtonWithLabel>("Microsoft Word - Document 1").SetStretch(true, false);
+	titlebar.AddNewChild<NoisyButton>("|");
+	titlebar.AddNewChild<yui::ButtonWithLabel>("Microsoft (a) [b] Word!? - {Document 1}").SetStretch(true, false);
 	titlebar.AddNewChild<yui::ButtonWithLabel>("_");
 	titlebar.AddNewChild<yui::ButtonWithLabel>("[]");
 	titlebar.AddNewChild<NoisyButton>("X");

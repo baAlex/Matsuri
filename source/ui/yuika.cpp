@@ -13,6 +13,10 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include "yuika.hpp"
 #include <assert.h>
 
+
+#include "arialn.inc"
+
+
 #if 1
 #define DEBUGPRINT(...) __builtin_printf(__VA_ARGS__)
 #else
@@ -99,17 +103,65 @@ void yuika::Screen::Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask
 
 	m_root = new Root();
 	m_root->SetStretch(true, true); // A good default value
+
+	if ((m_font = reinterpret_cast<uint8_t*>(malloc(sizeof(uint8_t) * ATLAS_WIDTH * ATLAS_HEIGHT))) == nullptr)
+	{
+		throw 1; // TODO
+	}
+
+	// SDF,
+	// do fragment-shader work offline, as we are 2d
+	for (size_t i = 0; i < ATLAS_WIDTH * ATLAS_HEIGHT; i += 1)
+	{
+		const auto min = static_cast<float>(128 - 8) / 255.0f;
+		const auto max = static_cast<float>(128 + 8) / 255.0f;
+
+		auto p = static_cast<float>(255 - ATLAS_DATA[i]) / 255.0f;
+
+		p = (p < min) ? min : p;
+		p = (p > max) ? max : p;
+		p = (p - min) / (max - min);
+
+		// https://registry.khronos.org/OpenGL-Refpages/gl4/html/smoothstep.xhtml
+		p = p * p * (3.0f - 2.0f * p); // I'm not sure, Valve uses it, but they
+		// didn't take gamma in consideration, also, should I compensate it here
+		// since the blitter has no idea what gamma is?.
+
+		// Edit, it looks better, sharper. It's a balance with the hinting.
+
+		m_font[i] = static_cast<uint8_t>(p * 255.0f);
+	}
 }
 
 void yuika::Screen::Deinitialise() noexcept
 {
 	delete m_root;
+	free(m_font);
 }
 
 
 class yuika::ScreenFriend
 {
   public:
+	class UpdateApiImplementation final : public UpdateApi
+	{
+	  public:
+		// const Screen* fwend;
+
+		Size TextSize(const char* text) const noexcept override
+		{
+			float w = 0.0f;
+
+			for (const char* c = text; *c != 0x00; c += 1)
+			{
+				const CharacterMetric* ch = CHARACTERS_METRICS + (static_cast<size_t>(*c) - FIRST_CHARACTER_CODE);
+				w += ch->advance;
+			}
+
+			return {static_cast<int>(w), static_cast<int>(FONT_HEIGHT)};
+		}
+	};
+
 	class DrawApiImplementation final : public DrawApi
 	{
 	  public:
@@ -159,37 +211,57 @@ class yuika::ScreenFriend
 			}
 		}
 
-		void DrawKikiBoba(Colour colour, Rect rect) noexcept
-		{
-			const int x1 = Clamp(rect.pos.x, 0, fwend->m_size.w);
-			const int y1 = Clamp(rect.pos.y, 0, fwend->m_size.h);
-			rect.size.w = (Clamp(rect.pos.x + rect.size.w, 0, fwend->m_size.w) - x1);
-			rect.size.h = (Clamp(rect.pos.y + rect.size.h, 0, fwend->m_size.h) - y1) * fwend->m_size.w;
-
-			uint8_t kiki = 0;
-			uint8_t boba = 0;
-
-			uint32_t* out = fwend->m_out + static_cast<size_t>(x1 + y1 * fwend->m_size.w);
-			for (uint32_t* row = out; row < out + rect.size.h; row += static_cast<size_t>(fwend->m_size.w))
-			{
-				for (uint32_t* col = row; col < row + rect.size.w; col += 1)
-				{
-					*col = (((kiki ^ boba) & 1) != 0) ? fwend->m_palette[static_cast<int>(colour)] : *col;
-					boba++;
-				}
-				kiki++;
-				boba = 0;
-			}
-		}
-
 		void DrawText(Position pos, const char* text) noexcept override
 		{
-			for (const char* c = text; *c != '\0'; c += 1)
-			{
-				if (*c != ' ')
-					DrawKikiBoba(Colour::Red, {pos, {16, 20}}); // TODO, hardcoded size
+			auto xf = static_cast<float>(pos.x);
+			auto yf = static_cast<float>(pos.y);
 
-				pos.x += 16 + 1;
+			for (const char* c = text; *c != 0x00; c += 1)
+			{
+				const CharacterMetric* ch = CHARACTERS_METRICS + (static_cast<size_t>(*c) - FIRST_CHARACTER_CODE);
+
+				Rect rect = {{static_cast<int>(xf + ch->x_offset), static_cast<int>(yf + ch->y_offset)},
+				             {ch->width, ch->height}};
+				xf += ch->advance;
+
+				if (*c == ' ')
+					continue;
+
+				const int x1 = Clamp(rect.pos.x, 0, fwend->m_size.w);
+				const int y1 = Clamp(rect.pos.y, 0, fwend->m_size.h);
+				rect.size.w = (Clamp(rect.pos.x + rect.size.w, 0, fwend->m_size.w) - x1);
+				rect.size.h = (Clamp(rect.pos.y + rect.size.h, 0, fwend->m_size.h) - y1) * fwend->m_size.w;
+
+				const auto clamp_diff_x = static_cast<size_t>(x1 - rect.pos.x);
+				const auto clamp_diff_y = static_cast<size_t>(y1 - rect.pos.y);
+				const auto* in_row =
+				    fwend->m_font + (ch->atlas_x + clamp_diff_x) + ATLAS_WIDTH * (ch->atlas_y + clamp_diff_y);
+				const uint32_t in_pitch = ATLAS_WIDTH;
+
+				uint32_t* out = fwend->m_out + static_cast<size_t>(x1 + y1 * fwend->m_size.w);
+				for (uint32_t* row = out; row < out + rect.size.h; row += static_cast<size_t>(fwend->m_size.w))
+				{
+					const uint8_t* in_col = in_row;
+
+					for (uint32_t* out_col = row; out_col < row + rect.size.w; out_col += 1)
+					{
+						// TODO, the choice of using bitmasks for RGB was bad, these mean that at this point I
+						// don't have any idea where each component is. Better would be to do everything in
+						// typical rgb8 and *then*, *if needed*, make the silly conversions
+
+						const uint32_t a = (static_cast<uint32_t>((*out_col >> 24) & 0xFF) * (*in_col)) / 255;
+						const uint32_t b = (static_cast<uint32_t>((*out_col >> 16) & 0xFF) * (*in_col)) / 255;
+						const uint32_t c = (static_cast<uint32_t>((*out_col >> 8) & 0xFF) * (*in_col)) / 255;
+						const uint32_t d = (static_cast<uint32_t>((*out_col >> 0) & 0xFF) * (*in_col)) / 255;
+
+						*out_col = (static_cast<uint32_t>(d) << 0) | (static_cast<uint32_t>(c) << 8) |
+						           (static_cast<uint32_t>(b) << 16) | (static_cast<uint32_t>(a) << 24);
+
+						in_col++;
+					}
+
+					in_row += in_pitch;
+				}
 			}
 		}
 	};
@@ -264,19 +336,21 @@ void yuika::Screen::Update(Size size, uint32_t* out)
 {
 	m_out = out;
 
-	m_root->UpdateNaturalSize(); // [Recursion]
+	ScreenFriend::UpdateApiImplementation update_api;
+	// update_api.fwend = this;
+	m_root->UpdateNaturalSize(update_api); // [Recursion]
 
 	if (m_size.w != size.w || m_size.h != size.h || DRAW_LIKE_CRAZY == true)
 	{
 		m_size = size;
 
-		ScreenFriend::DrawApiImplementation api;
-		api.fwend = this;
+		ScreenFriend::DrawApiImplementation draw_api;
+		draw_api.fwend = this;
 
-		api.DrawRectangle(DrawApi::Colour::Background, {{0, 0}, m_size});
+		draw_api.DrawRectangle(DrawApi::Colour::Background, {{0, 0}, m_size});
 
 		// Draw
-		ScreenFriend::DrawWidgets(api);
+		ScreenFriend::DrawWidgets(draw_api);
 
 		// Developers, developers, developers
 		if (false)
@@ -532,18 +606,13 @@ const yuika::Widget& yuika::Wrapper::GetChild(size_t) const
 	return *m_content;
 }
 
-yuika::Size yuika::Wrapper::UpdateNaturalSize()
+yuika::Size yuika::Wrapper::UpdateNaturalSize(UpdateApi& api)
 {
 	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
 	{
 		// DEBUGPRINT("%u | yuika::Wrapper::UpdateNaturalSize\n", s_frame);
 		m_natural_size_updated = true;
-		m_natural_size = (m_content != nullptr) ? m_content->UpdateNaturalSize() : Size{30, 30}; // [Recursion]
-
-		if (m_natural_size.w < 30) // TODO, hardcoded, and also this should be done with styles
-			m_natural_size.w = 30;
-		if (m_natural_size.h < 30)
-			m_natural_size.h = 30;
+		m_natural_size = (m_content != nullptr) ? m_content->UpdateNaturalSize(api) : Size{0, 0}; // [Recursion]
 	}
 
 	return m_natural_size;
@@ -640,7 +709,7 @@ const yuika::Widget& yuika::Box::GetChild(size_t no) const
 	return *m_children.at(no);
 }
 
-yuika::Size yuika::Box::UpdateNaturalSize()
+yuika::Size yuika::Box::UpdateNaturalSize(UpdateApi& api)
 {
 	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
 	{
@@ -652,7 +721,7 @@ yuika::Size yuika::Box::UpdateNaturalSize()
 
 		for (auto& child : m_children)
 		{
-			const Size size = child->UpdateNaturalSize(); // [Recursion]
+			const Size size = child->UpdateNaturalSize(api); // [Recursion]
 
 			switch (m_direction)
 			{
@@ -690,12 +759,12 @@ yuika::Text::Text(std::string text) : Widget()
 	m_text = std::move(text);
 }
 
+static constexpr int TEXT_MARGIN = 18; // TODO, implement styles or something similar
+
 void yuika::Text::Draw(DrawApi& api, Rect allowed_draw_area) const
 {
-	allowed_draw_area.pos.x += 1;
-	allowed_draw_area.pos.y += 1;
-	allowed_draw_area.size.w -= 2;
-	allowed_draw_area.size.h -= 2;
+	allowed_draw_area.pos.x += TEXT_MARGIN / 2;
+	allowed_draw_area.pos.y += TEXT_MARGIN / 2;
 
 	// DEBUGPRINT("%u | yuika::Text::Draw\n", s_frame);
 	api.SetClickableArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
@@ -728,9 +797,12 @@ const yuika::Widget& yuika::Text::GetChild(size_t) const
 	throw 1;
 };
 
-yuika::Size yuika::Text::UpdateNaturalSize()
+yuika::Size yuika::Text::UpdateNaturalSize(UpdateApi& api)
 {
-	return Size{static_cast<int>(m_text.size()) * (16 + 1), 20}; // TODO, hardcoded size
+	Size size = api.TextSize(m_text.c_str());
+	size.w += TEXT_MARGIN;
+	size.h += TEXT_MARGIN;
+	return size;
 };
 
 

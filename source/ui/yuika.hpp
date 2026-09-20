@@ -89,6 +89,12 @@ class DrawApi
 	virtual void DrawText(Position pos, const char* text) = 0;
 };
 
+class UpdateApi
+{
+  public:
+	virtual Size TextSize(const char* text) const = 0;
+};
+
 
 class Widget
 {
@@ -111,7 +117,7 @@ class Widget
 	virtual Widget& GetChild(size_t no) = 0;                                   // Ditto
 	virtual const Widget& GetChild(size_t no) const = 0;                       // Ditto
 
-	virtual Size UpdateNaturalSize() = 0; // Also returns natural size
+	virtual Size UpdateNaturalSize(UpdateApi& api) = 0; // Also returns natural size
 	virtual Size GetNaturalSize() const;
 	virtual Size GetSize(Size available_size) const;
 	virtual void Draw(DrawApi& api, Rect allowed_draw_area) const;
@@ -154,7 +160,7 @@ class Wrapper : public Widget
 	Widget& GetChild(size_t no) override;
 	const Widget& GetChild(size_t no) const override;
 
-	Size UpdateNaturalSize() override;
+	Size UpdateNaturalSize(UpdateApi& api) override;
 
   protected:
 	std::unique_ptr<Widget> m_content;
@@ -199,7 +205,7 @@ class Box : public Container
 	Widget& GetChild(size_t no) override;
 	const Widget& GetChild(size_t no) const override;
 
-	Size UpdateNaturalSize() override;
+	Size UpdateNaturalSize(UpdateApi& api) override;
 
   protected:
 	friend BoxFriend; // :)
@@ -235,7 +241,7 @@ class Text final : public Widget
 	const ChildGet GetChild(size_t, Size) const override;
 	Widget& GetChild(size_t) override;
 	const Widget& GetChild(size_t) const override;
-	Size UpdateNaturalSize() override;
+	Size UpdateNaturalSize(UpdateApi& api) override;
 
   private:
 	std::string m_text;
@@ -316,6 +322,8 @@ class Screen
 
 	MiniTreeEntry m_mini_tree[STACK_LEN]; // It has to be the same as stack
 	size_t m_mini_tree_len;
+
+	uint8_t* m_font;
 };
 
 } // namespace yuika
