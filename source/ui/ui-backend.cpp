@@ -172,46 +172,44 @@ void UiBackend::Initialise(int width, int height)
 		// Create image
 		sGrabX11ErrorHandler();
 		{
-			m_x11_image = XCreateImage(m_x11_display, DefaultVisual(m_x11_display, 0),
-			                           24,      // depth
-			                           ZPixmap, // format (XYBitmap, XYPixmap, or ZPixmap)
-			                           0,       // offset
-			                           nullptr, // data
-			                           1,       // width
-			                           1,       // height
-			                           32,      // bitmap_pad
-			                           0        // bytes_per_line
+			m_x11_image = XCreateImage(m_x11_display,                                         // display
+			                           DefaultVisual(m_x11_display, 0),                       // visual
+			                           static_cast<unsigned>(DefaultDepth(m_x11_display, 0)), // depth
+			                           ZPixmap,                           // format (XYBitmap, XYPixmap, or ZPixmap)
+			                           0,                                 // offset
+			                           reinterpret_cast<char*>(m_buffer), // data
+			                           static_cast<unsigned>(m_width),    //
+			                           static_cast<unsigned>(m_height),   //
+			                           32,                                // bitmap_pad
+			                           (m_width * static_cast<int>(sizeof(uint32_t))) // bytes_per_line
 			);
 
 			// """ The XCreateImage function allocates the memory needed for an XImage structure for the specified
 			// display but does not allocate space for the image itself. """
 			// (https://xorg.freedesktop.org/releases/current/doc/libX11/libX11/libX11.html#XCreateImage)
 
-			// """ The red, green, and blue mask values are defined for Z format images only and are derived from the
-			// Visual structure passed in. """ (ditto)
+			// """ The red, green, and blue mask values are defined for Z format images only and are derived from
+			// the Visual structure passed in. """ (ditto)
 
 			// """ XDestroyImage function calls frees both the image structure and the data pointed to by the image
 			// structure. """ (ditto)
 
-			// """ The red, green, and blue mask values are defined for Z format images only and are derived from the
-			// Visual structure passed in. """ (ditto)
-
-			m_x11_image->width = m_width;
-			m_x11_image->height = m_height;
-			m_x11_image->bytes_per_line = m_width * static_cast<int>(sizeof(uint32_t));
-
-			m_x11_image->data = reinterpret_cast<char*>(m_buffer);
+			// """ The red, green, and blue mask values are defined for Z format images only and are derived from
+			// the Visual structure passed in. """ (ditto)
 		}
 		sReleaseX11ErrorHandler(m_x11_display);
 
 		if (m_x11_image == nullptr)
 			throw std::runtime_error("Cannot create X11 image");
 
+		if (m_x11_image->bits_per_pixel != 32)
+			throw std::runtime_error("Unknown X11 image format");
+
 		// Initialise Yui
 		{
-			const auto v = DefaultVisual(m_x11_display, 0);
-			m_yui.Initialise(static_cast<uint32_t>(v->red_mask), static_cast<uint32_t>(v->green_mask),
-			                 static_cast<uint32_t>(v->blue_mask));
+			m_yui.Initialise(static_cast<uint32_t>(m_x11_image->red_mask),
+			                 static_cast<uint32_t>(m_x11_image->green_mask),
+			                 static_cast<uint32_t>(m_x11_image->blue_mask));
 		}
 	}
 
@@ -298,7 +296,7 @@ void UiBackend::SetParent(Window parent_window)
 	if (s_scary_shining_red_button != 0)
 		throw BrokenState();
 
-	// Running "QT_QPA_PLATFORM=xcb qtractor" makes XReparentWindow() succeed,
+	// Running "QT_QPA_PLATFORM=xcb qtractor" makes XReparentWindow() succeeds,
 	// on the other hand "QT_QPA_PLATFORM=wayland qtractor" succeeds then it crashes
 	// everything.
 

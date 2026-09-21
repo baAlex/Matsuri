@@ -62,19 +62,17 @@ enum class EventPropagation
 class DrawApi
 {
   public:
-	enum class Colour
-	{
-		Black = 0,
-		White = 1,
-		Red = 2,
-		Green = 3,
-		Blue = 4,
+	using Colour = uint32_t;
 
-		Background = 5,
-		BevelMid = 6,
-		BevelShadow = 7,
-		BevelLight = White,
-	};
+	static constexpr Colour BLACK = 0xFF000000;
+	static constexpr Colour WHITE = 0xFFFFFFFF;
+	static constexpr Colour RED = 0xFFFF0000;
+	static constexpr Colour GREEN = 0xFF00FF00;
+	static constexpr Colour BLUE = 0xFF0000FF;
+	static constexpr Colour BACKGROUND = 0xFFD4D0C8;
+	static constexpr Colour BEVEL_MID = 0xFF808080;
+	static constexpr Colour BEVEL_SHADOW = 0xFF404040;
+	static constexpr Colour BEVEL_LIGHT = WHITE;
 
 	virtual void SetClickableArea(Rect rect) = 0;
 	virtual void DrawRectangle(Colour colour, Rect rect) = 0;
@@ -86,13 +84,14 @@ class DrawApi
 	};
 
 	virtual void Draw3dBevel(Rect rect, BevelStyle style) = 0;
-	virtual void DrawText(Position pos, const char* text) = 0;
+	virtual void DrawText(Colour colour, Position pos, const char* text) = 0;
+	virtual Size TextSize(const char* text) = 0;
 };
 
 class UpdateApi
 {
   public:
-	virtual Size TextSize(const char* text) const = 0;
+	virtual Size TextSize(const char* text) = 0;
 };
 
 
@@ -283,7 +282,8 @@ class Screen
 	Size m_size;
 	uint32_t* m_out;
 	uint32_t m_dummy;
-	uint32_t m_palette[8];
+
+	uint32_t m_masks[3];
 
 	class Root final : public Wrapper
 	{

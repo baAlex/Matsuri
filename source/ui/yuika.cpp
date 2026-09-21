@@ -78,29 +78,6 @@ void yuika::Screen::Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask
 	m_size = {1, 1};
 	m_out = &m_dummy;
 
-	auto set_colour = [&](DrawApi::Colour colour, uint8_t r, uint8_t g, uint8_t b)
-	{
-		const int rl = sFindLastSet(r_mask);
-		const int gl = sFindLastSet(g_mask);
-		const int bl = sFindLastSet(b_mask);
-
-		uint32_t* c = m_palette + static_cast<int>(colour);
-		*c = 0;
-		*c = *c | (static_cast<uint32_t>((rl >= 8) ? (r << (rl - 8)) : (r >> (8 - rl))) & r_mask);
-		*c = *c | (static_cast<uint32_t>((gl >= 8) ? (g << (gl - 8)) : (g >> (8 - gl))) & g_mask);
-		*c = *c | (static_cast<uint32_t>((bl >= 8) ? (b << (bl - 8)) : (b >> (8 - bl))) & b_mask);
-	};
-
-	set_colour(DrawApi::Colour::Black, 0x00, 0x00, 0x00);
-	set_colour(DrawApi::Colour::White, 0xFF, 0xFF, 0xFF);
-	set_colour(DrawApi::Colour::Red, 0xFF, 0x00, 0x00);
-	set_colour(DrawApi::Colour::Green, 0x00, 0xFF, 0x00);
-	set_colour(DrawApi::Colour::Blue, 0x00, 0x00, 0xFF);
-
-	set_colour(DrawApi::Colour::Background, 212, 208, 200); // Windows Me
-	set_colour(DrawApi::Colour::BevelMid, 128, 128, 128);
-	set_colour(DrawApi::Colour::BevelShadow, 64, 64, 64);
-
 	m_root = new Root();
 	m_root->SetStretch(true, true); // A good default value
 
@@ -108,6 +85,10 @@ void yuika::Screen::Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask
 	{
 		throw 1; // TODO
 	}
+
+	m_masks[2] = r_mask;
+	m_masks[1] = g_mask;
+	m_masks[0] = b_mask;
 
 	// SDF,
 	// do fragment-shader work offline, as we are 2d
@@ -123,11 +104,13 @@ void yuika::Screen::Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask
 		p = (p - min) / (max - min);
 
 		// https://registry.khronos.org/OpenGL-Refpages/gl4/html/smoothstep.xhtml
-		p = p * p * (3.0f - 2.0f * p); // I'm not sure, Valve uses it, but they
+		const float p2 = p * p * (3.0f - 2.0f * p); // I'm not sure, Valve uses it, but they
 		// didn't take gamma in consideration, also, should I compensate it here
 		// since the blitter has no idea what gamma is?.
 
 		// Edit, it looks better, sharper. It's a balance with the hinting.
+
+		p = (p2 + p) * 0.5f; // Edit2, a bit of both worlds
 
 		m_font[i] = static_cast<uint8_t>(p * 255.0f);
 	}
@@ -146,14 +129,18 @@ class yuika::ScreenFriend
 	class UpdateApiImplementation final : public UpdateApi
 	{
 	  public:
-		// const Screen* fwend;
+		const Screen* fwend;
 
-		Size TextSize(const char* text) const noexcept override
+		Size TextSize(const char* text) noexcept override
 		{
 			float w = 0.0f;
 
 			for (const char* c = text; *c != 0x00; c += 1)
 			{
+				if (static_cast<size_t>(*c) < FIRST_CHARACTER_CODE ||
+				    (static_cast<size_t>(*c) - FIRST_CHARACTER_CODE) >= CHARACTERS_NO)
+					continue;
+
 				const CharacterMetric* ch = CHARACTERS_METRICS + (static_cast<size_t>(*c) - FIRST_CHARACTER_CODE);
 				w += ch->advance;
 			}
@@ -185,7 +172,7 @@ class yuika::ScreenFriend
 			{
 				for (uint32_t* col = row; col < row + rect.size.w; col += 1)
 				{
-					*col = fwend->m_palette[static_cast<int>(colour)];
+					*col = colour;
 				}
 			}
 		}
@@ -194,30 +181,34 @@ class yuika::ScreenFriend
 		{
 			if (style == BevelStyle::Inset)
 			{
-				DrawRectangle(Colour::BevelMid, {{rect.pos.x, rect.pos.y}, {rect.size.w - 1, 1}});
-				DrawRectangle(Colour::BevelMid, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.h - 1}});
-				DrawRectangle(Colour::BevelLight, {{rect.pos.x + rect.size.w - 1, rect.pos.y}, {1, rect.size.h}});
-				DrawRectangle(Colour::BevelLight, {{rect.pos.x, rect.pos.y + rect.size.h - 1}, {rect.size.w, 1}});
+				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y}, {rect.size.w - 1, 1}});
+				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.h - 1}});
+				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x + rect.size.w - 1, rect.pos.y}, {1, rect.size.h}});
+				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y + rect.size.h - 1}, {rect.size.w, 1}});
 			}
 			else
 			{
-				DrawRectangle(Colour::BevelLight, {{rect.pos.x, rect.pos.y}, {rect.size.w - 1, 1}});
-				DrawRectangle(Colour::BevelLight, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.h - 1}});
-				DrawRectangle(Colour::BevelShadow, {{rect.pos.x + rect.size.w - 1, rect.pos.y}, {1, rect.size.h}});
-				DrawRectangle(Colour::BevelShadow, {{rect.pos.x, rect.pos.y + rect.size.h - 1}, {rect.size.w, 1}});
+				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y}, {rect.size.w - 1, 1}});
+				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.h - 1}});
+				DrawRectangle(BEVEL_SHADOW, {{rect.pos.x + rect.size.w - 1, rect.pos.y}, {1, rect.size.h}});
+				DrawRectangle(BEVEL_SHADOW, {{rect.pos.x, rect.pos.y + rect.size.h - 1}, {rect.size.w, 1}});
 
-				DrawRectangle(Colour::BevelMid, {{rect.pos.x + rect.size.w - 2, rect.pos.y + 1}, {1, rect.size.h - 2}});
-				DrawRectangle(Colour::BevelMid, {{rect.pos.x + 1, rect.pos.y + rect.size.h - 2}, {rect.size.w - 2, 1}});
+				DrawRectangle(BEVEL_MID, {{rect.pos.x + rect.size.w - 2, rect.pos.y + 1}, {1, rect.size.h - 2}});
+				DrawRectangle(BEVEL_MID, {{rect.pos.x + 1, rect.pos.y + rect.size.h - 2}, {rect.size.w - 2, 1}});
 			}
 		}
 
-		void DrawText(Position pos, const char* text) noexcept override
+		void DrawText(Colour colour, Position pos, const char* text) noexcept override
 		{
 			auto xf = static_cast<float>(pos.x);
 			auto yf = static_cast<float>(pos.y);
 
 			for (const char* c = text; *c != 0x00; c += 1)
 			{
+				if (static_cast<size_t>(*c) < FIRST_CHARACTER_CODE ||
+				    (static_cast<size_t>(*c) - FIRST_CHARACTER_CODE) >= CHARACTERS_NO)
+					continue;
+
 				const CharacterMetric* ch = CHARACTERS_METRICS + (static_cast<size_t>(*c) - FIRST_CHARACTER_CODE);
 
 				Rect rect = {{static_cast<int>(xf + ch->x_offset), static_cast<int>(yf + ch->y_offset)},
@@ -234,7 +225,7 @@ class yuika::ScreenFriend
 
 				const auto clamp_diff_x = static_cast<size_t>(x1 - rect.pos.x);
 				const auto clamp_diff_y = static_cast<size_t>(y1 - rect.pos.y);
-				const auto* in_row =
+				const uint8_t* in_row =
 				    fwend->m_font + (ch->atlas_x + clamp_diff_x) + ATLAS_WIDTH * (ch->atlas_y + clamp_diff_y);
 				const uint32_t in_pitch = ATLAS_WIDTH;
 
@@ -245,17 +236,20 @@ class yuika::ScreenFriend
 
 					for (uint32_t* out_col = row; out_col < row + rect.size.w; out_col += 1)
 					{
-						// TODO, the choice of using bitmasks for RGB was bad, these mean that at this point I
-						// don't have any idea where each component is. Better would be to do everything in
-						// typical rgb8 and *then*, *if needed*, make the silly conversions
+						const auto a = (static_cast<uint32_t>((*out_col >> 24) & 0xFF) * (*in_col) +
+						                static_cast<uint32_t>((colour >> 24) & 0xFF) * (255 - *in_col)) /
+						               255;
+						const auto r = (static_cast<uint32_t>((*out_col >> 16) & 0xFF) * (*in_col) +
+						                static_cast<uint32_t>((colour >> 16) & 0xFF) * (255 - *in_col)) /
+						               255;
+						const auto g = (static_cast<uint32_t>((*out_col >> 8) & 0xFF) * (*in_col) +
+						                static_cast<uint32_t>((colour >> 8) & 0xFF) * (255 - *in_col)) /
+						               255;
+						const auto b = (static_cast<uint32_t>((*out_col >> 0) & 0xFF) * (*in_col) +
+						                static_cast<uint32_t>((colour >> 0) & 0xFF) * (255 - *in_col)) /
+						               255;
 
-						const uint32_t a = (static_cast<uint32_t>((*out_col >> 24) & 0xFF) * (*in_col)) / 255;
-						const uint32_t b = (static_cast<uint32_t>((*out_col >> 16) & 0xFF) * (*in_col)) / 255;
-						const uint32_t c = (static_cast<uint32_t>((*out_col >> 8) & 0xFF) * (*in_col)) / 255;
-						const uint32_t d = (static_cast<uint32_t>((*out_col >> 0) & 0xFF) * (*in_col)) / 255;
-
-						*out_col = (static_cast<uint32_t>(d) << 0) | (static_cast<uint32_t>(c) << 8) |
-						           (static_cast<uint32_t>(b) << 16) | (static_cast<uint32_t>(a) << 24);
+						*out_col = (b << 0) | (g << 8) | (r << 16) | (a << 24);
 
 						in_col++;
 					}
@@ -263,6 +257,23 @@ class yuika::ScreenFriend
 					in_row += in_pitch;
 				}
 			}
+		}
+
+		Size TextSize(const char* text) noexcept override
+		{
+			float w = 0.0f;
+
+			for (const char* c = text; *c != 0x00; c += 1)
+			{
+				if (static_cast<size_t>(*c) < FIRST_CHARACTER_CODE ||
+				    (static_cast<size_t>(*c) - FIRST_CHARACTER_CODE) >= CHARACTERS_NO)
+					continue;
+
+				const CharacterMetric* ch = CHARACTERS_METRICS + (static_cast<size_t>(*c) - FIRST_CHARACTER_CODE);
+				w += ch->advance;
+			}
+
+			return {static_cast<int>(w), static_cast<int>(FONT_HEIGHT)};
 		}
 	};
 
@@ -336,10 +347,12 @@ void yuika::Screen::Update(Size size, uint32_t* out)
 {
 	m_out = out;
 
+	// Update natural sizes
 	ScreenFriend::UpdateApiImplementation update_api;
-	// update_api.fwend = this;
+	update_api.fwend = this;
 	m_root->UpdateNaturalSize(update_api); // [Recursion]
 
+	// Draw
 	if (m_size.w != size.w || m_size.h != size.h || DRAW_LIKE_CRAZY == true)
 	{
 		m_size = size;
@@ -347,10 +360,47 @@ void yuika::Screen::Update(Size size, uint32_t* out)
 		ScreenFriend::DrawApiImplementation draw_api;
 		draw_api.fwend = this;
 
-		draw_api.DrawRectangle(DrawApi::Colour::Background, {{0, 0}, m_size});
-
-		// Draw
+		draw_api.DrawRectangle(DrawApi::BACKGROUND, {{0, 0}, m_size});
 		ScreenFriend::DrawWidgets(draw_api);
+
+		// Do conversion
+		if (m_masks[2] != 0x00FF0000 || m_masks[1] != 0x0000FF00 || m_masks[0] != 0x000000FF)
+		{
+			// Disgusting but the auto-vectoriser is doing it! (and in a horizontal
+			// manner, which makes sense since there is no shift for individual
+			// lanes; anyways it's 8 values with AVX and 4 with SSE2)
+
+			const int set[4] = {sFindLastSet(m_masks[0]), //
+			                    sFindLastSet(m_masks[1]), //
+			                    sFindLastSet(m_masks[2]), 0};
+
+			const int ls[4] = {(set[0] >= 8) ? set[0] - 8 : 0, //
+			                   (set[1] >= 8) ? set[1] - 8 : 0, //
+			                   (set[2] >= 8) ? set[2] - 8 : 0, 0};
+			const uint32_t lm[4] = {(set[0] >= 8) ? m_masks[0] : 0, //
+			                        (set[1] >= 8) ? m_masks[1] : 0, //
+			                        (set[2] >= 8) ? m_masks[2] : 0, 0};
+
+			const int rs[4] = {(set[0] < 8) ? 8 - set[0] : 0, //
+			                   (set[1] < 8) ? 8 - set[1] : 0, //
+			                   (set[2] < 8) ? 8 - set[2] : 0, 0};
+			const uint32_t rm[4] = {(set[0] < 8) ? m_masks[0] : 0, //
+			                        (set[1] < 8) ? m_masks[1] : 0, //
+			                        (set[2] < 8) ? m_masks[2] : 0, 0};
+
+			for (uint32_t* p = out; p < out + static_cast<size_t>(size.w * size.h); p += 1)
+			{
+				const auto a = static_cast<uint32_t>((*p >> 24) & 0xFF);
+				const auto r = static_cast<uint32_t>((*p >> 16) & 0xFF);
+				const auto g = static_cast<uint32_t>((*p >> 8) & 0xFF);
+				const auto b = static_cast<uint32_t>((*p >> 0) & 0xFF);
+
+				*p = ((b << ls[0]) & lm[0]) | ((g << ls[1]) & lm[1]) | //
+				     ((r << ls[2]) & lm[2]) | ((a << ls[3]) & lm[3]) | //
+				     ((b >> rs[0]) & rm[0]) | ((g >> rs[1]) & rm[1]) | //
+				     ((r >> rs[2]) & rm[2]) | ((a >> rs[3]) & rm[3]);
+			}
+		}
 
 		// Developers, developers, developers
 		if (false)
@@ -768,7 +818,7 @@ void yuika::Text::Draw(DrawApi& api, Rect allowed_draw_area) const
 
 	// DEBUGPRINT("%u | yuika::Text::Draw\n", s_frame);
 	api.SetClickableArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
-	api.DrawText(allowed_draw_area.pos, m_text.c_str());
+	api.DrawText(DrawApi::BLACK, allowed_draw_area.pos, m_text.c_str());
 }
 
 

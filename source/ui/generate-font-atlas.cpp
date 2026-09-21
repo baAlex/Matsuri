@@ -555,7 +555,7 @@ static void sRenderAtlas(const char* in_filename, uint32_t pixel_size, uint32_t 
 				if (ch.data_at == SIZE_MAX)
 					continue;
 
-				if (acc_x + (ch.width + margin) > dimension)
+				if (acc_x + (ch.width + margin) >= dimension)
 				{
 					acc_x = 0;
 					acc_y += max_height;
