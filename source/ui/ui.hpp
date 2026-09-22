@@ -39,6 +39,7 @@ class UiBackend
 	size_t m_buffer_size;
 	void* m_buffer;
 
+	yuika::Position m_cursor;
 	yuika::Screen m_yui;
 
 	class BrokenState : public std::runtime_error
@@ -63,7 +64,7 @@ class UiBackend
 	void OnFdEvent();
 #elif (MATSURI_UI == MATSURI_UI_WIN32)
 	void SetParent_(HWND parent_window);
-	static LRESULT CALLBACK OnEvent(HWND window, UINT message, WPARAM w_param, LPARAM l_param);
+	static LRESULT CALLBACK Win32OnEvent(HWND window, UINT message, WPARAM w_param, LPARAM l_param) noexcept;
 #endif
 
 	void Show();

@@ -70,8 +70,9 @@ freely, subject to the following restrictions:
 
 static thread_local XErrorHandler s_X11_previous_error_handler;
 
-static int sX11ErrorHandler(Display* display, XErrorEvent* event)
+static int sX11ErrorHandler(Display* display, XErrorEvent* event) noexcept
 {
+	// PROTIP, don't throw exceptions here, it's a callback
 	s_scary_shining_red_button = 1;
 
 	{
@@ -81,7 +82,6 @@ static int sX11ErrorHandler(Display* display, XErrorEvent* event)
 		              static_cast<int>(sizeof(text) - strlen("X11 error: ")));
 
 		fprintf(stderr, "X11 error: \"%s\"\n", text);
-		throw std::runtime_error(text);
 	}
 
 	return 0;
@@ -124,6 +124,9 @@ void UiBackend::Initialise(int width, int height)
 	if ((m_buffer = realloc(nullptr, m_buffer_size)) == nullptr)
 		throw std::bad_alloc();
 
+	memset(m_buffer, 0, m_buffer_size);
+	m_cursor = {};
+
 	// Specific API things
 #if (MATSURI_UI == MATSURI_UI_X11)
 	{
@@ -145,7 +148,7 @@ void UiBackend::Initialise(int width, int height)
 		}
 		sReleaseX11ErrorHandler(m_x11_display);
 
-		if (m_x11_display == nullptr)
+		if (m_x11_window == None)
 			throw std::runtime_error("Cannot create X11 window");
 
 		// Embeddable property, name, and inputs to receive
@@ -222,7 +225,7 @@ void UiBackend::Initialise(int width, int height)
 		{
 			WNDCLASS window_class = {};
 
-			window_class.lpfnWndProc = OnEvent;
+			window_class.lpfnWndProc = Win32OnEvent;
 			window_class.cbWndExtra = sizeof(UiBackend*);
 			window_class.lpszClassName = MATSURI_URI;
 			window_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
@@ -254,7 +257,7 @@ void UiBackend::Initialise(int width, int height)
 		}
 
 		// Initialise Yui
-		m_yui.Initialise(0x00FF0000, 0x0000FF00, 0x000000FF); // BI_RGB in UiBackend::OnEvent()
+		m_yui.Initialise(0x00FF0000, 0x0000FF00, 0x000000FF); // BI_RGB in UiBackend::Win32OnEvent()
 	}
 #endif
 }
@@ -265,8 +268,9 @@ void UiBackend::Deinitialise() noexcept
 	// Free our stuff
 	free(m_buffer);
 
-	// Go back?, specific API objects can stay where they are,
-	// a broken X11 is horrible, it can crash the entire DAW
+	// Are we broken?, return?,
+	// broken X11 is horribly dangerous, it can crash the entire DAW,
+	// it's better to leak memory than make things worse
 	if (s_scary_shining_red_button != 0)
 		return;
 
@@ -296,8 +300,8 @@ void UiBackend::SetParent(Window parent_window)
 	if (s_scary_shining_red_button != 0)
 		throw BrokenState();
 
-	// Running "QT_QPA_PLATFORM=xcb qtractor" makes XReparentWindow() succeeds,
-	// on the other hand "QT_QPA_PLATFORM=wayland qtractor" succeeds then it crashes
+	// Running "QT_QPA_PLATFORM=xcb qtractor" makes XReparentWindow() succeed,
+	// on the other hand "QT_QPA_PLATFORM=wayland qtractor" succeeds then crashes
 	// everything.
 
 	// And it's not Qtractor fault, but Qt, Wayland has a X11 compatibility layer so
@@ -342,6 +346,7 @@ void UiBackend::Show()
 	sReleaseX11ErrorHandler(m_x11_display);
 
 #elif (MATSURI_UI == MATSURI_UI_WIN32)
+	// No error to check
 	// """ If the window was previously visible, the return value is nonzero. If the window was previously hidden, the
 	// return value is zero. """ (https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow)
 	ShowWindow(m_win32_window, SW_SHOW);
@@ -463,6 +468,23 @@ void UiBackend::OnFdEvent()
 					          static_cast<unsigned int>(event.xexpose.height));
 				}
 			}
+			else if (event.type == ButtonPress)
+			{
+				if (event.xbutton.button == Button1)
+					m_yui.MousePress({static_cast<int>(m_cursor.x), static_cast<int>(m_cursor.y)});
+			}
+			else if (event.type == ButtonRelease)
+			{
+				if (event.xbutton.button == Button1)
+					m_yui.MouseRelease({static_cast<int>(m_cursor.x), static_cast<int>(m_cursor.y)});
+			}
+			else if (event.type == MotionNotify)
+			{
+				// GLFW, doesn't do gymnastics with position (seems to be the only part where X11 is sane)
+				// https://github.com/glfw/glfw/blob/92dcf4ce74f2e2554a98fea09be7c705c17daa5a/src/x11_window.c#L1459
+				m_cursor.x = event.xmotion.x;
+				m_cursor.y = event.xmotion.y;
+			}
 
 			XFlush(m_x11_display);
 		}
@@ -472,8 +494,9 @@ void UiBackend::OnFdEvent()
 
 
 #elif (MATSURI_UI == MATSURI_UI_WIN32)
-LRESULT CALLBACK UiBackend::OnEvent(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
+LRESULT CALLBACK UiBackend::Win32OnEvent(HWND window, UINT message, WPARAM w_param, LPARAM l_param) noexcept
 {
+	// PROTIP, don't throw exceptions here, it's a callback
 	auto self = reinterpret_cast<UiBackend*>(GetWindowLongPtr(window, 0));
 
 	if (self == nullptr) // TODO, what?, is not a message for us?
@@ -488,7 +511,7 @@ LRESULT CALLBACK UiBackend::OnEvent(HWND window, UINT message, WPARAM w_param, L
 		if (dc == nullptr)
 		{
 			s_scary_shining_red_button = 1;
-			throw std::runtime_error("BeginPaint() error");
+			return 666;
 		}
 
 		info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -502,7 +525,7 @@ LRESULT CALLBACK UiBackend::OnEvent(HWND window, UINT message, WPARAM w_param, L
 		                  &info, DIB_RGB_COLORS, SRCCOPY) == 0)
 		{
 			s_scary_shining_red_button = 1;
-			throw std::runtime_error("StretchDIBits() error");
+			return 666;
 		}
 
 		EndPaint(window, &paint);

@@ -327,12 +327,12 @@ class yuika::ScreenFriend
 
 				// Store children in mini tree,
 				// other parts of the code will use it
-				api.fwend->m_mini_tree[api.fwend->m_mini_tree_len] = {/* depth */ current.depth + 1,
-				                                                      /* widget */ &child,
+				api.fwend->m_mini_tree[api.fwend->m_mini_tree_len] = {/* widget */ &child,
 				                                                      /* last_child */ nullptr,
 				                                                      /* parent_mini */ current.mini,
 				                                                      /* clickable_area */ {},
-				                                                      /* pressed */ false};
+				                                                      /* pressed */ false,
+				                                                      /* mouse_inside */ false};
 				api.fwend->m_mini_tree_len++;
 			}
 		}
@@ -408,9 +408,6 @@ void yuika::Screen::Update(Size size, uint32_t* out)
 			for (const MiniTreeEntry* m = m_mini_tree; m < m_mini_tree + m_mini_tree_len; m += 1)
 			{
 				printf("%p | ", reinterpret_cast<const void*>(m));
-				for (size_t d = 0; d < m->depth - 1; d += 1)
-					printf("   ");
-
 				printf("%s (childs: %zu, last one: %p)\n", m->widget->GetId(), m->widget->GetChildrenNo(),
 				       reinterpret_cast<const void*>(m->last_child));
 			}
@@ -418,121 +415,102 @@ void yuika::Screen::Update(Size size, uint32_t* out)
 	}
 }
 
-void yuika::Screen::MouseEvent(MouseGesture gesture, Position cursor_pos) // TODO, lot of copy-paste
+
+static bool sInside(yuika::Position pos, yuika::Rect rect)
+{
+	if (pos.x >= rect.pos.x && pos.y >= rect.pos.y && //
+	    pos.x < rect.pos.x + rect.size.w && pos.y < rect.pos.y + rect.size.h)
+		return true;
+	return false;
+}
+
+void yuika::Screen::MousePress(Position cursor_pos)
 {
 	// https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Event_bubbling
-	assert(gesture != MouseGesture::Click);
 
-	if (gesture == MouseGesture::Press)
+	// Capture phase
+	MiniTreeEntry* next = m_mini_tree;
+	MiniTreeEntry* target = nullptr;
+	while (next != nullptr)
 	{
-		// Capture phase
-		MiniTreeEntry* next = m_mini_tree;
-		MiniTreeEntry* current = nullptr;
+		target = next;
 
-		while (next != nullptr)
+		// Developers, developers, developers
+		if (true)
 		{
-			current = next;
-
-			// Developers, developers, developers
-			if (false)
-			{
-				printf("Capturing | ");
-				for (size_t d = 0; d < current->depth - 1; d += 1)
-					printf("   ");
-
-				printf("%p, %s\n", reinterpret_cast<const void*>(current->widget), current->widget->GetId());
-			}
-
-			// Send event
-			current->pressed = true;
-			if (current->widget->OnMouseCapturing(MouseGesture::Press, cursor_pos) == EventPropagation::StopIt)
-				break;
-
-			// Go down, iterate children
-			next = nullptr;
-
-			MiniTreeEntry* child = current->last_child;
-			for (size_t i = 0; i < current->widget->GetChildrenNo(); i += 1, child -= 1)
-			{
-				if (child->clickable_area.size.w <= 0 || child->clickable_area.size.h <= 0)
-					continue;
-
-				if (cursor_pos.x >= child->clickable_area.pos.x && cursor_pos.y >= child->clickable_area.pos.y &&
-				    cursor_pos.x < child->clickable_area.pos.x + child->clickable_area.size.w &&
-				    cursor_pos.y < child->clickable_area.pos.y + child->clickable_area.size.h)
-				{
-					next = child;
-					break;
-				}
-			}
+			printf("Capturing | ");
+			printf("%p, \"%s\"\n", reinterpret_cast<const void*>(target->widget), target->widget->GetId());
 		}
 
-		// Bubble phase
-		next = current;
-		while (next != nullptr)
+		// Send event
+		target->pressed = true;
+		if (target->widget->OnMouseCapturing(MouseGesture::Press, cursor_pos) == EventPropagation::StopIt)
+			break;
+
+		// Go down, iterate children to find 'next'
+		next = nullptr;
+
+		MiniTreeEntry* child = target->last_child;
+		for (size_t child_no = 0; child_no < target->widget->GetChildrenNo(); child_no += 1, child -= 1)
 		{
-			// Developers, developers, developers
-			if (false)
-			{
-				printf("Bubbling  | ");
-				for (size_t d = 0; d < next->depth - 1; d += 1)
-					printf("   ");
-
-				printf("%p, %s\n", reinterpret_cast<const void*>(next->widget), next->widget->GetId());
-			}
-
-			// Send event
-			if (next->widget->OnMouseBubbling(MouseGesture::Press, cursor_pos, *current->widget) ==
-			    EventPropagation::StopIt)
-				break;
-
-			// Go up
-			next = next->parent_mini;
-		}
-	}
-	else if (gesture == MouseGesture::Release)
-	{
-		for (MiniTreeEntry* m = m_mini_tree; m < m_mini_tree + m_mini_tree_len; m += 1)
-		{
-			if (m->pressed == false)
+			if (child->clickable_area.size.w <= 0 || child->clickable_area.size.h <= 0)
 				continue;
 
-			// """Capture""" phase
-			m->pressed = false;
-			m->widget->OnMouseCapturing(MouseGesture::Release, cursor_pos); // I'm ignoring propagation
-
-			if (cursor_pos.x >= m->clickable_area.pos.x && cursor_pos.y >= m->clickable_area.pos.y &&
-			    cursor_pos.x < m->clickable_area.pos.x + m->clickable_area.size.w &&
-			    cursor_pos.y < m->clickable_area.pos.y + m->clickable_area.size.h)
+			if (sInside(cursor_pos, child->clickable_area) == true)
 			{
-				m->widget->OnMouseCapturing(MouseGesture::Click, cursor_pos); // Same
+				next = child;
+				break;
 			}
+		}
+	}
 
-			// Bubble phase
-			MiniTreeEntry* next = m;
-			while (next != nullptr)
+	// Bubble phase
+	for (MiniTreeEntry* i = target; i != nullptr; i = i->parent)
+	{
+		// Developers, developers, developers
+		if (true)
+		{
+			printf("Bubbling  | ");
+			printf("%p, \"%s\"\n", reinterpret_cast<const void*>(i->widget), i->widget->GetId());
+		}
+
+		// Send event
+		if (i->widget->OnMouseBubbling(MouseGesture::Press, cursor_pos, *target->widget) == EventPropagation::StopIt)
+		{
+			break;
+		}
+	}
+}
+
+void yuika::Screen::MouseRelease(Position cursor_pos)
+{
+	for (MiniTreeEntry* i = m_mini_tree; i < m_mini_tree + m_mini_tree_len; i += 1)
+	{
+		if (i->pressed == false)
+			continue;
+
+		i->pressed = false;
+
+		// """Capture""" phase (I'm ignoring propagation)
+		i->widget->OnMouseCapturing(MouseGesture::Release, cursor_pos);
+
+		if (sInside(cursor_pos, i->clickable_area) == true)
+			i->widget->OnMouseCapturing(MouseGesture::Click, cursor_pos);
+
+		// Bubble phase
+		for (MiniTreeEntry* u = i; u != nullptr; u = u->parent)
+		{
+			if (u->widget->OnMouseBubbling(MouseGesture::Release, cursor_pos, *i->widget) == EventPropagation::StopIt)
+				break;
+		}
+
+		// Click event, just bubble phase
+		if (sInside(cursor_pos, i->clickable_area) == true)
+		{
+			for (MiniTreeEntry* u = i; u != nullptr; u = u->parent)
 			{
-				if (next->widget->OnMouseBubbling(MouseGesture::Release, cursor_pos, *m->widget) ==
-				    EventPropagation::StopIt)
+				if (u->widget->OnMouseBubbling(MouseGesture::Click, cursor_pos, *i->widget) == EventPropagation::StopIt)
 					break;
-
-				next = next->parent_mini;
-			}
-
-			// Click event, bubble phase
-			if (cursor_pos.x >= m->clickable_area.pos.x && cursor_pos.y >= m->clickable_area.pos.y &&
-			    cursor_pos.x < m->clickable_area.pos.x + m->clickable_area.size.w &&
-			    cursor_pos.y < m->clickable_area.pos.y + m->clickable_area.size.h)
-			{
-				next = m;
-				while (next != nullptr)
-				{
-					if (next->widget->OnMouseBubbling(MouseGesture::Click, cursor_pos, *m->widget) ==
-					    EventPropagation::StopIt)
-						break;
-
-					next = next->parent_mini;
-				}
 			}
 		}
 	}
@@ -808,6 +786,7 @@ yuika::Text::Text(std::string text) : Widget()
 {
 	m_text = std::move(text);
 }
+
 
 static constexpr int TEXT_MARGIN = 18; // TODO, implement styles or something similar
 

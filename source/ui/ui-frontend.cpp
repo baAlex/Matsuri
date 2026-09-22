@@ -31,29 +31,29 @@ void UiFrontend::Initialise(int width, int height)
 	titlebar.AddNewChild<yui::ButtonWithLabel>("X");
 
 	auto& menu = main_container.AddNewChild<yui::HBox>();
-	menu.AddNewChild<yui::ButtonWithLabel>("File");
-	menu.AddNewChild<yui::ButtonWithLabel>("Edit");
-	menu.AddNewChild<yui::ButtonWithLabel>("View");
-	menu.AddNewChild<yui::ButtonWithLabel>("Insert");
-	menu.AddNewChild<yui::ButtonWithLabel>("Format");
-	menu.AddNewChild<yui::ButtonWithLabel>("Tools");
-	menu.AddNewChild<yui::ButtonWithLabel>("Table");
-	menu.AddNewChild<yui::ButtonWithLabel>("Window");
-	menu.AddNewChild<yui::ButtonWithLabel>("Help");
+	menu.AddNewChild<yui::ButtonWithLabel>("File").SetId("#file");
+	menu.AddNewChild<yui::ButtonWithLabel>("Edit").SetId("#edit");
+	menu.AddNewChild<yui::ButtonWithLabel>("View").SetId("#view");
+	menu.AddNewChild<yui::ButtonWithLabel>("Insert").SetId("#insert");
+	menu.AddNewChild<yui::ButtonWithLabel>("Format").SetId("#format");
+	menu.AddNewChild<yui::ButtonWithLabel>("Tools").SetId("#tools");
+	menu.AddNewChild<yui::ButtonWithLabel>("Table").SetId("#table");
+	menu.AddNewChild<yui::ButtonWithLabel>("Window").SetId("#window");
+	menu.AddNewChild<yui::ButtonWithLabel>("Help").SetId("#help");
 
 	auto& top_toolbar = main_container.AddNewChild<yui::HBox>();
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("0"); // New
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("1"); // Open
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("2"); // Save
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("3"); // Print
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("4"); // Search
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("5"); // Spell
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("6"); // Cut
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("7"); // Copy
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("8"); // Paste
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("9"); // Format
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("A"); // Undo
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("B"); // Redo
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("0").SetId("#0"); // New
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("1").SetId("#1"); // Open
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("2").SetId("#2"); // Save
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("3").SetId("#3"); // Print
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("4").SetId("#4"); // Search
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("5").SetId("#5"); // Spell
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("6").SetId("#6"); // Cut
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("7").SetId("#7"); // Copy
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("8").SetId("#8"); // Paste
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("9").SetId("#9"); // Format
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("A").SetId("#A"); // Undo
+	top_toolbar.AddNewChild<yui::ButtonWithLabel>("B").SetId("#B"); // Redo
 
 	auto& bottom_toolbar = main_container.AddNewChild<yui::HBox>();
 	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("Normal");          // Style

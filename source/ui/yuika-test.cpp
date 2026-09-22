@@ -247,13 +247,11 @@ SDL_AppResult SDL_AppEvent(void* app_raw, SDL_Event* event)
 	}
 	else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
 	{
-		app->screen.MouseEvent(yui::MouseGesture::Press,
-		                       {static_cast<int>(event->button.x), static_cast<int>(event->button.y)});
+		app->screen.MousePress({static_cast<int>(event->button.x), static_cast<int>(event->button.y)});
 	}
 	else if (event->type == SDL_EVENT_MOUSE_BUTTON_UP)
 	{
-		app->screen.MouseEvent(yui::MouseGesture::Release,
-		                       {static_cast<int>(event->button.x), static_cast<int>(event->button.y)});
+		app->screen.MouseRelease({static_cast<int>(event->button.x), static_cast<int>(event->button.y)});
 	}
 	else if (event->type == SDL_EVENT_WINDOW_RESIZED)
 	{

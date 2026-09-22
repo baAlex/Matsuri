@@ -50,7 +50,10 @@ enum class MouseGesture
 	Release, // Primary button, triggers only if widget was previously
 	         // pressed, also, it does it regardless of where cursor is
 
-	Click // Similar to release, except it checks if cursor is over widget
+	Click, // Similar to release, except it checks if cursor is over widget
+
+	Enters, // Enters the widget
+	Leaves, // Guess it
 };
 
 enum class EventPropagation
@@ -272,7 +275,10 @@ class Screen
 	void Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask);
 	void Deinitialise() noexcept;
 	void Update(Size size, uint32_t* out);
-	void MouseEvent(MouseGesture gesture, Position cursor_pos);
+
+	void MousePress(Position cursor_pos);
+	void MouseRelease(Position cursor_pos);
+	void MouseMoves(Position cursor_pos);
 
 	Wrapper& GetRoot();
 
@@ -293,7 +299,21 @@ class Screen
 
 	Root* m_root; // A pointer, so it can survive a memset and being in a C struct
 
-	struct MiniTreeEntry;
+	static constexpr size_t STACK_LEN = 256; // TODO, hardcoded
+
+	struct MiniTreeEntry
+	{
+		Widget* widget;
+		MiniTreeEntry* last_child;
+		MiniTreeEntry* parent;
+
+		Rect clickable_area;
+		bool pressed : 1;
+		bool mouse_inside : 1;
+	};
+
+	MiniTreeEntry m_mini_tree[STACK_LEN]; // It has to be the same as stack
+	size_t m_mini_tree_len;
 
 	struct StackEntry
 	{
@@ -305,23 +325,7 @@ class Screen
 		Rect allowed_draw_area;
 	};
 
-	static constexpr size_t STACK_LEN = 256; // TODO, hardcoded
 	StackEntry m_stack[STACK_LEN];
-
-	struct MiniTreeEntry
-	{
-		size_t depth;
-		Widget* widget;
-		MiniTreeEntry* last_child;
-		MiniTreeEntry* parent_mini;
-
-		Rect clickable_area;
-
-		bool pressed;
-	};
-
-	MiniTreeEntry m_mini_tree[STACK_LEN]; // It has to be the same as stack
-	size_t m_mini_tree_len;
 
 	uint8_t* m_font;
 };
