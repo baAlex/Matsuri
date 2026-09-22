@@ -139,7 +139,9 @@ class VoiceRack : public yui::HBox
 static void sCreateUi(yui::Wrapper& root)
 {
 	auto& main_container = root.SetNewChild<yui::VBox>();
+	main_container.SetStretch(true, true);
 
+#if 1
 	auto& titlebar = main_container.AddNewChild<yui::HBox>();
 	titlebar.SetStretch(true, false);
 	titlebar.AddNewChild<NoisyButton>("|");
@@ -187,6 +189,7 @@ static void sCreateUi(yui::Wrapper& root)
 
 	auto& content = main_container.AddNewChild<yui::VBox>();
 	content.SetStretch(true, true);
+#endif
 
 	main_container.AddNewChild<VoiceRack>("Bass drum");
 	main_container.AddNewChild<VoiceRack>("Snare");

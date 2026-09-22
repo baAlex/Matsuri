@@ -80,6 +80,7 @@ void yuika::Screen::Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask
 
 	m_root = new Root();
 	m_root->SetStretch(true, true); // A good default value
+	m_root->SetId("#__root");
 
 	if ((m_font = reinterpret_cast<uint8_t*>(malloc(sizeof(uint8_t) * ATLAS_WIDTH * ATLAS_HEIGHT))) == nullptr)
 	{
@@ -288,8 +289,22 @@ class yuika::ScreenFriend
 		api.fwend->m_mini_tree_len = 0;
 
 		size_t cursor = 0;
-		stack[cursor++] = {0, api.fwend->m_root, nullptr, nullptr, Rect{{0, 0}, api.fwend->m_size}};
 
+		// Add root first
+		stack[cursor++] = {/* widget */ api.fwend->m_root,
+		                   /* parent_mini */ nullptr,
+		                   /* mini */ api.fwend->m_mini_tree,
+		                   /* allowed_draw_area */
+		                   Rect{{0, 0}, api.fwend->m_size}};
+
+		api.fwend->m_mini_tree[api.fwend->m_mini_tree_len++] = {/* widget */ api.fwend->m_root,
+		                                                        /* last_child */ nullptr,
+		                                                        /* parent_mini */ nullptr,
+		                                                        /* clickable_area */ {},
+		                                                        /* pressed */ false,
+		                                                        /* mouse_inside */ false};
+
+		// Now as normal
 		while (cursor > 0)
 		{
 			Screen::StackEntry current = stack[--cursor]; // Yes, copy it
@@ -316,8 +331,7 @@ class yuika::ScreenFriend
 
 				// Stack children,
 				// just for iteration in this function
-				stack[cursor - 1 - i] = {/* depth */ current.depth + 1,
-				                         /* widget */ &child,
+				stack[cursor - 1 - i] = {/* widget */ &child,
 				                         /* parent_mini */ current.mini,
 				                         /* mini */ &api.fwend->m_mini_tree[api.fwend->m_mini_tree_len],
 				                         /* allowed_draw_area */ {current.allowed_draw_area.pos, child_size}};
@@ -439,7 +453,8 @@ void yuika::Screen::MousePress(Position cursor_pos)
 		if (true)
 		{
 			printf("Capturing | ");
-			printf("%p, \"%s\"\n", reinterpret_cast<const void*>(target->widget), target->widget->GetId());
+			printf("%p, \"%s\" (%zu)\n", reinterpret_cast<const void*>(target->widget), target->widget->GetId(),
+			       target->widget->GetChildrenNo());
 		}
 
 		// Send event
@@ -715,12 +730,12 @@ class yuika::BoxFriend
 
 yuika::Widget::ChildGet yuika::Box::GetChild(size_t no, Size available_size)
 {
-	return BoxFriend::GetChild(*this, no, available_size);
+	return BoxFriend::GetChild(*this, no, GetSize(available_size));
 }
 
 const yuika::Widget::ChildGet yuika::Box::GetChild(size_t no, Size available_size) const
 {
-	return BoxFriend::GetChild(*this, no, available_size);
+	return BoxFriend::GetChild(*this, no, GetSize(available_size));
 }
 
 yuika::Widget& yuika::Box::GetChild(size_t no)

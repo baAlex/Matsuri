@@ -317,7 +317,6 @@ class Screen
 
 	struct StackEntry
 	{
-		size_t depth;
 		Widget* widget;
 		MiniTreeEntry* parent_mini;
 		MiniTreeEntry* mini;
