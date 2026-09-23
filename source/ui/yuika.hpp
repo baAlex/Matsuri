@@ -48,7 +48,7 @@ enum class MouseGesture
 {
 	Press,   // Primary button, triggers if cursor is on top of widget
 	Release, // Primary button, triggers only if widget was previously
-	         // pressed, also, it does it regardless of where cursor is
+	         // pressed, it does it regardless of where cursor is
 
 	Click, // Similar to release, except it checks if cursor is over widget
 
@@ -131,8 +131,7 @@ class Widget
 	virtual bool GetStretchX() const;
 	virtual bool GetStretchY() const;
 
-	virtual EventPropagation OnMouseCapturing(MouseGesture gesture, Position cursor_pos);
-	virtual EventPropagation OnMouseBubbling(MouseGesture gesture, Position cursor_pos, Widget& target);
+	virtual EventPropagation OnMouse(MouseGesture gesture, Position cursor_pos, const Widget& target);
 
   protected:
 	Size m_natural_size = {};
@@ -308,8 +307,9 @@ class Screen
 		MiniTreeEntry* parent;
 
 		Rect clickable_area;
-		bool pressed : 1;
-		bool mouse_inside : 1;
+		bool pressed_as_target : 1;
+		bool pressed_indirectly : 1;
+		bool cursor_inside : 1;
 	};
 
 	MiniTreeEntry m_mini_tree[STACK_LEN]; // It has to be the same as stack

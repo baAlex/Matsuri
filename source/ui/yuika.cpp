@@ -301,8 +301,9 @@ class yuika::ScreenFriend
 		                                                        /* last_child */ nullptr,
 		                                                        /* parent_mini */ nullptr,
 		                                                        /* clickable_area */ {},
-		                                                        /* pressed */ false,
-		                                                        /* mouse_inside */ false};
+		                                                        /* pressed_as_target */ false,
+		                                                        /* pressed_indirectly */ false,
+		                                                        /* cursor_inside */ false};
 
 		// Now as normal
 		while (cursor > 0)
@@ -345,8 +346,9 @@ class yuika::ScreenFriend
 				                                                      /* last_child */ nullptr,
 				                                                      /* parent_mini */ current.mini,
 				                                                      /* clickable_area */ {},
-				                                                      /* pressed */ false,
-				                                                      /* mouse_inside */ false};
+				                                                      /* pressed_as_target */ false,
+				                                                      /* pressed_indirectly */ false,
+				                                                      /* cursor_inside */ false};
 				api.fwend->m_mini_tree_len++;
 			}
 		}
@@ -440,38 +442,28 @@ static bool sInside(yuika::Position pos, yuika::Rect rect)
 
 void yuika::Screen::MousePress(Position cursor_pos)
 {
+	// We do bubbling here
 	// https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Event_bubbling
 
-	// Capture phase
-	MiniTreeEntry* next = m_mini_tree;
+	// Find target, going down the mini tree
 	MiniTreeEntry* target = nullptr;
-	while (next != nullptr)
+	for (MiniTreeEntry* next = m_mini_tree; next != nullptr;)
 	{
 		target = next;
 
-		// Developers, developers, developers
-		if (true)
-		{
-			printf("Capturing | ");
-			printf("%p, \"%s\" (%zu)\n", reinterpret_cast<const void*>(target->widget), target->widget->GetId(),
+		if (false) // Developers, developers, developers
+			printf("Find | %p, \"%s\" (%zu)\n", reinterpret_cast<const void*>(target->widget), target->widget->GetId(),
 			       target->widget->GetChildrenNo());
-		}
 
-		// Send event
-		target->pressed = true;
-		if (target->widget->OnMouseCapturing(MouseGesture::Press, cursor_pos) == EventPropagation::StopIt)
-			break;
+		target->pressed_indirectly = true;
 
-		// Go down, iterate children to find 'next'
+		// Iterate children
 		next = nullptr;
-
 		MiniTreeEntry* child = target->last_child;
 		for (size_t child_no = 0; child_no < target->widget->GetChildrenNo(); child_no += 1, child -= 1)
 		{
-			if (child->clickable_area.size.w <= 0 || child->clickable_area.size.h <= 0)
-				continue;
-
-			if (sInside(cursor_pos, child->clickable_area) == true)
+			if (child->clickable_area.size.w > 0 && child->clickable_area.size.h > 0 &&
+			    sInside(cursor_pos, child->clickable_area) == true)
 			{
 				next = child;
 				break;
@@ -479,21 +471,15 @@ void yuika::Screen::MousePress(Position cursor_pos)
 		}
 	}
 
-	// Bubble phase
+	// Press event
+	target->pressed_as_target = true;
 	for (MiniTreeEntry* i = target; i != nullptr; i = i->parent)
 	{
-		// Developers, developers, developers
-		if (true)
-		{
-			printf("Bubbling  | ");
-			printf("%p, \"%s\"\n", reinterpret_cast<const void*>(i->widget), i->widget->GetId());
-		}
+		if (false) // Developers, developers, developers
+			printf("Bubbling | %p, \"%s\"\n", reinterpret_cast<const void*>(i->widget), i->widget->GetId());
 
-		// Send event
-		if (i->widget->OnMouseBubbling(MouseGesture::Press, cursor_pos, *target->widget) == EventPropagation::StopIt)
-		{
+		if (i->widget->OnMouse(MouseGesture::Press, cursor_pos, *target->widget) == EventPropagation::StopIt)
 			break;
-		}
 	}
 }
 
@@ -501,31 +487,78 @@ void yuika::Screen::MouseRelease(Position cursor_pos)
 {
 	for (MiniTreeEntry* i = m_mini_tree; i < m_mini_tree + m_mini_tree_len; i += 1)
 	{
-		if (i->pressed == false)
-			continue;
-
-		i->pressed = false;
-
-		// """Capture""" phase (I'm ignoring propagation)
-		i->widget->OnMouseCapturing(MouseGesture::Release, cursor_pos);
-
-		if (sInside(cursor_pos, i->clickable_area) == true)
-			i->widget->OnMouseCapturing(MouseGesture::Click, cursor_pos);
-
-		// Bubble phase
-		for (MiniTreeEntry* u = i; u != nullptr; u = u->parent)
+		// Release event
+		if (i->pressed_as_target == true)
 		{
-			if (u->widget->OnMouseBubbling(MouseGesture::Release, cursor_pos, *i->widget) == EventPropagation::StopIt)
-				break;
-		}
+			i->pressed_as_target = false;
 
-		// Click event, just bubble phase
-		if (sInside(cursor_pos, i->clickable_area) == true)
-		{
 			for (MiniTreeEntry* u = i; u != nullptr; u = u->parent)
 			{
-				if (u->widget->OnMouseBubbling(MouseGesture::Click, cursor_pos, *i->widget) == EventPropagation::StopIt)
+				if (u->widget->OnMouse(MouseGesture::Release, cursor_pos, *i->widget) == EventPropagation::StopIt)
 					break;
+			}
+		}
+
+		// Click event
+		if (i->pressed_indirectly == true)
+		{
+			i->pressed_indirectly = false;
+
+			if (sInside(cursor_pos, i->clickable_area) == true)
+			{
+				for (MiniTreeEntry* u = i; u != nullptr; u = u->parent)
+				{
+					if (u->widget->OnMouse(MouseGesture::Click, cursor_pos, *i->widget) == EventPropagation::StopIt)
+						break;
+				}
+			}
+		}
+	}
+}
+
+void yuika::Screen::MouseMoves(Position cursor_pos)
+{
+	// Leaves event
+	for (MiniTreeEntry* i = m_mini_tree; i < m_mini_tree + m_mini_tree_len; i += 1)
+	{
+		if (i->cursor_inside == true && sInside(cursor_pos, i->clickable_area) == false)
+		{
+			i->cursor_inside = false;
+			for (MiniTreeEntry* u = i; u != nullptr; u = u->parent)
+			{
+				if (u->widget->OnMouse(MouseGesture::Leaves, cursor_pos, *i->widget) == EventPropagation::StopIt)
+					break;
+			}
+		}
+	}
+
+	// Iterate tree (copy paste from MousePress)
+	MiniTreeEntry* target = nullptr;
+	for (MiniTreeEntry* next = m_mini_tree; next != nullptr;)
+	{
+		target = next;
+
+		// Enters event
+		if (target->cursor_inside == false)
+		{
+			target->cursor_inside = true;
+			for (MiniTreeEntry* u = target; u != nullptr; u = u->parent)
+			{
+				if (u->widget->OnMouse(MouseGesture::Enters, cursor_pos, *target->widget) == EventPropagation::StopIt)
+					break;
+			}
+		}
+
+		// Iterate children
+		next = nullptr;
+		MiniTreeEntry* child = target->last_child;
+		for (size_t child_no = 0; child_no < target->widget->GetChildrenNo(); child_no += 1, child -= 1)
+		{
+			if (child->clickable_area.size.w > 0 && child->clickable_area.size.h > 0 &&
+			    sInside(cursor_pos, child->clickable_area) == true)
+			{
+				next = child;
+				break;
 			}
 		}
 	}
@@ -595,12 +628,7 @@ void yuika::Widget::Draw(DrawApi& api, Rect allowed_draw_area) const
 	api.SetClickableArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
 }
 
-yuika::EventPropagation yuika::Widget::OnMouseCapturing(MouseGesture, Position)
-{
-	return EventPropagation::KeepPassingIt;
-}
-
-yuika::EventPropagation yuika::Widget::OnMouseBubbling(MouseGesture, Position, Widget&)
+yuika::EventPropagation yuika::Widget::OnMouse(MouseGesture, Position, const Widget&)
 {
 	return EventPropagation::KeepPassingIt;
 }
