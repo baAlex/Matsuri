@@ -93,6 +93,24 @@ class VoiceRack : public yui::HBox
 	std::string m_name;
 };
 
+class ClickableText : public yui::Text
+{
+  public:
+	ClickableText(const std::string& text) : yui::Text(text) {}
+
+	yui::EventPropagation OnMouse(yui::MouseGesture gesture, yui::Position, const yui::Widget& target) override
+	{
+		if (gesture == yui::MouseGesture::Click)
+			printf("Click on target \"%s\"\n", target.GetId());
+		else if (gesture == yui::MouseGesture::Press)
+			printf("Press on target \"%s\"\n", target.GetId());
+		else if (gesture == yui::MouseGesture::Release)
+			printf("Release on target \"%s\"\n", target.GetId());
+
+		return yui::EventPropagation::KeepPassingIt;
+	}
+};
+
 
 static void sCreateUi(yui::Wrapper& root)
 {
@@ -150,6 +168,8 @@ static void sCreateUi(yui::Wrapper& root)
 
 	main_container.AddNewChild<VoiceRack>("Bass drum").SetId("#bd_rack");
 	main_container.AddNewChild<VoiceRack>("Snare").SetId("#sd_rack");
+
+	main_container.AddNewChild<ClickableText>("Test Text").SetId("#test_text");
 }
 
 

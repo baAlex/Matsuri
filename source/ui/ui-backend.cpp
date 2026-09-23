@@ -484,6 +484,7 @@ void UiBackend::OnFdEvent()
 				// https://github.com/glfw/glfw/blob/92dcf4ce74f2e2554a98fea09be7c705c17daa5a/src/x11_window.c#L1459
 				m_cursor.x = event.xmotion.x;
 				m_cursor.y = event.xmotion.y;
+				m_yui.MouseMoves({static_cast<int>(m_cursor.x), static_cast<int>(m_cursor.y)});
 			}
 
 			XFlush(m_x11_display);

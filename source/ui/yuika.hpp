@@ -62,7 +62,13 @@ enum class EventPropagation
 	StopIt
 };
 
-class DrawApi
+class SimpleApi
+{
+  public:
+	virtual Size TextSize(const char* text) = 0;
+};
+
+class DrawApi : public SimpleApi
 {
   public:
 	using Colour = uint32_t;
@@ -77,8 +83,9 @@ class DrawApi
 	static constexpr Colour BEVEL_SHADOW = 0xFF404040;
 	static constexpr Colour BEVEL_LIGHT = WHITE;
 
-	virtual void SetClickableArea(Rect rect) = 0;
+	virtual void SetHitArea(Rect rect) = 0;
 	virtual void DrawRectangle(Colour colour, Rect rect) = 0;
+	virtual void DrawCheckerBoardRectangle(Colour colour, Rect rect) = 0;
 
 	enum class BevelStyle
 	{
@@ -88,13 +95,6 @@ class DrawApi
 
 	virtual void Draw3dBevel(Rect rect, BevelStyle style) = 0;
 	virtual void DrawText(Colour colour, Position pos, const char* text) = 0;
-	virtual Size TextSize(const char* text) = 0;
-};
-
-class UpdateApi
-{
-  public:
-	virtual Size TextSize(const char* text) = 0;
 };
 
 
@@ -119,7 +119,7 @@ class Widget
 	virtual Widget& GetChild(size_t no) = 0;                                   // Ditto
 	virtual const Widget& GetChild(size_t no) const = 0;                       // Ditto
 
-	virtual Size UpdateNaturalSize(UpdateApi& api) = 0; // Also returns natural size
+	virtual Size UpdateNaturalSize(SimpleApi& api) = 0; // Also returns natural size
 	virtual Size GetNaturalSize() const;
 	virtual Size GetSize(Size available_size) const;
 	virtual void Draw(DrawApi& api, Rect allowed_draw_area) const;
@@ -161,7 +161,7 @@ class Wrapper : public Widget
 	Widget& GetChild(size_t no) override;
 	const Widget& GetChild(size_t no) const override;
 
-	Size UpdateNaturalSize(UpdateApi& api) override;
+	Size UpdateNaturalSize(SimpleApi& api) override;
 
   protected:
 	std::unique_ptr<Widget> m_content;
@@ -206,7 +206,7 @@ class Box : public Container
 	Widget& GetChild(size_t no) override;
 	const Widget& GetChild(size_t no) const override;
 
-	Size UpdateNaturalSize(UpdateApi& api) override;
+	Size UpdateNaturalSize(SimpleApi& api) override;
 
   protected:
 	friend BoxFriend; // :)
@@ -231,7 +231,7 @@ class VBox : public Box
 };
 
 
-class Text final : public Widget
+class Text : public Widget
 {
   public:
 	Text(std::string text);
@@ -242,7 +242,7 @@ class Text final : public Widget
 	const ChildGet GetChild(size_t, Size) const override;
 	Widget& GetChild(size_t) override;
 	const Widget& GetChild(size_t) const override;
-	Size UpdateNaturalSize(UpdateApi& api) override;
+	Size UpdateNaturalSize(SimpleApi& api) override;
 
   private:
 	std::string m_text;
@@ -306,7 +306,7 @@ class Screen
 		MiniTreeEntry* last_child;
 		MiniTreeEntry* parent;
 
-		Rect clickable_area;
+		Rect hit_area;
 		bool pressed_as_target : 1;
 		bool pressed_indirectly : 1;
 		bool cursor_inside : 1;

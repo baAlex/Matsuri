@@ -17,12 +17,6 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include "arialn.inc"
 
 
-#if 1
-#define DEBUGPRINT(...) __builtin_printf(__VA_ARGS__)
-#else
-#define DEBUGPRINT(...) // Empty
-#endif
-
 template <typename T> static T Min(T a, T b) noexcept
 {
 	return (a < b) ? a : b;
@@ -83,9 +77,7 @@ void yuika::Screen::Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask
 	m_root->SetId("#__root");
 
 	if ((m_font = reinterpret_cast<uint8_t*>(malloc(sizeof(uint8_t) * ATLAS_WIDTH * ATLAS_HEIGHT))) == nullptr)
-	{
 		throw 1; // TODO
-	}
 
 	m_masks[2] = r_mask;
 	m_masks[1] = g_mask;
@@ -100,9 +92,7 @@ void yuika::Screen::Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask
 
 		auto p = static_cast<float>(255 - ATLAS_DATA[i]) / 255.0f;
 
-		p = (p < min) ? min : p;
-		p = (p > max) ? max : p;
-		p = (p - min) / (max - min);
+		p = (Clamp(p, min, max) - min) / (max - min);
 
 		// https://registry.khronos.org/OpenGL-Refpages/gl4/html/smoothstep.xhtml
 		const float p2 = p * p * (3.0f - 2.0f * p); // I'm not sure, Valve uses it, but they
@@ -127,38 +117,15 @@ void yuika::Screen::Deinitialise() noexcept
 class yuika::ScreenFriend
 {
   public:
-	class UpdateApiImplementation final : public UpdateApi
-	{
-	  public:
-		const Screen* fwend;
-
-		Size TextSize(const char* text) noexcept override
-		{
-			float w = 0.0f;
-
-			for (const char* c = text; *c != 0x00; c += 1)
-			{
-				if (static_cast<size_t>(*c) < FIRST_CHARACTER_CODE ||
-				    (static_cast<size_t>(*c) - FIRST_CHARACTER_CODE) >= CHARACTERS_NO)
-					continue;
-
-				const CharacterMetric* ch = CHARACTERS_METRICS + (static_cast<size_t>(*c) - FIRST_CHARACTER_CODE);
-				w += ch->advance;
-			}
-
-			return {static_cast<int>(w), static_cast<int>(FONT_HEIGHT)};
-		}
-	};
-
 	class DrawApiImplementation final : public DrawApi
 	{
 	  public:
 		Screen* fwend;
-		struct Rect clickable_area;
+		struct Rect hit_area;
 
-		void SetClickableArea(Rect rect) noexcept override
+		void SetHitArea(Rect rect) noexcept override
 		{
-			clickable_area = rect; // If already set, we overwrite last one (TODO, validate and clamp area)
+			hit_area = rect; // If already set, we overwrite last one (TODO, validate and clamp area)
 		}
 
 		void DrawRectangle(Colour colour, Rect rect) noexcept override
@@ -175,6 +142,29 @@ class yuika::ScreenFriend
 				{
 					*col = colour;
 				}
+			}
+		}
+
+		void DrawCheckerBoardRectangle(Colour colour, Rect rect) noexcept override
+		{
+			const int x1 = Clamp(rect.pos.x, 0, fwend->m_size.w);
+			const int y1 = Clamp(rect.pos.y, 0, fwend->m_size.h);
+			rect.size.w = (Clamp(rect.pos.x + rect.size.w, 0, fwend->m_size.w) - x1);
+			rect.size.h = (Clamp(rect.pos.y + rect.size.h, 0, fwend->m_size.h) - y1) * fwend->m_size.w;
+
+			uint8_t kiki = 0;
+			uint8_t boba = 0;
+
+			uint32_t* out = fwend->m_out + static_cast<size_t>(x1 + y1 * fwend->m_size.w);
+			for (uint32_t* row = out; row < out + rect.size.h; row += static_cast<size_t>(fwend->m_size.w))
+			{
+				for (uint32_t* col = row; col < row + rect.size.w; col += 1)
+				{
+					*col = (((kiki ^ boba) & 1) != 0) ? colour : *col;
+					boba++;
+				}
+				kiki++;
+				boba = 0;
 			}
 		}
 
@@ -260,7 +250,7 @@ class yuika::ScreenFriend
 			}
 		}
 
-		Size TextSize(const char* text) noexcept override
+		Size TextSize(const char* text) override
 		{
 			float w = 0.0f;
 
@@ -300,7 +290,7 @@ class yuika::ScreenFriend
 		api.fwend->m_mini_tree[api.fwend->m_mini_tree_len++] = {/* widget */ api.fwend->m_root,
 		                                                        /* last_child */ nullptr,
 		                                                        /* parent_mini */ nullptr,
-		                                                        /* clickable_area */ {},
+		                                                        /* hit_area */ {},
 		                                                        /* pressed_as_target */ false,
 		                                                        /* pressed_indirectly */ false,
 		                                                        /* cursor_inside */ false};
@@ -311,12 +301,12 @@ class yuika::ScreenFriend
 			Screen::StackEntry current = stack[--cursor]; // Yes, copy it
 
 			// Draw
-			api.clickable_area = {};
+			api.hit_area = {};
 			current.widget->Draw(api, current.allowed_draw_area);
 
 			// Update mini tree entry
 			if (current.mini != nullptr)
-				current.mini->clickable_area = api.clickable_area;
+				current.mini->hit_area = api.hit_area;
 
 			if (current.parent_mini != nullptr)
 				current.parent_mini->last_child = current.mini;
@@ -345,7 +335,7 @@ class yuika::ScreenFriend
 				api.fwend->m_mini_tree[api.fwend->m_mini_tree_len] = {/* widget */ &child,
 				                                                      /* last_child */ nullptr,
 				                                                      /* parent_mini */ current.mini,
-				                                                      /* clickable_area */ {},
+				                                                      /* hit_area */ {},
 				                                                      /* pressed_as_target */ false,
 				                                                      /* pressed_indirectly */ false,
 				                                                      /* cursor_inside */ false};
@@ -361,20 +351,18 @@ static constexpr bool DRAW_LIKE_CRAZY = false;
 
 void yuika::Screen::Update(Size size, uint32_t* out)
 {
+	ScreenFriend::DrawApiImplementation draw_api;
+	draw_api.fwend = this;
+
 	m_out = out;
 
 	// Update natural sizes
-	ScreenFriend::UpdateApiImplementation update_api;
-	update_api.fwend = this;
-	m_root->UpdateNaturalSize(update_api); // [Recursion]
+	m_root->UpdateNaturalSize(draw_api); // [Recursion]
 
 	// Draw
 	if (m_size.w != size.w || m_size.h != size.h || DRAW_LIKE_CRAZY == true)
 	{
 		m_size = size;
-
-		ScreenFriend::DrawApiImplementation draw_api;
-		draw_api.fwend = this;
 
 		draw_api.DrawRectangle(DrawApi::BACKGROUND, {{0, 0}, m_size});
 		ScreenFriend::DrawWidgets(draw_api);
@@ -462,8 +450,7 @@ void yuika::Screen::MousePress(Position cursor_pos)
 		MiniTreeEntry* child = target->last_child;
 		for (size_t child_no = 0; child_no < target->widget->GetChildrenNo(); child_no += 1, child -= 1)
 		{
-			if (child->clickable_area.size.w > 0 && child->clickable_area.size.h > 0 &&
-			    sInside(cursor_pos, child->clickable_area) == true)
+			if (sInside(cursor_pos, child->hit_area) == true)
 			{
 				next = child;
 				break;
@@ -488,7 +475,7 @@ void yuika::Screen::MouseRelease(Position cursor_pos)
 	for (MiniTreeEntry* i = m_mini_tree; i < m_mini_tree + m_mini_tree_len; i += 1)
 	{
 		// Release event
-		if (i->pressed_as_target == true)
+		if (i->pressed_as_target == true) // TODO, keep a list of what was pressed, to avoid iterate the entire thing
 		{
 			i->pressed_as_target = false;
 
@@ -500,11 +487,11 @@ void yuika::Screen::MouseRelease(Position cursor_pos)
 		}
 
 		// Click event
-		if (i->pressed_indirectly == true)
+		if (i->pressed_indirectly == true) // TODO, same
 		{
 			i->pressed_indirectly = false;
 
-			if (sInside(cursor_pos, i->clickable_area) == true)
+			if (sInside(cursor_pos, i->hit_area) == true)
 			{
 				for (MiniTreeEntry* u = i; u != nullptr; u = u->parent)
 				{
@@ -521,7 +508,7 @@ void yuika::Screen::MouseMoves(Position cursor_pos)
 	// Leaves event
 	for (MiniTreeEntry* i = m_mini_tree; i < m_mini_tree + m_mini_tree_len; i += 1)
 	{
-		if (i->cursor_inside == true && sInside(cursor_pos, i->clickable_area) == false)
+		if (i->cursor_inside == true && sInside(cursor_pos, i->hit_area) == false)
 		{
 			i->cursor_inside = false;
 			for (MiniTreeEntry* u = i; u != nullptr; u = u->parent)
@@ -554,8 +541,7 @@ void yuika::Screen::MouseMoves(Position cursor_pos)
 		MiniTreeEntry* child = target->last_child;
 		for (size_t child_no = 0; child_no < target->widget->GetChildrenNo(); child_no += 1, child -= 1)
 		{
-			if (child->clickable_area.size.w > 0 && child->clickable_area.size.h > 0 &&
-			    sInside(cursor_pos, child->clickable_area) == true)
+			if (sInside(cursor_pos, child->hit_area) == true)
 			{
 				next = child;
 				break;
@@ -624,8 +610,8 @@ yuika::Size yuika::Widget::GetSize(Size available_size) const
 
 void yuika::Widget::Draw(DrawApi& api, Rect allowed_draw_area) const
 {
-	// There are less surprises by setting a clickable area by default
-	api.SetClickableArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
+	// There are less surprises by setting a hit area by default
+	api.SetHitArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
 }
 
 yuika::EventPropagation yuika::Widget::OnMouse(MouseGesture, Position, const Widget&)
@@ -677,11 +663,10 @@ const yuika::Widget& yuika::Wrapper::GetChild(size_t) const
 	return *m_content;
 }
 
-yuika::Size yuika::Wrapper::UpdateNaturalSize(UpdateApi& api)
+yuika::Size yuika::Wrapper::UpdateNaturalSize(SimpleApi& api)
 {
 	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
 	{
-		// DEBUGPRINT("%u | yuika::Wrapper::UpdateNaturalSize\n", s_frame);
 		m_natural_size_updated = true;
 		m_natural_size = (m_content != nullptr) ? m_content->UpdateNaturalSize(api) : Size{0, 0}; // [Recursion]
 	}
@@ -780,11 +765,10 @@ const yuika::Widget& yuika::Box::GetChild(size_t no) const
 	return *m_children.at(no);
 }
 
-yuika::Size yuika::Box::UpdateNaturalSize(UpdateApi& api)
+yuika::Size yuika::Box::UpdateNaturalSize(SimpleApi& api)
 {
 	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
 	{
-		// DEBUGPRINT("%u | yuika::Box::UpdateNaturalSize\n", s_frame);
 		m_natural_size_updated = true;
 		m_natural_size = {};
 		m_non_stretch_size = {};
@@ -835,12 +819,11 @@ static constexpr int TEXT_MARGIN = 18; // TODO, implement styles or something si
 
 void yuika::Text::Draw(DrawApi& api, Rect allowed_draw_area) const
 {
-	allowed_draw_area.pos.x += TEXT_MARGIN / 2;
-	allowed_draw_area.pos.y += TEXT_MARGIN / 2;
+	api.SetHitArea({allowed_draw_area.pos, allowed_draw_area.size});
+	// api.DrawCheckerBoardRectangle(DrawApi::RED, {allowed_draw_area.pos, allowed_draw_area.size});
 
-	// DEBUGPRINT("%u | yuika::Text::Draw\n", s_frame);
-	api.SetClickableArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
-	api.DrawText(DrawApi::BLACK, allowed_draw_area.pos, m_text.c_str());
+	api.DrawText(DrawApi::BLACK, {allowed_draw_area.pos.x + TEXT_MARGIN / 2, allowed_draw_area.pos.y + TEXT_MARGIN / 2},
+	             m_text.c_str());
 }
 
 
@@ -869,12 +852,18 @@ const yuika::Widget& yuika::Text::GetChild(size_t) const
 	throw 1;
 };
 
-yuika::Size yuika::Text::UpdateNaturalSize(UpdateApi& api)
+yuika::Size yuika::Text::UpdateNaturalSize(SimpleApi& api)
 {
-	Size size = api.TextSize(m_text.c_str());
-	size.w += TEXT_MARGIN;
-	size.h += TEXT_MARGIN;
-	return size;
+	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
+	{
+		m_natural_size_updated = true;
+
+		m_natural_size = api.TextSize(m_text.c_str());
+		m_natural_size.w += TEXT_MARGIN;
+		m_natural_size.h += TEXT_MARGIN;
+	}
+
+	return m_natural_size;
 };
 
 
@@ -885,7 +874,6 @@ yuika::Button::Button() : Wrapper() {}
 
 void yuika::Button::Draw(DrawApi& api, Rect allowed_draw_area) const
 {
-	// DEBUGPRINT("%u | yuika::Button::Draw\n", s_frame);
-	api.SetClickableArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
+	api.SetHitArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
 	api.Draw3dBevel({allowed_draw_area.pos, GetSize(allowed_draw_area.size)}, DrawApi::BevelStyle::Outset);
 }
