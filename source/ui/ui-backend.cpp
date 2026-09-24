@@ -399,7 +399,7 @@ void UiBackend::Resize(int width, int height)
 	// Update Yui
 	m_width = width;
 	m_height = height;
-	m_yui.Update({m_width, m_height}, reinterpret_cast<uint32_t*>(m_buffer));
+	m_yui.Draw({m_width, m_height}, reinterpret_cast<uint32_t*>(m_buffer));
 
 	// Update specific API
 #if (MATSURI_UI == MATSURI_UI_X11)
@@ -457,18 +457,7 @@ void UiBackend::OnFdEvent()
 			XEvent event;
 			XNextEvent(m_x11_display, &event);
 
-			if (event.type == Expose)
-			{
-				if (event.xexpose.window == m_x11_window)
-				{
-					// TODO, Am I doing this right?
-					XPutImage(m_x11_display, m_x11_window, DefaultGC(m_x11_display, 0), m_x11_image, event.xexpose.x,
-					          event.xexpose.y, event.xexpose.x, event.xexpose.y,
-					          static_cast<unsigned int>(event.xexpose.width),
-					          static_cast<unsigned int>(event.xexpose.height));
-				}
-			}
-			else if (event.type == ButtonPress)
+			if (event.type == ButtonPress)
 			{
 				if (event.xbutton.button == Button1)
 					m_yui.MousePress({static_cast<int>(m_cursor.x), static_cast<int>(m_cursor.y)});
@@ -485,6 +474,27 @@ void UiBackend::OnFdEvent()
 				m_cursor.x = event.xmotion.x;
 				m_cursor.y = event.xmotion.y;
 				m_yui.MouseMoves({static_cast<int>(m_cursor.x), static_cast<int>(m_cursor.y)});
+			}
+
+			const auto updated_rect = m_yui.Draw({m_width, m_height}, reinterpret_cast<uint32_t*>(m_buffer));
+
+			if (event.type == Expose || updated_rect.size.w != 0 || updated_rect.size.h != 0)
+			{
+				if (event.xexpose.window == m_x11_window)
+				{
+					// TODO, Am I doing this right?
+					/*XPutImage(m_x11_display, m_x11_window, DefaultGC(m_x11_display, 0), m_x11_image, event.xexpose.x,
+					          event.xexpose.y, event.xexpose.x, event.xexpose.y,
+					          static_cast<unsigned int>(event.xexpose.width),
+					          static_cast<unsigned int>(event.xexpose.height));*/
+
+					// FIXME, do an union of yui updated rect and x11 exposed rect
+					// (drawing the entire thing, obviously is for testing purposes, not a bug
+					// or anything like that... mmmhhp!. >_< BAKA!!!)
+					XPutImage(m_x11_display, m_x11_window, DefaultGC(m_x11_display, 0), m_x11_image, 0, 0, 0, 0,
+					          static_cast<unsigned int>(m_x11_image->width),
+					          static_cast<unsigned int>(m_x11_image->height));
+				}
 			}
 
 			XFlush(m_x11_display);

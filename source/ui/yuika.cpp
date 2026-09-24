@@ -12,6 +12,8 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 
 #include "yuika.hpp"
 #include <assert.h>
+#include <limits.h>
+#include <string.h>
 
 
 #include "arialn.inc"
@@ -28,6 +30,34 @@ template <typename T> static T Max(T a, T b) noexcept
 template <typename T> static T Clamp(T v, T min, T max) noexcept
 {
 	return Min(Max(v, min), max);
+}
+
+
+static bool sInside(yuika::Position pos, yuika::Rect rect)
+{
+	if (pos.x >= rect.pos.x && pos.y >= rect.pos.y && //
+	    pos.x < rect.pos.x + rect.size.w && pos.y < rect.pos.y + rect.size.h)
+		return true;
+	return false;
+}
+
+static yuika::Rect sOr(yuika::Rect a, yuika::Rect b)
+{
+	const int x1 = Min(a.pos.x, b.pos.x);
+	const int y1 = Min(a.pos.y, b.pos.y);
+	const int x2 = Max(a.pos.x + a.size.w, b.pos.x + b.size.w);
+	const int y2 = Max(a.pos.y + a.size.h, b.pos.y + b.size.h);
+	return {{x1, y1}, {x2 - x1, y2 - y1}};
+}
+
+static yuika::Rect sInverseRect()
+{
+	yuika::Rect ret;
+	ret.pos.x = INT_MAX;
+	ret.pos.y = INT_MAX;
+	ret.size.w = INT_MIN;
+	ret.size.h = INT_MIN;
+	return ret;
 }
 
 
@@ -82,6 +112,8 @@ void yuika::Screen::Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask
 	m_masks[2] = r_mask;
 	m_masks[1] = g_mask;
 	m_masks[0] = b_mask;
+
+	m_dirty_area = sInverseRect();
 
 	// SDF,
 	// do fragment-shader work offline, as we are 2d
@@ -268,45 +300,50 @@ class yuika::ScreenFriend
 		}
 	};
 
-	static void DrawWidgets(DrawApiImplementation& api)
+	static void DrawWidgetsAndSetMiniTree(DrawApiImplementation& api)
 	{
 		// Non-recursive draw, it has the good feature of carry information while
 		// descending the tree, like depth, drawable area, and more; also from our
 		// end we can identify on which widget we are without asking it to widgets
 		// themselves
 
-		Screen::StackEntry* stack = api.fwend->m_stack;
 		api.fwend->m_mini_tree_len = 0;
-
 		size_t cursor = 0;
 
 		// Add root first
-		stack[cursor++] = {/* widget */ api.fwend->m_root,
-		                   /* parent_mini */ nullptr,
-		                   /* mini */ api.fwend->m_mini_tree,
-		                   /* allowed_draw_area */
-		                   Rect{{0, 0}, api.fwend->m_size}};
+		{
+			Screen::StackEntry* stack_entry = api.fwend->m_stack + cursor;
+			cursor++;
 
-		api.fwend->m_mini_tree[api.fwend->m_mini_tree_len++] = {/* widget */ api.fwend->m_root,
-		                                                        /* last_child */ nullptr,
-		                                                        /* parent_mini */ nullptr,
-		                                                        /* hit_area */ {},
-		                                                        /* pressed_as_target */ false,
-		                                                        /* pressed_indirectly */ false,
-		                                                        /* cursor_inside */ false};
+			stack_entry->widget = api.fwend->m_root;
+			stack_entry->parent_mini = nullptr;
+			stack_entry->mini = api.fwend->m_mini_tree;
+			stack_entry->allowed_draw_area = Rect{{0, 0}, api.fwend->m_size};
 
-		// Now as normal
+			Screen::MiniTreeEntry* mini_entry = api.fwend->m_mini_tree + api.fwend->m_mini_tree_len;
+			api.fwend->m_mini_tree_len++;
+
+			memset(mini_entry, 0, sizeof(Screen::MiniTreeEntry));
+			mini_entry->widget = api.fwend->m_root;
+		}
+
+		// Now widget as normal
 		while (cursor > 0)
 		{
-			Screen::StackEntry current = stack[--cursor]; // Yes, copy it
+			Screen::StackEntry current = api.fwend->m_stack[--cursor]; // Yes, copy it
 
-			// Draw
+			// Draw widget
 			api.hit_area = {};
 			current.widget->Draw(api, current.allowed_draw_area);
+			current.widget->SetDirty(false);
 
-			// Update mini tree entry
+			// Update mini tree entry,
+			// those fields that weren't know when mini tree entry was created
 			if (current.mini != nullptr)
+			{
+				current.mini->last_draw_at = current.allowed_draw_area;
 				current.mini->hit_area = api.hit_area;
+			}
 
 			if (current.parent_mini != nullptr)
 				current.parent_mini->last_child = current.mini;
@@ -322,24 +359,70 @@ class yuika::ScreenFriend
 
 				// Stack children,
 				// just for iteration in this function
-				stack[cursor - 1 - i] = {/* widget */ &child,
-				                         /* parent_mini */ current.mini,
-				                         /* mini */ &api.fwend->m_mini_tree[api.fwend->m_mini_tree_len],
-				                         /* allowed_draw_area */ {current.allowed_draw_area.pos, child_size}};
+				Screen::StackEntry* stack_entry = api.fwend->m_stack + cursor - 1 - i;
 
+				stack_entry->widget = &child;
+				stack_entry->parent_mini = current.mini;
+				stack_entry->mini = &api.fwend->m_mini_tree[api.fwend->m_mini_tree_len];
+				stack_entry->allowed_draw_area = {current.allowed_draw_area.pos, child_size};
+
+				//
 				current.allowed_draw_area.pos.x += delta.x;
 				current.allowed_draw_area.pos.y += delta.y;
 
 				// Store children in mini tree,
 				// other parts of the code will use it
-				api.fwend->m_mini_tree[api.fwend->m_mini_tree_len] = {/* widget */ &child,
-				                                                      /* last_child */ nullptr,
-				                                                      /* parent_mini */ current.mini,
-				                                                      /* hit_area */ {},
-				                                                      /* pressed_as_target */ false,
-				                                                      /* pressed_indirectly */ false,
-				                                                      /* cursor_inside */ false};
+				Screen::MiniTreeEntry* mini_entry = api.fwend->m_mini_tree + api.fwend->m_mini_tree_len;
 				api.fwend->m_mini_tree_len++;
+
+				memset(mini_entry, 0, sizeof(Screen::MiniTreeEntry));
+				mini_entry->widget = &child;
+				mini_entry->parent = current.mini;
+			}
+		}
+	}
+
+	static void DrawWidget(DrawApiImplementation& api, Widget* widget, Rect allowed_draw_area)
+	{
+		size_t cursor = 0;
+
+		// Add root first
+		{
+			Screen::StackEntry* stack_entry = api.fwend->m_stack + cursor;
+			cursor++;
+
+			stack_entry->widget = widget;
+			stack_entry->allowed_draw_area = allowed_draw_area;
+		}
+
+		// Now widget as normal
+		while (cursor > 0)
+		{
+			Screen::StackEntry current = api.fwend->m_stack[--cursor];
+
+			// Draw widget (TODO?, I'm ignoring the hit area, we are not adjusting tree anyways)
+			current.widget->Draw(api, current.allowed_draw_area);
+			current.widget->SetDirty(false);
+
+			// Iterate children
+			if (cursor + current.widget->GetChildrenNo() >= Screen::STACK_LEN)
+				throw 1; // TODO
+
+			cursor += current.widget->GetChildrenNo();
+			for (size_t i = 0; i < current.widget->GetChildrenNo(); i += 1)
+			{
+				const auto [child, delta, child_size] = current.widget->GetChild(i, current.allowed_draw_area.size);
+
+				// Stack children,
+				// just for iteration in this function
+				Screen::StackEntry* stack_entry = api.fwend->m_stack + cursor - 1 - i;
+
+				stack_entry->widget = &child;
+				stack_entry->allowed_draw_area = {current.allowed_draw_area.pos, child_size};
+
+				//
+				current.allowed_draw_area.pos.x += delta.x;
+				current.allowed_draw_area.pos.y += delta.y;
 			}
 		}
 	}
@@ -349,23 +432,25 @@ class yuika::ScreenFriend
 static constexpr bool UPDATE_NATURAL_SIZE_LIKE_CRAZY = false;
 static constexpr bool DRAW_LIKE_CRAZY = false;
 
-void yuika::Screen::Update(Size size, uint32_t* out)
+yuika::Rect yuika::Screen::Draw(Size size, uint32_t* out)
 {
 	ScreenFriend::DrawApiImplementation draw_api;
 	draw_api.fwend = this;
 
 	m_out = out;
 
-	// Update natural sizes
-	m_root->UpdateNaturalSize(draw_api); // [Recursion]
-
-	// Draw
+	// Full draw
 	if (m_size.w != size.w || m_size.h != size.h || DRAW_LIKE_CRAZY == true)
 	{
 		m_size = size;
+		m_dirty_area = sInverseRect(); // We are doing a full draw
 
+		// Update natural sizes
+		m_root->UpdateNaturalSize(draw_api); // [Recursion]
+
+		// Draw
 		draw_api.DrawRectangle(DrawApi::BACKGROUND, {{0, 0}, m_size});
-		ScreenFriend::DrawWidgets(draw_api);
+		ScreenFriend::DrawWidgetsAndSetMiniTree(draw_api);
 
 		// Do conversion
 		if (m_masks[2] != 0x00FF0000 || m_masks[1] != 0x0000FF00 || m_masks[0] != 0x000000FF)
@@ -416,17 +501,38 @@ void yuika::Screen::Update(Size size, uint32_t* out)
 				       reinterpret_cast<const void*>(m->last_child));
 			}
 		}
+
+		// Done!
+		return {}; // TODO
 	}
+
+	// Partial draw
+	const auto inverse = sInverseRect();
+	if (memcmp(&m_dirty_area, &inverse, sizeof(Rect)) != 0)
+	{
+		draw_api.DrawRectangle(DrawApi::PINK, m_dirty_area);
+
+		// TODO, here I should set the dirty area as the scissoring box (a la' OpenGL)
+		// (as soon I implement it)
+
+		for (MiniTreeEntry* i = m_mini_tree; i < m_mini_tree + m_mini_tree_len; i += 1)
+		{
+			// TODO, like most for loops iterating the mini tree, an obvious optimisation is to
+			// keep different list/arrays/mini-trees, and not use the same one for everything
+			if (i->widget->GetDirty() == true)
+			{
+				ScreenFriend::DrawWidget(draw_api, i->widget, i->last_draw_at);
+				// i->widget->SetDirty(false); // Set inside DrawWidget()
+			}
+		}
+
+		m_dirty_area = sInverseRect();
+	}
+
+	// Nothing was done
+	return {};
 }
 
-
-static bool sInside(yuika::Position pos, yuika::Rect rect)
-{
-	if (pos.x >= rect.pos.x && pos.y >= rect.pos.y && //
-	    pos.x < rect.pos.x + rect.size.w && pos.y < rect.pos.y + rect.size.h)
-		return true;
-	return false;
-}
 
 void yuika::Screen::MousePress(Position cursor_pos)
 {
@@ -515,6 +621,8 @@ void yuika::Screen::MouseMoves(Position cursor_pos)
 			{
 				if (u->widget->OnMouse(MouseGesture::Leaves, cursor_pos, *i->widget) == EventPropagation::StopIt)
 					break;
+				if (u->widget->GetDirty() == true)
+					m_dirty_area = sOr(m_dirty_area, u->last_draw_at);
 			}
 		}
 	}
@@ -533,6 +641,8 @@ void yuika::Screen::MouseMoves(Position cursor_pos)
 			{
 				if (u->widget->OnMouse(MouseGesture::Enters, cursor_pos, *target->widget) == EventPropagation::StopIt)
 					break;
+				if (u->widget->GetDirty() == true)
+					m_dirty_area = sOr(m_dirty_area, u->last_draw_at);
 			}
 		}
 
@@ -565,6 +675,7 @@ yuika::Widget::Widget()
 	m_stretch_x = false; // Is not possible to set bitfields on headers
 	m_stretch_y = false; // (a C++ quirk)
 	m_natural_size_updated = false;
+	m_dirty = false;
 	m_id = "";
 }
 
@@ -576,6 +687,16 @@ yuika::Size yuika::Widget::GetNaturalSize() const
 void yuika::Widget::SetId(const char* id)
 {
 	m_id = id;
+}
+
+void yuika::Widget::SetDirty(bool value)
+{
+	m_dirty = value;
+}
+
+bool yuika::Widget::GetDirty() const
+{
+	return m_dirty;
 }
 
 const char* yuika::Widget::GetId() const

@@ -78,6 +78,7 @@ class DrawApi : public SimpleApi
 	static constexpr Colour RED = 0xFFFF0000;
 	static constexpr Colour GREEN = 0xFF00FF00;
 	static constexpr Colour BLUE = 0xFF0000FF;
+	static constexpr Colour PINK = 0xFFFF00FF;
 	static constexpr Colour BACKGROUND = 0xFFD4D0C8;
 	static constexpr Colour BEVEL_MID = 0xFF808080;
 	static constexpr Colour BEVEL_SHADOW = 0xFF404040;
@@ -124,21 +125,26 @@ class Widget
 	virtual Size GetSize(Size available_size) const;
 	virtual void Draw(DrawApi& api, Rect allowed_draw_area) const;
 
-	virtual void SetId(const char* id);
-	virtual const char* GetId() const;
-
 	virtual Widget& SetStretch(bool x, bool y);
 	virtual bool GetStretchX() const;
 	virtual bool GetStretchY() const;
 
+	void SetId(const char* id);
+	const char* GetId() const;
+	void SetDirty(bool value);
+	bool GetDirty() const;
+
 	virtual EventPropagation OnMouse(MouseGesture gesture, Position cursor_pos, const Widget& target);
 
   protected:
-	Size m_natural_size = {};
+	Size m_natural_size = {};        // Most widgets should follow/implement this,
+	bool m_stretch_x : 1;            // this,
+	bool m_stretch_y : 1;            // this,
+	bool m_natural_size_updated : 1; // and this
+
+  private:
+	bool m_dirty : 1;
 	const char* m_id;
-	bool m_stretch_x : 1; // Most widgets should implement these
-	bool m_stretch_y : 1;
-	bool m_natural_size_updated : 1;
 };
 
 
@@ -257,10 +263,10 @@ class Button : public Wrapper
 };
 
 
-class ButtonWithLabel : public Button
+class ButtonWithText : public Button
 {
   public:
-	ButtonWithLabel(const std::string& text)
+	ButtonWithText(const std::string& text)
 	{
 		SetNewChild<Text>(text);
 	}
@@ -273,7 +279,7 @@ class Screen
   public:
 	void Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask);
 	void Deinitialise() noexcept;
-	void Update(Size size, uint32_t* out);
+	Rect Draw(Size size, uint32_t* out);
 
 	void MousePress(Position cursor_pos);
 	void MouseRelease(Position cursor_pos);
@@ -306,6 +312,8 @@ class Screen
 		MiniTreeEntry* last_child;
 		MiniTreeEntry* parent;
 
+		Rect last_draw_at;
+
 		Rect hit_area;
 		bool pressed_as_target : 1;
 		bool pressed_indirectly : 1;
@@ -327,6 +335,8 @@ class Screen
 	StackEntry m_stack[STACK_LEN];
 
 	uint8_t* m_font;
+
+	Rect m_dirty_area;
 };
 
 } // namespace yuika

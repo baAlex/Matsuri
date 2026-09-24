@@ -58,15 +58,15 @@ class VoiceRack : public yui::HBox
 		m_name = name;
 		SetStretch(true, false);
 
-		AddNewChild<yui::ButtonWithLabel>(name);
+		AddNewChild<yui::ButtonWithText>(name);
 
 		AddNewChild<yui::Button>().SetStretch(true, true);
-		AddNewChild<yui::ButtonWithLabel>("Vol -").SetId("#vol-");
-		AddNewChild<yui::ButtonWithLabel>("Vol +").SetId("#vol+");
+		AddNewChild<yui::ButtonWithText>("Vol -").SetId("#vol-");
+		AddNewChild<yui::ButtonWithText>("Vol +").SetId("#vol+");
 
 		AddNewChild<yui::Button>().SetStretch(true, true);
-		AddNewChild<yui::ButtonWithLabel>("Pan -").SetId("#pan-");
-		AddNewChild<yui::ButtonWithLabel>("Pan +").SetId("#pan+");
+		AddNewChild<yui::ButtonWithText>("Pan -").SetId("#pan-");
+		AddNewChild<yui::ButtonWithText>("Pan +").SetId("#pan+");
 	}
 
 	yui::EventPropagation OnMouse(yui::MouseGesture gesture, yui::Position, const yui::Widget& target) override
@@ -111,6 +111,18 @@ class ClickableText : public yui::Text
 	}
 };
 
+class MenuButton : public yui::ButtonWithText
+{
+  public:
+	MenuButton(const std::string& text) : yui::ButtonWithText(text) {};
+
+	yui::EventPropagation OnMouse(yui::MouseGesture gesture, yui::Position, const yui::Widget& target) override
+	{
+		if (gesture == yui::MouseGesture::Enters || gesture == yui::MouseGesture::Leaves)
+			SetDirty(true);
+		return yui::EventPropagation::KeepPassingIt;
+	}
+};
 
 static void sCreateUi(yui::Wrapper& root)
 {
@@ -120,47 +132,47 @@ static void sCreateUi(yui::Wrapper& root)
 #if 1
 	auto& titlebar = main_container.AddNewChild<yui::HBox>();
 	titlebar.SetStretch(true, false);
-	titlebar.AddNewChild<yui::ButtonWithLabel>("|");
-	titlebar.AddNewChild<yui::ButtonWithLabel>("Microsoft (a) [b] Word!? - {Document 1}").SetStretch(true, false);
-	titlebar.AddNewChild<yui::ButtonWithLabel>("_");
-	titlebar.AddNewChild<yui::ButtonWithLabel>("[]");
-	titlebar.AddNewChild<yui::ButtonWithLabel>("X");
+	titlebar.AddNewChild<yui::ButtonWithText>("|");
+	titlebar.AddNewChild<yui::ButtonWithText>("Microsoft (a) [b] Word!? - {Document 1}").SetStretch(true, false);
+	titlebar.AddNewChild<yui::ButtonWithText>("_");
+	titlebar.AddNewChild<yui::ButtonWithText>("[]");
+	titlebar.AddNewChild<yui::ButtonWithText>("X");
 
 	auto& menu = main_container.AddNewChild<yui::HBox>();
-	menu.AddNewChild<yui::ButtonWithLabel>("File");
-	menu.AddNewChild<yui::ButtonWithLabel>("Edit");
-	menu.AddNewChild<yui::ButtonWithLabel>("View");
-	menu.AddNewChild<yui::ButtonWithLabel>("Insert");
-	menu.AddNewChild<yui::ButtonWithLabel>("Format");
-	menu.AddNewChild<yui::ButtonWithLabel>("Tools");
-	menu.AddNewChild<yui::ButtonWithLabel>("Table");
-	menu.AddNewChild<yui::ButtonWithLabel>("Window");
-	menu.AddNewChild<yui::ButtonWithLabel>("Help");
+	menu.AddNewChild<MenuButton>("File");
+	menu.AddNewChild<MenuButton>("Edit");
+	menu.AddNewChild<MenuButton>("View");
+	menu.AddNewChild<MenuButton>("Insert");
+	menu.AddNewChild<MenuButton>("Format");
+	menu.AddNewChild<MenuButton>("Tools");
+	menu.AddNewChild<MenuButton>("Table");
+	menu.AddNewChild<MenuButton>("Window");
+	menu.AddNewChild<MenuButton>("Help");
 
 	auto& top_toolbar = main_container.AddNewChild<yui::HBox>();
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("0"); // New
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("1"); // Open
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("2"); // Save
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("3"); // Print
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("4"); // Search
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("5"); // Spell
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("6"); // Cut
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("7"); // Copy
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("8"); // Paste
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("9"); // Format
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("A"); // Undo
-	top_toolbar.AddNewChild<yui::ButtonWithLabel>("B"); // Redo
+	top_toolbar.AddNewChild<yui::ButtonWithText>("0"); // New
+	top_toolbar.AddNewChild<yui::ButtonWithText>("1"); // Open
+	top_toolbar.AddNewChild<yui::ButtonWithText>("2"); // Save
+	top_toolbar.AddNewChild<yui::ButtonWithText>("3"); // Print
+	top_toolbar.AddNewChild<yui::ButtonWithText>("4"); // Search
+	top_toolbar.AddNewChild<yui::ButtonWithText>("5"); // Spell
+	top_toolbar.AddNewChild<yui::ButtonWithText>("6"); // Cut
+	top_toolbar.AddNewChild<yui::ButtonWithText>("7"); // Copy
+	top_toolbar.AddNewChild<yui::ButtonWithText>("8"); // Paste
+	top_toolbar.AddNewChild<yui::ButtonWithText>("9"); // Format
+	top_toolbar.AddNewChild<yui::ButtonWithText>("A"); // Undo
+	top_toolbar.AddNewChild<yui::ButtonWithText>("B"); // Redo
 
 	auto& bottom_toolbar = main_container.AddNewChild<yui::HBox>();
-	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("Normal");          // Style
-	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("Times New Roman"); // Font
-	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("10");              // Size
-	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("C");               // Bold
-	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("D");               // Italic
-	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("E");               // Underline
-	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("F");               // Left
-	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("?");               // Center
-	bottom_toolbar.AddNewChild<yui::ButtonWithLabel>("!");               // Right
+	bottom_toolbar.AddNewChild<yui::ButtonWithText>("Normal");          // Style
+	bottom_toolbar.AddNewChild<yui::ButtonWithText>("Times New Roman"); // Font
+	bottom_toolbar.AddNewChild<yui::ButtonWithText>("10");              // Size
+	bottom_toolbar.AddNewChild<yui::ButtonWithText>("C");               // Bold
+	bottom_toolbar.AddNewChild<yui::ButtonWithText>("D");               // Italic
+	bottom_toolbar.AddNewChild<yui::ButtonWithText>("E");               // Underline
+	bottom_toolbar.AddNewChild<yui::ButtonWithText>("F");               // Left
+	bottom_toolbar.AddNewChild<yui::ButtonWithText>("?");               // Center
+	bottom_toolbar.AddNewChild<yui::ButtonWithText>("!");               // Right
 
 	auto& content = main_container.AddNewChild<yui::VBox>();
 	content.SetStretch(true, true);
@@ -256,7 +268,7 @@ SDL_AppResult SDL_AppIterate(void* app_raw)
 	int stride = 0;
 	if (SDL_LockTexture(app->texture, nullptr, &pixels, &stride) == true)
 	{
-		app->screen.Update(app->window_size, reinterpret_cast<uint32_t*>(pixels));
+		app->screen.Draw(app->window_size, reinterpret_cast<uint32_t*>(pixels));
 		SDL_UnlockTexture(app->texture);
 	}
 	else
