@@ -476,24 +476,29 @@ void UiBackend::OnFdEvent()
 				m_yui.MouseMoves({static_cast<int>(m_cursor.x), static_cast<int>(m_cursor.y)});
 			}
 
-			const auto updated_rect = m_yui.Draw({m_width, m_height}, reinterpret_cast<uint32_t*>(m_buffer));
+			// First update yui, it has to react to previous inputs
+			const auto changed_area = m_yui.Draw({m_width, m_height}, reinterpret_cast<uint32_t*>(m_buffer));
+			if (changed_area.size.w > 0 || changed_area.size.h > 0)
+			{
+				// We put it into screen, obviously
+				XPutImage(m_x11_display, m_x11_window, DefaultGC(m_x11_display, 0), m_x11_image, changed_area.pos.x,
+				          changed_area.pos.y, changed_area.pos.x, changed_area.pos.y,
+				          static_cast<unsigned int>(changed_area.size.w),
+				          static_cast<unsigned int>(changed_area.size.h));
+			}
 
-			if (event.type == Expose || updated_rect.size.w != 0 || updated_rect.size.h != 0)
+			// Then, we meet our obligations with X11
+			if (event.type == Expose)
 			{
 				if (event.xexpose.window == m_x11_window)
 				{
-					// TODO, Am I doing this right?
-					/*XPutImage(m_x11_display, m_x11_window, DefaultGC(m_x11_display, 0), m_x11_image, event.xexpose.x,
+					// And yes, we put it into screen again, is a bit wasteful from code
+					// perspective, BUT, it may be worse to do an union of both areas and
+					// update a bigger region just to save ourselves from some repetition
+					XPutImage(m_x11_display, m_x11_window, DefaultGC(m_x11_display, 0), m_x11_image, event.xexpose.x,
 					          event.xexpose.y, event.xexpose.x, event.xexpose.y,
 					          static_cast<unsigned int>(event.xexpose.width),
-					          static_cast<unsigned int>(event.xexpose.height));*/
-
-					// FIXME, do an union of yui updated rect and x11 exposed rect
-					// (drawing the entire thing, obviously is for testing purposes, not a bug
-					// or anything like that... mmmhhp!. >_< BAKA!!!)
-					XPutImage(m_x11_display, m_x11_window, DefaultGC(m_x11_display, 0), m_x11_image, 0, 0, 0, 0,
-					          static_cast<unsigned int>(m_x11_image->width),
-					          static_cast<unsigned int>(m_x11_image->height));
+					          static_cast<unsigned int>(event.xexpose.height));
 				}
 			}
 

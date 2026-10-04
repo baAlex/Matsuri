@@ -28,11 +28,6 @@ struct Position
 	int x, y;
 };
 
-struct Delta
-{
-	int x, y;
-};
-
 struct Size
 {
 	int w, h;
@@ -44,7 +39,7 @@ struct Rect
 	Size size;
 };
 
-enum class MouseGesture
+enum class MouseGesture : uint8_t
 {
 	Press,   // Primary button, triggers if cursor is on top of widget
 	Release, // Primary button, triggers only if widget was previously
@@ -56,7 +51,7 @@ enum class MouseGesture
 	Leaves, // Guess it
 };
 
-enum class EventPropagation
+enum class EventPropagation : uint8_t
 {
 	KeepPassingIt,
 	StopIt
@@ -88,13 +83,14 @@ class DrawApi : public SimpleApi
 	virtual void DrawRectangle(Colour colour, Rect rect) = 0;
 	virtual void DrawCheckerBoardRectangle(Colour colour, Rect rect) = 0;
 
-	enum class BevelStyle
+	enum class BevelStyle : uint8_t
 	{
 		Inset,
-		Outset
+		Outset,
+		Solid,
 	};
 
-	virtual void Draw3dBevel(Rect rect, BevelStyle style) = 0;
+	virtual void DrawBorder(Rect rect, BevelStyle style, Colour color = BLACK) = 0;
 	virtual void DrawText(Colour colour, Position pos, const char* text) = 0;
 };
 
@@ -103,15 +99,14 @@ class Widget
 {
   public:
 	Widget();
-	virtual ~Widget() noexcept = default; // C++ quirk
-	// Edit, is more of a logical thing:
-	// https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#c35-a-base-class-destructor-should-be-either-public-and-virtual-or-protected-and-non-virtual
+	virtual ~Widget() noexcept = default;
 
 	struct ChildGet
 	{
 		Widget& child;
-		Delta layout_delta;
+		Position child_offset; // Relative from parent
 		Size child_size;
+		Position next_offset; // Relative from parent
 	};
 
 	virtual size_t GetChildrenNo() const = 0;
@@ -123,7 +118,9 @@ class Widget
 	virtual Size UpdateNaturalSize(SimpleApi& api) = 0; // Also returns natural size
 	virtual Size GetNaturalSize() const;
 	virtual Size GetSize(Size available_size) const;
-	virtual void Draw(DrawApi& api, Rect allowed_draw_area) const;
+
+	virtual void OnDraw(DrawApi& api, Rect allowed_draw_area) const; // On- prefixed methods are called from screen,
+	                                                                 // widgets themselves shouldn't called these
 
 	virtual Widget& SetStretch(bool x, bool y);
 	virtual bool GetStretchX() const;
@@ -131,8 +128,8 @@ class Widget
 
 	void SetId(const char* id);
 	const char* GetId() const;
-	void SetDirty(bool value);
-	bool GetDirty() const;
+	void SetInvalidated(bool value);
+	bool GetInvalidated() const;
 
 	virtual EventPropagation OnMouse(MouseGesture gesture, Position cursor_pos, const Widget& target);
 
@@ -143,7 +140,7 @@ class Widget
 	bool m_natural_size_updated : 1; // and this
 
   private:
-	bool m_dirty : 1;
+	bool m_invalidated : 1;
 	const char* m_id;
 };
 
@@ -188,7 +185,7 @@ class BoxFriend;
 class Box : public Container
 {
   public:
-	enum class Direction
+	enum class Direction : uint8_t
 	{
 		Horizontal,
 		Vertical
@@ -241,7 +238,7 @@ class Text : public Widget
 {
   public:
 	Text(std::string text);
-	void Draw(DrawApi& api, Rect allowed_draw_area) const override;
+	void OnDraw(DrawApi& api, Rect allowed_draw_area) const override;
 
 	size_t GetChildrenNo() const override;
 	ChildGet GetChild(size_t, Size) override;
@@ -258,15 +255,38 @@ class Text : public Widget
 class Button : public Wrapper
 {
   public:
-	Button();
-	void Draw(DrawApi& api, Rect allowed_draw_area) const override;
+	enum class Style : uint8_t
+	{
+		Normal,
+		Flat // Without bevel except if cursor is on top
+	};
+
+	enum class State : uint8_t
+	{
+		Normal,
+		Over,
+		Pressed
+	};
+
+	Button(Style style = Style::Normal);
+	void OnDraw(DrawApi& api, Rect allowed_draw_area) const override;
+	yuika::EventPropagation OnMouse(yuika::MouseGesture gesture, yuika::Position, const yuika::Widget& target) override;
+
+	Widget::ChildGet GetChild(size_t, Size available_size) override;
+	const Widget::ChildGet GetChild(size_t, Size available_size) const override;
+
+  protected:
+	Style m_style;
+	State m_state;
+	bool m_pressed : 1;
+	bool m_inside : 1;
 };
 
 
 class ButtonWithText : public Button
 {
   public:
-	ButtonWithText(const std::string& text)
+	ButtonWithText(const std::string& text, Style style = Style::Normal) : Button(style)
 	{
 		SetNewChild<Text>(text);
 	}
@@ -336,7 +356,7 @@ class Screen
 
 	uint8_t* m_font;
 
-	Rect m_dirty_area;
+	bool m_invalidated;
 };
 
 } // namespace yuika

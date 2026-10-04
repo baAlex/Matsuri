@@ -113,7 +113,7 @@ void yuika::Screen::Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask
 	m_masks[1] = g_mask;
 	m_masks[0] = b_mask;
 
-	m_dirty_area = sInverseRect();
+	m_invalidated = false;
 
 	// SDF,
 	// do fragment-shader work offline, as we are 2d
@@ -200,17 +200,17 @@ class yuika::ScreenFriend
 			}
 		}
 
-		void Draw3dBevel(Rect rect, BevelStyle style) noexcept override
+		void DrawBorder(Rect rect, BevelStyle style, Colour colour) noexcept override
 		{
-			if (style == BevelStyle::Inset)
+			switch (style)
 			{
+			case BevelStyle::Inset:
 				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y}, {rect.size.w - 1, 1}});
 				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.h - 1}});
 				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x + rect.size.w - 1, rect.pos.y}, {1, rect.size.h}});
 				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y + rect.size.h - 1}, {rect.size.w, 1}});
-			}
-			else
-			{
+				break;
+			case BevelStyle::Outset:
 				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y}, {rect.size.w - 1, 1}});
 				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.h - 1}});
 				DrawRectangle(BEVEL_SHADOW, {{rect.pos.x + rect.size.w - 1, rect.pos.y}, {1, rect.size.h}});
@@ -218,6 +218,13 @@ class yuika::ScreenFriend
 
 				DrawRectangle(BEVEL_MID, {{rect.pos.x + rect.size.w - 2, rect.pos.y + 1}, {1, rect.size.h - 2}});
 				DrawRectangle(BEVEL_MID, {{rect.pos.x + 1, rect.pos.y + rect.size.h - 2}, {rect.size.w - 2, 1}});
+				break;
+			case BevelStyle::Solid:
+				DrawRectangle(colour, {{rect.pos.x, rect.pos.y}, {rect.size.w - 1, 1}});
+				DrawRectangle(colour, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.h - 1}});
+				DrawRectangle(colour, {{rect.pos.x + rect.size.w - 1, rect.pos.y}, {1, rect.size.h}});
+				DrawRectangle(colour, {{rect.pos.x, rect.pos.y + rect.size.h - 1}, {rect.size.w, 1}});
+				break;
 			}
 		}
 
@@ -334,8 +341,8 @@ class yuika::ScreenFriend
 
 			// Draw widget
 			api.hit_area = {};
-			current.widget->Draw(api, current.allowed_draw_area);
-			current.widget->SetDirty(false);
+			current.widget->OnDraw(api, current.allowed_draw_area);
+			current.widget->SetInvalidated(false);
 
 			// Update mini tree entry,
 			// those fields that weren't know when mini tree entry was created
@@ -355,7 +362,8 @@ class yuika::ScreenFriend
 			cursor += current.widget->GetChildrenNo();
 			for (size_t i = 0; i < current.widget->GetChildrenNo(); i += 1)
 			{
-				const auto [child, delta, child_size] = current.widget->GetChild(i, current.allowed_draw_area.size);
+				const auto [child, child_offset, child_size, next_offset] =
+				    current.widget->GetChild(i, current.allowed_draw_area.size);
 
 				// Stack children,
 				// just for iteration in this function
@@ -364,11 +372,13 @@ class yuika::ScreenFriend
 				stack_entry->widget = &child;
 				stack_entry->parent_mini = current.mini;
 				stack_entry->mini = &api.fwend->m_mini_tree[api.fwend->m_mini_tree_len];
-				stack_entry->allowed_draw_area = {current.allowed_draw_area.pos, child_size};
+				stack_entry->allowed_draw_area = {{current.allowed_draw_area.pos.x + child_offset.x,
+				                                   current.allowed_draw_area.pos.y + child_offset.y},
+				                                  child_size};
 
 				//
-				current.allowed_draw_area.pos.x += delta.x;
-				current.allowed_draw_area.pos.y += delta.y;
+				current.allowed_draw_area.pos.x += next_offset.x;
+				current.allowed_draw_area.pos.y += next_offset.y;
 
 				// Store children in mini tree,
 				// other parts of the code will use it
@@ -400,9 +410,9 @@ class yuika::ScreenFriend
 		{
 			Screen::StackEntry current = api.fwend->m_stack[--cursor];
 
-			// Draw widget (TODO?, I'm ignoring the hit area, we are not adjusting tree anyways)
-			current.widget->Draw(api, current.allowed_draw_area);
-			current.widget->SetDirty(false);
+			// Draw widget (TODO?, I'm ignoring the hit area, we are not adjusting the tree anyways)
+			current.widget->OnDraw(api, current.allowed_draw_area);
+			current.widget->SetInvalidated(false);
 
 			// Iterate children
 			if (cursor + current.widget->GetChildrenNo() >= Screen::STACK_LEN)
@@ -411,18 +421,21 @@ class yuika::ScreenFriend
 			cursor += current.widget->GetChildrenNo();
 			for (size_t i = 0; i < current.widget->GetChildrenNo(); i += 1)
 			{
-				const auto [child, delta, child_size] = current.widget->GetChild(i, current.allowed_draw_area.size);
+				const auto [child, child_offset, child_size, next_offset] =
+				    current.widget->GetChild(i, current.allowed_draw_area.size);
 
 				// Stack children,
 				// just for iteration in this function
 				Screen::StackEntry* stack_entry = api.fwend->m_stack + cursor - 1 - i;
 
 				stack_entry->widget = &child;
-				stack_entry->allowed_draw_area = {current.allowed_draw_area.pos, child_size};
+				stack_entry->allowed_draw_area = {{current.allowed_draw_area.pos.x + child_offset.x,
+				                                   current.allowed_draw_area.pos.y + child_offset.y},
+				                                  child_size};
 
 				//
-				current.allowed_draw_area.pos.x += delta.x;
-				current.allowed_draw_area.pos.y += delta.y;
+				current.allowed_draw_area.pos.x += next_offset.x;
+				current.allowed_draw_area.pos.y += next_offset.y;
 			}
 		}
 	}
@@ -443,13 +456,19 @@ yuika::Rect yuika::Screen::Draw(Size size, uint32_t* out)
 	if (m_size.w != size.w || m_size.h != size.h || DRAW_LIKE_CRAZY == true)
 	{
 		m_size = size;
-		m_dirty_area = sInverseRect(); // We are doing a full draw
+		m_invalidated = false; // We are doing a full draw
 
 		// Update natural sizes
 		m_root->UpdateNaturalSize(draw_api); // [Recursion]
 
 		// Draw
-		draw_api.DrawRectangle(DrawApi::BACKGROUND, {{0, 0}, m_size});
+#ifndef NDEBUG
+		draw_api.DrawRectangle(DrawApi::PINK, {{0, 0}, m_size});
+#else
+		// White is the default brush setting in Win32
+		draw_api.DrawRectangle(DrawApi::WHITE, {{0, 0}, m_size});
+#endif
+
 		ScreenFriend::DrawWidgetsAndSetMiniTree(draw_api);
 
 		// Do conversion
@@ -503,30 +522,42 @@ yuika::Rect yuika::Screen::Draw(Size size, uint32_t* out)
 		}
 
 		// Done!
-		return {}; // TODO
+		return {{0, 0}, m_size};
 	}
 
 	// Partial draw
-	const auto inverse = sInverseRect();
-	if (memcmp(&m_dirty_area, &inverse, sizeof(Rect)) != 0)
+	if (m_invalidated == true)
 	{
-		draw_api.DrawRectangle(DrawApi::PINK, m_dirty_area);
+		Rect changed_area = sInverseRect();
+		m_invalidated = false;
 
-		// TODO, here I should set the dirty area as the scissoring box (a la' OpenGL)
-		// (as soon I implement it)
+		// TODO, here I should set "scissoring area = invalidated area" (a la' OpenGL),
+		// (as soon I implement it). Btw, it's called "clipping rectangle" in Win32,
+		// also Windows is doing the same, making the scissoring area the sames as
+		// the invalidated area. (Petzold, Programming Windows, p78)
 
 		for (MiniTreeEntry* i = m_mini_tree; i < m_mini_tree + m_mini_tree_len; i += 1)
 		{
 			// TODO, like most for loops iterating the mini tree, an obvious optimisation is to
 			// keep different list/arrays/mini-trees, and not use the same one for everything
-			if (i->widget->GetDirty() == true)
-			{
-				ScreenFriend::DrawWidget(draw_api, i->widget, i->last_draw_at);
-				// i->widget->SetDirty(false); // Set inside DrawWidget()
-			}
+
+			if (i->widget->GetInvalidated() == false)
+				continue;
+
+#ifndef NDEBUG
+			draw_api.DrawRectangle(DrawApi::PINK, i->last_draw_at);
+#else
+			draw_api.DrawRectangle(DrawApi::WHITE, i->last_draw_at);
+#endif
+
+			ScreenFriend::DrawWidget(draw_api, i->widget, i->last_draw_at);
+			changed_area = sOr(i->last_draw_at, changed_area);
 		}
 
-		m_dirty_area = sInverseRect();
+		// TODO, conversion
+
+		// Done!
+		return changed_area;
 	}
 
 	// Nothing was done
@@ -573,6 +604,7 @@ void yuika::Screen::MousePress(Position cursor_pos)
 
 		if (i->widget->OnMouse(MouseGesture::Press, cursor_pos, *target->widget) == EventPropagation::StopIt)
 			break;
+		m_invalidated |= i->widget->GetInvalidated();
 	}
 }
 
@@ -589,6 +621,7 @@ void yuika::Screen::MouseRelease(Position cursor_pos)
 			{
 				if (u->widget->OnMouse(MouseGesture::Release, cursor_pos, *i->widget) == EventPropagation::StopIt)
 					break;
+				m_invalidated |= u->widget->GetInvalidated();
 			}
 		}
 
@@ -603,6 +636,7 @@ void yuika::Screen::MouseRelease(Position cursor_pos)
 				{
 					if (u->widget->OnMouse(MouseGesture::Click, cursor_pos, *i->widget) == EventPropagation::StopIt)
 						break;
+					m_invalidated |= u->widget->GetInvalidated();
 				}
 			}
 		}
@@ -621,8 +655,7 @@ void yuika::Screen::MouseMoves(Position cursor_pos)
 			{
 				if (u->widget->OnMouse(MouseGesture::Leaves, cursor_pos, *i->widget) == EventPropagation::StopIt)
 					break;
-				if (u->widget->GetDirty() == true)
-					m_dirty_area = sOr(m_dirty_area, u->last_draw_at);
+				m_invalidated |= u->widget->GetInvalidated();
 			}
 		}
 	}
@@ -641,8 +674,7 @@ void yuika::Screen::MouseMoves(Position cursor_pos)
 			{
 				if (u->widget->OnMouse(MouseGesture::Enters, cursor_pos, *target->widget) == EventPropagation::StopIt)
 					break;
-				if (u->widget->GetDirty() == true)
-					m_dirty_area = sOr(m_dirty_area, u->last_draw_at);
+				m_invalidated |= u->widget->GetInvalidated();
 			}
 		}
 
@@ -675,7 +707,7 @@ yuika::Widget::Widget()
 	m_stretch_x = false; // Is not possible to set bitfields on headers
 	m_stretch_y = false; // (a C++ quirk)
 	m_natural_size_updated = false;
-	m_dirty = false;
+	m_invalidated = false;
 	m_id = "";
 }
 
@@ -689,14 +721,14 @@ void yuika::Widget::SetId(const char* id)
 	m_id = id;
 }
 
-void yuika::Widget::SetDirty(bool value)
+void yuika::Widget::SetInvalidated(bool value)
 {
-	m_dirty = value;
+	m_invalidated = value;
 }
 
-bool yuika::Widget::GetDirty() const
+bool yuika::Widget::GetInvalidated() const
 {
-	return m_dirty;
+	return m_invalidated;
 }
 
 const char* yuika::Widget::GetId() const
@@ -729,7 +761,7 @@ yuika::Size yuika::Widget::GetSize(Size available_size) const
 	return size;
 }
 
-void yuika::Widget::Draw(DrawApi& api, Rect allowed_draw_area) const
+void yuika::Widget::OnDraw(DrawApi& api, Rect allowed_draw_area) const
 {
 	// There are less surprises by setting a hit area by default
 	api.SetHitArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
@@ -760,14 +792,14 @@ yuika::Widget::ChildGet yuika::Wrapper::GetChild(size_t, Size available_size)
 {
 	if (m_content == nullptr)
 		throw 1; // TODO
-	return {*m_content, {}, GetSize(available_size)};
+	return {*m_content, {}, GetSize(available_size), {}};
 }
 
 const yuika::Widget::ChildGet yuika::Wrapper::GetChild(size_t, Size available_size) const
 {
 	if (m_content == nullptr)
 		throw 1; // TODO
-	return {*m_content, {}, GetSize(available_size)};
+	return {*m_content, {}, GetSize(available_size), {}};
 }
 
 yuika::Widget& yuika::Wrapper::GetChild(size_t)
@@ -822,7 +854,7 @@ class yuika::BoxFriend
   public:
 	template <typename T> static Widget::ChildGet GetChild(T& fwend, size_t no, Size available_size)
 	{
-		Delta delta;
+		Position next_offset;
 		Size size;
 
 		if (no >= fwend.m_children.size())
@@ -841,7 +873,7 @@ class yuika::BoxFriend
 				available_size.w = Max(available_size.w, child->GetNaturalSize().w);
 			}
 			size = child->GetSize(available_size);
-			delta = {(no < fwend.m_children.size() - 1) ? size.w : 0, 0};
+			next_offset = {(no < fwend.m_children.size() - 1) ? size.w : 0, 0};
 		}
 		break;
 		case Box::Direction::Vertical:
@@ -853,12 +885,12 @@ class yuika::BoxFriend
 				available_size.h = Max(available_size.h, child->GetNaturalSize().h);
 			}
 			size = child->GetSize(available_size);
-			delta = {0, (no < fwend.m_children.size() - 1) ? size.h : 0};
+			next_offset = {0, (no < fwend.m_children.size() - 1) ? size.h : 0};
 		}
 		break;
 		}
 
-		return {*child, delta, size};
+		return {*child, {}, size, next_offset};
 	}
 };
 
@@ -938,7 +970,7 @@ yuika::Text::Text(std::string text) : Widget()
 
 static constexpr int TEXT_MARGIN = 18; // TODO, implement styles or something similar
 
-void yuika::Text::Draw(DrawApi& api, Rect allowed_draw_area) const
+void yuika::Text::OnDraw(DrawApi& api, Rect allowed_draw_area) const
 {
 	api.SetHitArea({allowed_draw_area.pos, allowed_draw_area.size});
 	// api.DrawCheckerBoardRectangle(DrawApi::RED, {allowed_draw_area.pos, allowed_draw_area.size});
@@ -991,10 +1023,96 @@ yuika::Size yuika::Text::UpdateNaturalSize(SimpleApi& api)
 // ############################
 
 
-yuika::Button::Button() : Wrapper() {}
-
-void yuika::Button::Draw(DrawApi& api, Rect allowed_draw_area) const
+yuika::Button::Button(Style style) : Wrapper()
 {
-	api.SetHitArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
-	api.Draw3dBevel({allowed_draw_area.pos, GetSize(allowed_draw_area.size)}, DrawApi::BevelStyle::Outset);
+	m_style = style;
+	m_state = State::Normal;
+	m_pressed = false;
+	m_inside = false;
+}
+
+void yuika::Button::OnDraw(DrawApi& api, Rect allowed_draw_area) const
+{
+	const Size size = GetSize(allowed_draw_area.size);
+
+	api.SetHitArea({allowed_draw_area.pos, size});
+	api.DrawRectangle(DrawApi::BACKGROUND, {allowed_draw_area.pos, size});
+
+	switch (m_state)
+	{
+	case State::Normal:
+		if (m_style != Style::Flat)
+			api.DrawBorder({allowed_draw_area.pos, size}, DrawApi::BevelStyle::Outset);
+		break;
+	case State::Over:
+#ifndef NDEBUG
+		// White for debugging purposes
+		api.DrawRectangle(DrawApi::WHITE, {allowed_draw_area.pos, size});
+#endif
+		api.DrawBorder({allowed_draw_area.pos, size}, DrawApi::BevelStyle::Outset);
+		break;
+	case State::Pressed:
+		api.DrawBorder({{allowed_draw_area.pos.x + 1, allowed_draw_area.pos.y + 1}, {size.w - 2, size.h - 2}},
+		               DrawApi::BevelStyle::Inset);
+		api.DrawBorder({allowed_draw_area.pos, size}, DrawApi::BevelStyle::Solid, DrawApi::BLACK);
+		break;
+	}
+}
+
+yuika::EventPropagation yuika::Button::OnMouse(yuika::MouseGesture gesture, yuika::Position, const yuika::Widget&)
+{
+	const State prev_state = m_state;
+
+	switch (gesture)
+	{
+	case yuika::MouseGesture::Press: m_pressed = true; break;
+	case yuika::MouseGesture::Release: m_pressed = false; break;
+	case yuika::MouseGesture::Enters: m_inside = true; break;
+	case yuika::MouseGesture::Leaves: m_inside = false; break;
+	default: break;
+	}
+
+	if (m_inside == true)
+	{
+#ifndef NDEBUG
+		// Classic Windows theme don't highlight on mouse over, XP's Luna theme does
+		m_state = (m_pressed == true) ? State::Pressed : State::Over;
+#else
+		if (m_style != Style::Flat)
+			m_state = (m_pressed == true) ? State::Pressed : State::Normal;
+		else // Classic does on flat buttons tho
+			m_state = (m_pressed == true) ? State::Pressed : State::Over;
+#endif
+	}
+	else
+		m_state = State::Normal;
+
+	if (prev_state != m_state)
+		SetInvalidated(true);
+
+	return yuika::EventPropagation::KeepPassingIt;
+}
+
+yuika::Widget::ChildGet yuika::Button::GetChild(size_t, Size available_size)
+{
+	if (m_content == nullptr)
+		throw 1; // TODO
+
+	const Size size = GetSize(available_size);
+	if (m_state == State::Pressed)
+		return {*m_content, {1, 1}, {size.w - 2, size.h - 2}, {}};
+
+	return {*m_content, {}, size, {}};
+}
+
+const yuika::Widget::ChildGet yuika::Button::GetChild(size_t, Size available_size) const
+{
+	if (m_content == nullptr)
+		throw 1; // TODO
+
+	const Size size = GetSize(available_size);
+	if (m_state == State::Pressed)
+		return {*m_content, {1, 1}, {size.w - 2, size.h - 2}, {}};
+
+	return {*m_content, {}, size, {}};
 }

@@ -21,6 +21,16 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 namespace yui = yuika;
 
 
+static constexpr int CHANGED_AREAS_NO = 8;
+struct ChangedAreas
+{
+	SDL_FRect rect;
+	float life;
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
+};
+
 struct App
 {
 	SDL_Window* window;
@@ -31,6 +41,9 @@ struct App
 
 	yui::Screen screen;
 	yui::Size window_size;
+
+	ChangedAreas changed_areas[CHANGED_AREAS_NO];
+	int changed_areas_cursor;
 };
 
 
@@ -111,19 +124,6 @@ class ClickableText : public yui::Text
 	}
 };
 
-class MenuButton : public yui::ButtonWithText
-{
-  public:
-	MenuButton(const std::string& text) : yui::ButtonWithText(text) {};
-
-	yui::EventPropagation OnMouse(yui::MouseGesture gesture, yui::Position, const yui::Widget& target) override
-	{
-		if (gesture == yui::MouseGesture::Enters || gesture == yui::MouseGesture::Leaves)
-			SetDirty(true);
-		return yui::EventPropagation::KeepPassingIt;
-	}
-};
-
 static void sCreateUi(yui::Wrapper& root)
 {
 	auto& main_container = root.SetNewChild<yui::VBox>();
@@ -139,15 +139,15 @@ static void sCreateUi(yui::Wrapper& root)
 	titlebar.AddNewChild<yui::ButtonWithText>("X");
 
 	auto& menu = main_container.AddNewChild<yui::HBox>();
-	menu.AddNewChild<MenuButton>("File");
-	menu.AddNewChild<MenuButton>("Edit");
-	menu.AddNewChild<MenuButton>("View");
-	menu.AddNewChild<MenuButton>("Insert");
-	menu.AddNewChild<MenuButton>("Format");
-	menu.AddNewChild<MenuButton>("Tools");
-	menu.AddNewChild<MenuButton>("Table");
-	menu.AddNewChild<MenuButton>("Window");
-	menu.AddNewChild<MenuButton>("Help");
+	menu.AddNewChild<yui::ButtonWithText>("File", yui::Button::Style::Flat);
+	menu.AddNewChild<yui::ButtonWithText>("Edit", yui::Button::Style::Flat);
+	menu.AddNewChild<yui::ButtonWithText>("View", yui::Button::Style::Flat);
+	menu.AddNewChild<yui::ButtonWithText>("Insert", yui::Button::Style::Flat);
+	menu.AddNewChild<yui::ButtonWithText>("Format", yui::Button::Style::Flat);
+	menu.AddNewChild<yui::ButtonWithText>("Tools", yui::Button::Style::Flat);
+	menu.AddNewChild<yui::ButtonWithText>("Table", yui::Button::Style::Flat);
+	menu.AddNewChild<yui::ButtonWithText>("Window", yui::Button::Style::Flat);
+	menu.AddNewChild<yui::ButtonWithText>("Help", yui::Button::Style::Flat);
 
 	auto& top_toolbar = main_container.AddNewChild<yui::HBox>();
 	top_toolbar.AddNewChild<yui::ButtonWithText>("0"); // New
@@ -222,6 +222,11 @@ SDL_AppResult SDL_AppInit(void** app_raw, int, char**)
 	app->screen.Initialise(0x00FF0000, 0x0000FF00, 0x000000FF);
 	sCreateUi(app->screen.GetRoot());
 
+	memset(app->changed_areas, 0, sizeof(ChangedAreas) * static_cast<size_t>(CHANGED_AREAS_NO));
+	app->changed_areas_cursor = 0;
+
+	SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
+
 	// Bye!
 	return SDL_APP_CONTINUE;
 return_failure:
@@ -268,7 +273,20 @@ SDL_AppResult SDL_AppIterate(void* app_raw)
 	int stride = 0;
 	if (SDL_LockTexture(app->texture, nullptr, &pixels, &stride) == true)
 	{
-		app->screen.Draw(app->window_size, reinterpret_cast<uint32_t*>(pixels));
+		const yui::Rect changed_area = app->screen.Draw(app->window_size, reinterpret_cast<uint32_t*>(pixels));
+		if (changed_area.size.w > 0 || changed_area.size.h > 0)
+		{
+			ChangedAreas* a = app->changed_areas + app->changed_areas_cursor;
+			app->changed_areas_cursor = (app->changed_areas_cursor + 1) % CHANGED_AREAS_NO;
+			a->rect.x = static_cast<float>(changed_area.pos.x);
+			a->rect.y = static_cast<float>(changed_area.pos.y);
+			a->rect.w = static_cast<float>(changed_area.size.w);
+			a->rect.h = static_cast<float>(changed_area.size.h);
+			a->life = 0.75f;
+			a->r = static_cast<uint8_t>(SDL_rand(256 - 32) + 32);
+			a->g = static_cast<uint8_t>(SDL_rand(256 - 32) + 32);
+			a->b = static_cast<uint8_t>(SDL_rand(256 - 32) + 32);
+		}
 		SDL_UnlockTexture(app->texture);
 	}
 	else
@@ -277,8 +295,19 @@ SDL_AppResult SDL_AppIterate(void* app_raw)
 		return SDL_APP_FAILURE;
 	}
 
-	SDL_RenderClear(app->renderer);
+	SDL_SetRenderDrawColor(app->renderer, 255, 255, 255, 255);
 	SDL_RenderTexture(app->renderer, app->texture, nullptr, nullptr);
+
+	if (true)
+	{
+		for (ChangedAreas* a = app->changed_areas; a < app->changed_areas + CHANGED_AREAS_NO; a += 1)
+		{
+			SDL_SetRenderDrawColor(app->renderer, a->r, a->g, a->b, static_cast<uint8_t>(a->life * 255.0f));
+			SDL_RenderFillRect(app->renderer, &a->rect);
+			a->life *= 1.0f - 1.0f / 25.0f; // Frame rate dependent
+		}
+	}
+
 	SDL_RenderPresent(app->renderer);
 
 	return SDL_APP_CONTINUE;

@@ -54,15 +54,15 @@ static void sCreateUi(yuika::Wrapper& root)
 	titlebar.SetId("#titlebar");
 
 	auto& menu = main_container.AddNewChild<yui::HBox>();
-	menu.AddNewChild<yui::ButtonWithText>("File").SetId("#file");
-	menu.AddNewChild<yui::ButtonWithText>("Edit").SetId("#edit");
-	menu.AddNewChild<yui::ButtonWithText>("View").SetId("#view");
-	menu.AddNewChild<yui::ButtonWithText>("Insert").SetId("#insert");
-	menu.AddNewChild<yui::ButtonWithText>("Format").SetId("#format");
-	menu.AddNewChild<yui::ButtonWithText>("Tools").SetId("#tools");
-	menu.AddNewChild<yui::ButtonWithText>("Table").SetId("#table");
-	menu.AddNewChild<yui::ButtonWithText>("Window").SetId("#window");
-	menu.AddNewChild<yui::ButtonWithText>("Help").SetId("#help");
+	menu.AddNewChild<yui::ButtonWithText>("File", yui::Button::Style::Flat).SetId("#file");
+	menu.AddNewChild<yui::ButtonWithText>("Edit", yui::Button::Style::Flat).SetId("#edit");
+	menu.AddNewChild<yui::ButtonWithText>("View", yui::Button::Style::Flat).SetId("#view");
+	menu.AddNewChild<yui::ButtonWithText>("Insert", yui::Button::Style::Flat).SetId("#insert");
+	menu.AddNewChild<yui::ButtonWithText>("Format", yui::Button::Style::Flat).SetId("#format");
+	menu.AddNewChild<yui::ButtonWithText>("Tools", yui::Button::Style::Flat).SetId("#tools");
+	menu.AddNewChild<yui::ButtonWithText>("Table", yui::Button::Style::Flat).SetId("#table");
+	menu.AddNewChild<yui::ButtonWithText>("Window", yui::Button::Style::Flat).SetId("#window");
+	menu.AddNewChild<yui::ButtonWithText>("Help", yui::Button::Style::Flat).SetId("#help");
 	menu.SetId("#menu");
 
 	auto& top_toolbar = main_container.AddNewChild<yui::HBox>();
