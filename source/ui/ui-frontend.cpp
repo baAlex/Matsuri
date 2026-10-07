@@ -18,7 +18,7 @@ class MainContainer : public yuika::VBox
   public:
 	MainContainer() {}
 
-	yuika::EventPropagation OnMouse(yuika::MouseGesture gesture, yuika::Position, const yuika::Widget& target) override
+	yuika::EventPropagation OnMouse(yuika::MouseGesture gesture, yuika::Vector, const yuika::Widget& target) override
 	{
 		if (gesture == yuika::MouseGesture::Click)
 			printf("Click on target \"%s\"\n", target.GetId());

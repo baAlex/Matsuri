@@ -11,6 +11,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
 #include "yuika.hpp"
+#include <algorithm>
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
@@ -18,35 +19,25 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 
 #include "arialn.inc"
 
-
-template <typename T> static T Min(T a, T b) noexcept
-{
-	return (a < b) ? a : b;
-}
-template <typename T> static T Max(T a, T b) noexcept
-{
-	return (a > b) ? a : b;
-}
-template <typename T> static T Clamp(T v, T min, T max) noexcept
-{
-	return Min(Max(v, min), max);
-}
+// clang-format off
+#define EXCEPT(code, exception_object) if( code ) { throw (exception_object); }
+// clang-format on
 
 
-static bool sInside(yuika::Position pos, yuika::Rect rect)
+static bool sInside(yuika::Vector pos, yuika::Rect rect)
 {
 	if (pos.x >= rect.pos.x && pos.y >= rect.pos.y && //
-	    pos.x < rect.pos.x + rect.size.w && pos.y < rect.pos.y + rect.size.h)
+	    pos.x < rect.pos.x + rect.size.x && pos.y < rect.pos.y + rect.size.y)
 		return true;
 	return false;
 }
 
 static yuika::Rect sOr(yuika::Rect a, yuika::Rect b)
 {
-	const int x1 = Min(a.pos.x, b.pos.x);
-	const int y1 = Min(a.pos.y, b.pos.y);
-	const int x2 = Max(a.pos.x + a.size.w, b.pos.x + b.size.w);
-	const int y2 = Max(a.pos.y + a.size.h, b.pos.y + b.size.h);
+	const int x1 = std::min(a.pos.x, b.pos.x);
+	const int y1 = std::min(a.pos.y, b.pos.y);
+	const int x2 = std::max(a.pos.x + a.size.x, b.pos.x + b.size.x);
+	const int y2 = std::max(a.pos.y + a.size.y, b.pos.y + b.size.y);
 	return {{x1, y1}, {x2 - x1, y2 - y1}};
 }
 
@@ -55,8 +46,8 @@ static yuika::Rect sInverseRect()
 	yuika::Rect ret;
 	ret.pos.x = INT_MAX;
 	ret.pos.y = INT_MAX;
-	ret.size.w = INT_MIN;
-	ret.size.h = INT_MIN;
+	ret.size.x = INT_MIN;
+	ret.size.y = INT_MIN;
 	return ret;
 }
 
@@ -66,6 +57,7 @@ static int sFindLastSet(uint32_t v) noexcept
 {
 	return v == 0 ? 0 : 32 - __builtin_clz(v);
 }
+
 #elif defined(_MSC_VER)
 #include <intrin.h>
 static int sFindLastSet(uint32_t v) noexcept
@@ -73,6 +65,7 @@ static int sFindLastSet(uint32_t v) noexcept
 	unsigned long index;
 	return _BitScanReverse(&index, v) ? static_cast<int>(index + 1) : 0;
 }
+
 #else
 static int sClz(uint32_t x) noexcept
 {
@@ -124,12 +117,12 @@ void yuika::Screen::Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask
 
 		auto p = static_cast<float>(255 - ATLAS_DATA[i]) / 255.0f;
 
-		p = (Clamp(p, min, max) - min) / (max - min);
+		p = (std::clamp(p, min, max) - min) / (max - min);
 
 		// https://registry.khronos.org/OpenGL-Refpages/gl4/html/smoothstep.xhtml
 		const float p2 = p * p * (3.0f - 2.0f * p); // I'm not sure, Valve uses it, but they
-		// didn't take gamma in consideration, also, should I compensate it here
-		// since the blitter has no idea what gamma is?.
+		// didn't take gamma in consideration, also, should I compensate it here since the
+		// blitter has no idea what gamma is?.
 
 		// Edit, it looks better, sharper. It's a balance with the hinting.
 
@@ -155,6 +148,17 @@ class yuika::ScreenFriend
 		Screen* fwend;
 		struct Rect hit_area;
 
+		Rect ClipRect(Rect rect)
+		{
+			const int x = std::clamp(rect.pos.x, 0, fwend->m_size.x);
+			const int y = std::clamp(rect.pos.y, 0, fwend->m_size.y);
+			rect.size.x = (std::clamp(rect.pos.x + rect.size.x, 0, fwend->m_size.x) - x);
+			rect.size.y = (std::clamp(rect.pos.y + rect.size.y, 0, fwend->m_size.y) - y) * fwend->m_size.x;
+			rect.pos.x = x;
+			rect.pos.y = y;
+			return rect;
+		}
+
 		void SetHitArea(Rect rect) noexcept override
 		{
 			hit_area = rect; // If already set, we overwrite last one (TODO, validate and clamp area)
@@ -162,15 +166,12 @@ class yuika::ScreenFriend
 
 		void DrawRectangle(Colour colour, Rect rect) noexcept override
 		{
-			const int x1 = Clamp(rect.pos.x, 0, fwend->m_size.w);
-			const int y1 = Clamp(rect.pos.y, 0, fwend->m_size.h);
-			rect.size.w = (Clamp(rect.pos.x + rect.size.w, 0, fwend->m_size.w) - x1);
-			rect.size.h = (Clamp(rect.pos.y + rect.size.h, 0, fwend->m_size.h) - y1) * fwend->m_size.w;
+			rect = ClipRect(rect);
 
-			uint32_t* out = fwend->m_out + static_cast<size_t>(x1 + y1 * fwend->m_size.w);
-			for (uint32_t* row = out; row < out + rect.size.h; row += static_cast<size_t>(fwend->m_size.w))
+			uint32_t* out = fwend->m_out + static_cast<size_t>(rect.pos.x + rect.pos.y * fwend->m_size.x);
+			for (uint32_t* row = out; row < out + rect.size.y; row += static_cast<size_t>(fwend->m_size.x))
 			{
-				for (uint32_t* col = row; col < row + rect.size.w; col += 1)
+				for (uint32_t* col = row; col < row + rect.size.x; col += 1)
 				{
 					*col = colour;
 				}
@@ -179,18 +180,14 @@ class yuika::ScreenFriend
 
 		void DrawCheckerBoardRectangle(Colour colour, Rect rect) noexcept override
 		{
-			const int x1 = Clamp(rect.pos.x, 0, fwend->m_size.w);
-			const int y1 = Clamp(rect.pos.y, 0, fwend->m_size.h);
-			rect.size.w = (Clamp(rect.pos.x + rect.size.w, 0, fwend->m_size.w) - x1);
-			rect.size.h = (Clamp(rect.pos.y + rect.size.h, 0, fwend->m_size.h) - y1) * fwend->m_size.w;
-
+			rect = ClipRect(rect);
 			uint8_t kiki = 0;
 			uint8_t boba = 0;
 
-			uint32_t* out = fwend->m_out + static_cast<size_t>(x1 + y1 * fwend->m_size.w);
-			for (uint32_t* row = out; row < out + rect.size.h; row += static_cast<size_t>(fwend->m_size.w))
+			uint32_t* out = fwend->m_out + static_cast<size_t>(rect.pos.x + rect.pos.y * fwend->m_size.x);
+			for (uint32_t* row = out; row < out + rect.size.y; row += static_cast<size_t>(fwend->m_size.x))
 			{
-				for (uint32_t* col = row; col < row + rect.size.w; col += 1)
+				for (uint32_t* col = row; col < row + rect.size.x; col += 1)
 				{
 					*col = (((kiki ^ boba) & 1) != 0) ? colour : *col;
 					boba++;
@@ -205,30 +202,34 @@ class yuika::ScreenFriend
 			switch (style)
 			{
 			case BevelStyle::Inset:
-				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y}, {rect.size.w - 1, 1}});
-				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.h - 1}});
-				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x + rect.size.w - 1, rect.pos.y}, {1, rect.size.h}});
-				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y + rect.size.h - 1}, {rect.size.w, 1}});
+				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y}, {rect.size.x - 1, 1}});
+				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.y - 1}});
+				// DrawRectangle(BEVEL_LIGHT, {{rect.pos.x + rect.size.x - 1, rect.pos.y}, {1, rect.size.y}});
+				// DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y + rect.size.y - 1}, {rect.size.x, 1}});
+
+				// Windows 2000 is simpler than 9x:
+				DrawRectangle(BEVEL_MID, {{rect.pos.x + rect.size.x - 1, rect.pos.y}, {1, rect.size.y}});
+				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y + rect.size.y - 1}, {rect.size.x, 1}});
 				break;
 			case BevelStyle::Outset:
-				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y}, {rect.size.w - 1, 1}});
-				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.h - 1}});
-				DrawRectangle(BEVEL_SHADOW, {{rect.pos.x + rect.size.w - 1, rect.pos.y}, {1, rect.size.h}});
-				DrawRectangle(BEVEL_SHADOW, {{rect.pos.x, rect.pos.y + rect.size.h - 1}, {rect.size.w, 1}});
+				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y}, {rect.size.x - 1, 1}});
+				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.y - 1}});
+				DrawRectangle(BEVEL_SHADOW, {{rect.pos.x + rect.size.x - 1, rect.pos.y}, {1, rect.size.y}});
+				DrawRectangle(BEVEL_SHADOW, {{rect.pos.x, rect.pos.y + rect.size.y - 1}, {rect.size.x, 1}});
 
-				DrawRectangle(BEVEL_MID, {{rect.pos.x + rect.size.w - 2, rect.pos.y + 1}, {1, rect.size.h - 2}});
-				DrawRectangle(BEVEL_MID, {{rect.pos.x + 1, rect.pos.y + rect.size.h - 2}, {rect.size.w - 2, 1}});
+				DrawRectangle(BEVEL_MID, {{rect.pos.x + rect.size.x - 2, rect.pos.y + 1}, {1, rect.size.y - 2}});
+				DrawRectangle(BEVEL_MID, {{rect.pos.x + 1, rect.pos.y + rect.size.y - 2}, {rect.size.x - 2, 1}});
 				break;
 			case BevelStyle::Solid:
-				DrawRectangle(colour, {{rect.pos.x, rect.pos.y}, {rect.size.w - 1, 1}});
-				DrawRectangle(colour, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.h - 1}});
-				DrawRectangle(colour, {{rect.pos.x + rect.size.w - 1, rect.pos.y}, {1, rect.size.h}});
-				DrawRectangle(colour, {{rect.pos.x, rect.pos.y + rect.size.h - 1}, {rect.size.w, 1}});
+				DrawRectangle(colour, {{rect.pos.x, rect.pos.y}, {rect.size.x - 1, 1}});
+				DrawRectangle(colour, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.y - 1}});
+				DrawRectangle(colour, {{rect.pos.x + rect.size.x - 1, rect.pos.y}, {1, rect.size.y}});
+				DrawRectangle(colour, {{rect.pos.x, rect.pos.y + rect.size.y - 1}, {rect.size.x, 1}});
 				break;
 			}
 		}
 
-		void DrawText(Colour colour, Position pos, const char* text) noexcept override
+		void DrawText(Colour colour, Vector pos, const char* text) noexcept override
 		{
 			auto xf = static_cast<float>(pos.x);
 			auto yf = static_cast<float>(pos.y);
@@ -248,23 +249,21 @@ class yuika::ScreenFriend
 				if (*c == ' ')
 					continue;
 
-				const int x1 = Clamp(rect.pos.x, 0, fwend->m_size.w);
-				const int y1 = Clamp(rect.pos.y, 0, fwend->m_size.h);
-				rect.size.w = (Clamp(rect.pos.x + rect.size.w, 0, fwend->m_size.w) - x1);
-				rect.size.h = (Clamp(rect.pos.y + rect.size.h, 0, fwend->m_size.h) - y1) * fwend->m_size.w;
+				const auto clipped_rect = ClipRect(rect);
+				const auto clip_diff_x = static_cast<size_t>(clipped_rect.pos.x - rect.pos.x);
+				const auto clip_diff_y = static_cast<size_t>(clipped_rect.pos.y - rect.pos.y);
 
-				const auto clamp_diff_x = static_cast<size_t>(x1 - rect.pos.x);
-				const auto clamp_diff_y = static_cast<size_t>(y1 - rect.pos.y);
 				const uint8_t* in_row =
-				    fwend->m_font + (ch->atlas_x + clamp_diff_x) + ATLAS_WIDTH * (ch->atlas_y + clamp_diff_y);
+				    fwend->m_font + (ch->atlas_x + clip_diff_x) + ATLAS_WIDTH * (ch->atlas_y + clip_diff_y);
 				const uint32_t in_pitch = ATLAS_WIDTH;
 
-				uint32_t* out = fwend->m_out + static_cast<size_t>(x1 + y1 * fwend->m_size.w);
-				for (uint32_t* row = out; row < out + rect.size.h; row += static_cast<size_t>(fwend->m_size.w))
+				uint32_t* out =
+				    fwend->m_out + static_cast<size_t>(clipped_rect.pos.x + clipped_rect.pos.y * fwend->m_size.x);
+				for (uint32_t* row = out; row < out + clipped_rect.size.y; row += static_cast<size_t>(fwend->m_size.x))
 				{
 					const uint8_t* in_col = in_row;
 
-					for (uint32_t* out_col = row; out_col < row + rect.size.w; out_col += 1)
+					for (uint32_t* out_col = row; out_col < row + clipped_rect.size.x; out_col += 1)
 					{
 						const auto a = (static_cast<uint32_t>((*out_col >> 24) & 0xFF) * (*in_col) +
 						                static_cast<uint32_t>((colour >> 24) & 0xFF) * (255 - *in_col)) /
@@ -289,7 +288,7 @@ class yuika::ScreenFriend
 			}
 		}
 
-		Size TextSize(const char* text) override
+		Vector TextSize(const char* text) override
 		{
 			float w = 0.0f;
 
@@ -307,102 +306,34 @@ class yuika::ScreenFriend
 		}
 	};
 
-	static void DrawWidgetsAndSetMiniTree(DrawApiImplementation& api)
+	template <bool UPDATE_MINI_TREE>
+	static void IterateWidgetTree(DrawApiImplementation& api, Widget* widget, Rect allowed_draw_area)
 	{
-		// Non-recursive draw, it has the good feature of carry information while
+		// Non-recursive, it has the good feature of carry information while
 		// descending the tree, like depth, drawable area, and more; also from our
 		// end we can identify on which widget we are without asking it to widgets
 		// themselves
 
-		api.fwend->m_mini_tree_len = 0;
-		size_t cursor = 0;
+		size_t cursor = 1;
+
+		if constexpr (UPDATE_MINI_TREE == true)
+			api.fwend->m_mini_tree_len = 1;
 
 		// Add root first
 		{
-			Screen::StackEntry* stack_entry = api.fwend->m_stack + cursor;
-			cursor++;
-
-			stack_entry->widget = api.fwend->m_root;
-			stack_entry->parent_mini = nullptr;
-			stack_entry->mini = api.fwend->m_mini_tree;
-			stack_entry->allowed_draw_area = Rect{{0, 0}, api.fwend->m_size};
-
-			Screen::MiniTreeEntry* mini_entry = api.fwend->m_mini_tree + api.fwend->m_mini_tree_len;
-			api.fwend->m_mini_tree_len++;
-
-			memset(mini_entry, 0, sizeof(Screen::MiniTreeEntry));
-			mini_entry->widget = api.fwend->m_root;
-		}
-
-		// Now widget as normal
-		while (cursor > 0)
-		{
-			Screen::StackEntry current = api.fwend->m_stack[--cursor]; // Yes, copy it
-
-			// Draw widget
-			api.hit_area = {};
-			current.widget->OnDraw(api, current.allowed_draw_area);
-			current.widget->SetInvalidated(false);
-
-			// Update mini tree entry,
-			// those fields that weren't know when mini tree entry was created
-			if (current.mini != nullptr)
-			{
-				current.mini->last_draw_at = current.allowed_draw_area;
-				current.mini->hit_area = api.hit_area;
-			}
-
-			if (current.parent_mini != nullptr)
-				current.parent_mini->last_child = current.mini;
-
-			// Iterate children
-			if (cursor + current.widget->GetChildrenNo() >= Screen::STACK_LEN)
-				throw 1; // TODO
-
-			cursor += current.widget->GetChildrenNo();
-			for (size_t i = 0; i < current.widget->GetChildrenNo(); i += 1)
-			{
-				const auto [child, child_offset, child_size, next_offset] =
-				    current.widget->GetChild(i, current.allowed_draw_area.size);
-
-				// Stack children,
-				// just for iteration in this function
-				Screen::StackEntry* stack_entry = api.fwend->m_stack + cursor - 1 - i;
-
-				stack_entry->widget = &child;
-				stack_entry->parent_mini = current.mini;
-				stack_entry->mini = &api.fwend->m_mini_tree[api.fwend->m_mini_tree_len];
-				stack_entry->allowed_draw_area = {{current.allowed_draw_area.pos.x + child_offset.x,
-				                                   current.allowed_draw_area.pos.y + child_offset.y},
-				                                  child_size};
-
-				//
-				current.allowed_draw_area.pos.x += next_offset.x;
-				current.allowed_draw_area.pos.y += next_offset.y;
-
-				// Store children in mini tree,
-				// other parts of the code will use it
-				Screen::MiniTreeEntry* mini_entry = api.fwend->m_mini_tree + api.fwend->m_mini_tree_len;
-				api.fwend->m_mini_tree_len++;
-
-				memset(mini_entry, 0, sizeof(Screen::MiniTreeEntry));
-				mini_entry->widget = &child;
-				mini_entry->parent = current.mini;
-			}
-		}
-	}
-
-	static void DrawWidget(DrawApiImplementation& api, Widget* widget, Rect allowed_draw_area)
-	{
-		size_t cursor = 0;
-
-		// Add root first
-		{
-			Screen::StackEntry* stack_entry = api.fwend->m_stack + cursor;
-			cursor++;
-
+			Screen::StackEntry* stack_entry = api.fwend->m_stack + 0;
 			stack_entry->widget = widget;
 			stack_entry->allowed_draw_area = allowed_draw_area;
+
+			if constexpr (UPDATE_MINI_TREE == true)
+			{
+				stack_entry->parent_mini = nullptr;
+				stack_entry->mini = api.fwend->m_mini_tree;
+
+				Screen::MiniTreeEntry* mini_entry = api.fwend->m_mini_tree + 0;
+				memset(mini_entry, 0, sizeof(Screen::MiniTreeEntry));
+				mini_entry->widget = api.fwend->m_root;
+			}
 		}
 
 		// Now widget as normal
@@ -410,9 +341,30 @@ class yuika::ScreenFriend
 		{
 			Screen::StackEntry current = api.fwend->m_stack[--cursor];
 
-			// Draw widget (TODO?, I'm ignoring the hit area, we are not adjusting the tree anyways)
-			current.widget->OnDraw(api, current.allowed_draw_area);
-			current.widget->SetInvalidated(false);
+			if constexpr (UPDATE_MINI_TREE == false)
+			{
+				// Draw widget (TODO?, I'm ignoring the hit area, we are not adjusting the tree anyways)
+				current.widget->OnDraw(api, current.allowed_draw_area);
+				current.widget->SetInvalidated(false);
+			}
+			else
+			{
+				// Draw widget
+				api.hit_area = {};
+				current.widget->OnDraw(api, current.allowed_draw_area);
+				current.widget->SetInvalidated(false);
+
+				// Update mini tree entry,
+				// those fields that weren't know when mini tree entry was created
+				if (current.mini != nullptr)
+				{
+					current.mini->last_draw_at = current.allowed_draw_area;
+					current.mini->hit_area = api.hit_area;
+				}
+
+				if (current.parent_mini != nullptr)
+					current.parent_mini->last_child = current.mini;
+			}
 
 			// Iterate children
 			if (cursor + current.widget->GetChildrenNo() >= Screen::STACK_LEN)
@@ -424,20 +376,47 @@ class yuika::ScreenFriend
 				const auto [child, child_offset, child_size, next_offset] =
 				    current.widget->GetChild(i, current.allowed_draw_area.size);
 
-				// Stack children,
-				// just for iteration in this function
 				Screen::StackEntry* stack_entry = api.fwend->m_stack + cursor - 1 - i;
 
-				stack_entry->widget = &child;
-				stack_entry->allowed_draw_area = {{current.allowed_draw_area.pos.x + child_offset.x,
-				                                   current.allowed_draw_area.pos.y + child_offset.y},
-				                                  child_size};
+				if constexpr (UPDATE_MINI_TREE == false)
+				{
+					// Stack children,
+					// just for iteration in this function
+					stack_entry->widget = &child;
+					stack_entry->allowed_draw_area = {current.allowed_draw_area.pos + child_offset, child_size};
+				}
+				else
+				{
+					// Stack children
+					stack_entry->widget = &child;
+					stack_entry->parent_mini = current.mini;
+					stack_entry->mini = &api.fwend->m_mini_tree[api.fwend->m_mini_tree_len];
+					stack_entry->allowed_draw_area = {current.allowed_draw_area.pos + child_offset, child_size};
+
+					// Store children in mini tree,
+					// other parts of the code will use it
+					Screen::MiniTreeEntry* mini_entry = api.fwend->m_mini_tree + api.fwend->m_mini_tree_len;
+					api.fwend->m_mini_tree_len++;
+
+					memset(mini_entry, 0, sizeof(Screen::MiniTreeEntry));
+					mini_entry->widget = &child;
+					mini_entry->parent = current.mini;
+				}
 
 				//
-				current.allowed_draw_area.pos.x += next_offset.x;
-				current.allowed_draw_area.pos.y += next_offset.y;
+				current.allowed_draw_area.pos += next_offset;
 			}
 		}
+	}
+
+	static void DrawWidgetsAndSetMiniTree(DrawApiImplementation& api)
+	{
+		IterateWidgetTree<true>(api, api.fwend->m_root, Rect{{}, api.fwend->m_size});
+	}
+
+	static void DrawWidget(DrawApiImplementation& api, Widget* widget, Rect allowed_draw_area)
+	{
+		IterateWidgetTree<false>(api, widget, allowed_draw_area);
 	}
 };
 
@@ -445,7 +424,51 @@ class yuika::ScreenFriend
 static constexpr bool UPDATE_NATURAL_SIZE_LIKE_CRAZY = false;
 static constexpr bool DRAW_LIKE_CRAZY = false;
 
-yuika::Rect yuika::Screen::Draw(Size size, uint32_t* out)
+void yuika::Screen::ColourConversion(uint32_t* in_out, Vector size, int stride) const
+{
+	if (m_masks[2] == 0x00FF0000 && m_masks[1] == 0x0000FF00 && m_masks[0] == 0x000000FF)
+		return;
+
+	// Disgusting but the auto-vectoriser is doing it! (and in a horizontal manner, which
+	// makes sense since there is no shift for individual lanes; anyways it's 8 values
+	// with AVX and 4 with SSE2)
+
+	const int set[4] = {sFindLastSet(m_masks[0]), //
+	                    sFindLastSet(m_masks[1]), //
+	                    sFindLastSet(m_masks[2]), 0};
+
+	const int ls[4] = {(set[0] >= 8) ? set[0] - 8 : 0, //
+	                   (set[1] >= 8) ? set[1] - 8 : 0, //
+	                   (set[2] >= 8) ? set[2] - 8 : 0, 0};
+	const uint32_t lm[4] = {(set[0] >= 8) ? m_masks[0] : 0, //
+	                        (set[1] >= 8) ? m_masks[1] : 0, //
+	                        (set[2] >= 8) ? m_masks[2] : 0, 0};
+
+	const int rs[4] = {(set[0] < 8) ? 8 - set[0] : 0, //
+	                   (set[1] < 8) ? 8 - set[1] : 0, //
+	                   (set[2] < 8) ? 8 - set[2] : 0, 0};
+	const uint32_t rm[4] = {(set[0] < 8) ? m_masks[0] : 0, //
+	                        (set[1] < 8) ? m_masks[1] : 0, //
+	                        (set[2] < 8) ? m_masks[2] : 0, 0};
+
+	for (uint32_t* row = in_out; row < in_out + static_cast<size_t>(stride * size.y); row += stride)
+	{
+		for (uint32_t* col = row; col < row + static_cast<size_t>(size.x); col += 1)
+		{
+			const auto a = static_cast<uint32_t>((*col >> 24) & 0xFF);
+			const auto r = static_cast<uint32_t>((*col >> 16) & 0xFF);
+			const auto g = static_cast<uint32_t>((*col >> 8) & 0xFF);
+			const auto b = static_cast<uint32_t>((*col >> 0) & 0xFF);
+
+			*col = ((b << ls[0]) & lm[0]) | ((g << ls[1]) & lm[1]) | //
+			       ((r << ls[2]) & lm[2]) | ((a << ls[3]) & lm[3]) | //
+			       ((b >> rs[0]) & rm[0]) | ((g >> rs[1]) & rm[1]) | //
+			       ((r >> rs[2]) & rm[2]) | ((a >> rs[3]) & rm[3]);
+		}
+	}
+}
+
+yuika::Rect yuika::Screen::Draw(Vector size, uint32_t* out)
 {
 	ScreenFriend::DrawApiImplementation draw_api;
 	draw_api.fwend = this;
@@ -453,7 +476,7 @@ yuika::Rect yuika::Screen::Draw(Size size, uint32_t* out)
 	m_out = out;
 
 	// Full draw
-	if (m_size.w != size.w || m_size.h != size.h || DRAW_LIKE_CRAZY == true)
+	if (m_size.x != size.x || m_size.y != size.y || DRAW_LIKE_CRAZY == true)
 	{
 		m_size = size;
 		m_invalidated = false; // We are doing a full draw
@@ -465,50 +488,11 @@ yuika::Rect yuika::Screen::Draw(Size size, uint32_t* out)
 #ifndef NDEBUG
 		draw_api.DrawRectangle(DrawApi::PINK, {{0, 0}, m_size});
 #else
-		// White is the default brush setting in Win32
 		draw_api.DrawRectangle(DrawApi::WHITE, {{0, 0}, m_size});
 #endif
 
 		ScreenFriend::DrawWidgetsAndSetMiniTree(draw_api);
-
-		// Do conversion
-		if (m_masks[2] != 0x00FF0000 || m_masks[1] != 0x0000FF00 || m_masks[0] != 0x000000FF)
-		{
-			// Disgusting but the auto-vectoriser is doing it! (and in a horizontal
-			// manner, which makes sense since there is no shift for individual
-			// lanes; anyways it's 8 values with AVX and 4 with SSE2)
-
-			const int set[4] = {sFindLastSet(m_masks[0]), //
-			                    sFindLastSet(m_masks[1]), //
-			                    sFindLastSet(m_masks[2]), 0};
-
-			const int ls[4] = {(set[0] >= 8) ? set[0] - 8 : 0, //
-			                   (set[1] >= 8) ? set[1] - 8 : 0, //
-			                   (set[2] >= 8) ? set[2] - 8 : 0, 0};
-			const uint32_t lm[4] = {(set[0] >= 8) ? m_masks[0] : 0, //
-			                        (set[1] >= 8) ? m_masks[1] : 0, //
-			                        (set[2] >= 8) ? m_masks[2] : 0, 0};
-
-			const int rs[4] = {(set[0] < 8) ? 8 - set[0] : 0, //
-			                   (set[1] < 8) ? 8 - set[1] : 0, //
-			                   (set[2] < 8) ? 8 - set[2] : 0, 0};
-			const uint32_t rm[4] = {(set[0] < 8) ? m_masks[0] : 0, //
-			                        (set[1] < 8) ? m_masks[1] : 0, //
-			                        (set[2] < 8) ? m_masks[2] : 0, 0};
-
-			for (uint32_t* p = out; p < out + static_cast<size_t>(size.w * size.h); p += 1)
-			{
-				const auto a = static_cast<uint32_t>((*p >> 24) & 0xFF);
-				const auto r = static_cast<uint32_t>((*p >> 16) & 0xFF);
-				const auto g = static_cast<uint32_t>((*p >> 8) & 0xFF);
-				const auto b = static_cast<uint32_t>((*p >> 0) & 0xFF);
-
-				*p = ((b << ls[0]) & lm[0]) | ((g << ls[1]) & lm[1]) | //
-				     ((r << ls[2]) & lm[2]) | ((a << ls[3]) & lm[3]) | //
-				     ((b >> rs[0]) & rm[0]) | ((g >> rs[1]) & rm[1]) | //
-				     ((r >> rs[2]) & rm[2]) | ((a >> rs[3]) & rm[3]);
-			}
-		}
+		ColourConversion(out, m_size, m_size.x);
 
 		// Developers, developers, developers
 		if (false)
@@ -551,10 +535,11 @@ yuika::Rect yuika::Screen::Draw(Size size, uint32_t* out)
 #endif
 
 			ScreenFriend::DrawWidget(draw_api, i->widget, i->last_draw_at);
+			ColourConversion(out + static_cast<size_t>(i->last_draw_at.pos.x + m_size.x * i->last_draw_at.pos.y),
+			                 i->last_draw_at.size, m_size.x);
+
 			changed_area = sOr(i->last_draw_at, changed_area);
 		}
-
-		// TODO, conversion
 
 		// Done!
 		return changed_area;
@@ -565,7 +550,17 @@ yuika::Rect yuika::Screen::Draw(Size size, uint32_t* out)
 }
 
 
-void yuika::Screen::MousePress(Position cursor_pos)
+void yuika::Screen::Bubble(MouseGesture gesture, Vector cursor_pos, MiniTreeEntry* target)
+{
+	for (MiniTreeEntry* i = target; i != nullptr; i = i->parent)
+	{
+		if (i->widget->OnMouse(gesture, cursor_pos, *target->widget) == EventPropagation::StopIt)
+			break;
+		m_invalidated |= i->widget->GetInvalidated();
+	}
+}
+
+void yuika::Screen::MousePress(Vector cursor_pos)
 {
 	// We do bubbling here
 	// https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Event_bubbling
@@ -575,11 +570,6 @@ void yuika::Screen::MousePress(Position cursor_pos)
 	for (MiniTreeEntry* next = m_mini_tree; next != nullptr;)
 	{
 		target = next;
-
-		if (false) // Developers, developers, developers
-			printf("Find | %p, \"%s\" (%zu)\n", reinterpret_cast<const void*>(target->widget), target->widget->GetId(),
-			       target->widget->GetChildrenNo());
-
 		target->pressed_indirectly = true;
 
 		// Iterate children
@@ -597,66 +587,40 @@ void yuika::Screen::MousePress(Position cursor_pos)
 
 	// Press event
 	target->pressed_as_target = true;
-	for (MiniTreeEntry* i = target; i != nullptr; i = i->parent)
-	{
-		if (false) // Developers, developers, developers
-			printf("Bubbling | %p, \"%s\"\n", reinterpret_cast<const void*>(i->widget), i->widget->GetId());
-
-		if (i->widget->OnMouse(MouseGesture::Press, cursor_pos, *target->widget) == EventPropagation::StopIt)
-			break;
-		m_invalidated |= i->widget->GetInvalidated();
-	}
+	Bubble(MouseGesture::Press, cursor_pos, target);
 }
 
-void yuika::Screen::MouseRelease(Position cursor_pos)
+void yuika::Screen::MouseRelease(Vector cursor_pos)
 {
-	for (MiniTreeEntry* i = m_mini_tree; i < m_mini_tree + m_mini_tree_len; i += 1)
+	for (MiniTreeEntry* target = m_mini_tree; target < m_mini_tree + m_mini_tree_len; target += 1)
 	{
 		// Release event
-		if (i->pressed_as_target == true) // TODO, keep a list of what was pressed, to avoid iterate the entire thing
+		if (target->pressed_as_target ==
+		    true) // TODO, keep a list of what was pressed, to avoid iterate the entire thing
 		{
-			i->pressed_as_target = false;
-
-			for (MiniTreeEntry* u = i; u != nullptr; u = u->parent)
-			{
-				if (u->widget->OnMouse(MouseGesture::Release, cursor_pos, *i->widget) == EventPropagation::StopIt)
-					break;
-				m_invalidated |= u->widget->GetInvalidated();
-			}
+			target->pressed_as_target = false;
+			Bubble(MouseGesture::Release, cursor_pos, target);
 		}
 
 		// Click event
-		if (i->pressed_indirectly == true) // TODO, same
+		if (target->pressed_indirectly == true) // TODO, same
 		{
-			i->pressed_indirectly = false;
-
-			if (sInside(cursor_pos, i->hit_area) == true)
-			{
-				for (MiniTreeEntry* u = i; u != nullptr; u = u->parent)
-				{
-					if (u->widget->OnMouse(MouseGesture::Click, cursor_pos, *i->widget) == EventPropagation::StopIt)
-						break;
-					m_invalidated |= u->widget->GetInvalidated();
-				}
-			}
+			target->pressed_indirectly = false;
+			if (sInside(cursor_pos, target->hit_area) == true)
+				Bubble(MouseGesture::Click, cursor_pos, target);
 		}
 	}
 }
 
-void yuika::Screen::MouseMoves(Position cursor_pos)
+void yuika::Screen::MouseMoves(Vector cursor_pos)
 {
 	// Leaves event
-	for (MiniTreeEntry* i = m_mini_tree; i < m_mini_tree + m_mini_tree_len; i += 1)
+	for (MiniTreeEntry* target = m_mini_tree; target < m_mini_tree + m_mini_tree_len; target += 1)
 	{
-		if (i->cursor_inside == true && sInside(cursor_pos, i->hit_area) == false)
+		if (target->cursor_inside == true && sInside(cursor_pos, target->hit_area) == false)
 		{
-			i->cursor_inside = false;
-			for (MiniTreeEntry* u = i; u != nullptr; u = u->parent)
-			{
-				if (u->widget->OnMouse(MouseGesture::Leaves, cursor_pos, *i->widget) == EventPropagation::StopIt)
-					break;
-				m_invalidated |= u->widget->GetInvalidated();
-			}
+			target->cursor_inside = false;
+			Bubble(MouseGesture::Leaves, cursor_pos, target);
 		}
 	}
 
@@ -670,12 +634,7 @@ void yuika::Screen::MouseMoves(Position cursor_pos)
 		if (target->cursor_inside == false)
 		{
 			target->cursor_inside = true;
-			for (MiniTreeEntry* u = target; u != nullptr; u = u->parent)
-			{
-				if (u->widget->OnMouse(MouseGesture::Enters, cursor_pos, *target->widget) == EventPropagation::StopIt)
-					break;
-				m_invalidated |= u->widget->GetInvalidated();
-			}
+			Bubble(MouseGesture::Enters, cursor_pos, target);
 		}
 
 		// Iterate children
@@ -711,7 +670,7 @@ yuika::Widget::Widget()
 	m_id = "";
 }
 
-yuika::Size yuika::Widget::GetNaturalSize() const
+yuika::Vector yuika::Widget::GetNaturalSize() const
 {
 	return m_natural_size;
 }
@@ -753,11 +712,11 @@ bool yuika::Widget::GetStretchY() const
 	return m_stretch_y;
 }
 
-yuika::Size yuika::Widget::GetSize(Size available_size) const
+yuika::Vector yuika::Widget::GetSize(Vector available_size) const
 {
-	Size size = m_natural_size;
-	size.w = (GetStretchX() == true || size.w > available_size.w) ? available_size.w : size.w;
-	size.h = (GetStretchY() == true || size.h > available_size.h) ? available_size.h : size.h;
+	Vector size = m_natural_size;
+	size.x = (GetStretchX() == true || size.x > available_size.x) ? available_size.x : size.x;
+	size.y = (GetStretchY() == true || size.y > available_size.y) ? available_size.y : size.y;
 	return size;
 }
 
@@ -767,7 +726,7 @@ void yuika::Widget::OnDraw(DrawApi& api, Rect allowed_draw_area) const
 	api.SetHitArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
 }
 
-yuika::EventPropagation yuika::Widget::OnMouse(MouseGesture, Position, const Widget&)
+yuika::EventPropagation yuika::Widget::OnMouse(MouseGesture, Vector, const Widget&)
 {
 	return EventPropagation::KeepPassingIt;
 }
@@ -788,40 +747,36 @@ yuika::Widget& yuika::Wrapper::SetChild(std::unique_ptr<Widget> widget)
 	return *m_content;
 }
 
-yuika::Widget::ChildGet yuika::Wrapper::GetChild(size_t, Size available_size)
+yuika::Widget::ChildGet yuika::Wrapper::GetChild(size_t, Vector available_size)
 {
-	if (m_content == nullptr)
-		throw 1; // TODO
+	EXCEPT(m_content == nullptr, 1); // TODO
 	return {*m_content, {}, GetSize(available_size), {}};
 }
 
-const yuika::Widget::ChildGet yuika::Wrapper::GetChild(size_t, Size available_size) const
+const yuika::Widget::ChildGet yuika::Wrapper::GetChild(size_t, Vector available_size) const
 {
-	if (m_content == nullptr)
-		throw 1; // TODO
+	EXCEPT(m_content == nullptr, 1); // TODO
 	return {*m_content, {}, GetSize(available_size), {}};
 }
 
 yuika::Widget& yuika::Wrapper::GetChild(size_t)
 {
-	if (m_content == nullptr)
-		throw 1; // TODO
+	EXCEPT(m_content == nullptr, 1); // TODO
 	return *m_content;
 }
 
 const yuika::Widget& yuika::Wrapper::GetChild(size_t) const
 {
-	if (m_content == nullptr)
-		throw 1; // TODO
+	EXCEPT(m_content == nullptr, 1); // TODO
 	return *m_content;
 }
 
-yuika::Size yuika::Wrapper::UpdateNaturalSize(SimpleApi& api)
+yuika::Vector yuika::Wrapper::UpdateNaturalSize(SimpleApi& api)
 {
 	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
 	{
 		m_natural_size_updated = true;
-		m_natural_size = (m_content != nullptr) ? m_content->UpdateNaturalSize(api) : Size{0, 0}; // [Recursion]
+		m_natural_size = (m_content != nullptr) ? m_content->UpdateNaturalSize(api) : Vector{0, 0}; // [Recursion]
 	}
 
 	return m_natural_size;
@@ -852,14 +807,12 @@ yuika::Widget& yuika::Box::AddChild(std::unique_ptr<Widget> widget)
 class yuika::BoxFriend
 {
   public:
-	template <typename T> static Widget::ChildGet GetChild(T& fwend, size_t no, Size available_size)
+	template <typename T> static Widget::ChildGet GetChild(T& fwend, size_t no, Vector available_size)
 	{
-		Position next_offset;
-		Size size;
+		Vector next_offset;
+		Vector size;
 
-		if (no >= fwend.m_children.size())
-			throw 1; // TODO
-
+		EXCEPT(no >= fwend.m_children.size(), 1); // TODO
 		auto& child = fwend.m_children.at(no);
 
 		switch (fwend.m_direction)
@@ -868,24 +821,24 @@ class yuika::BoxFriend
 		{
 			if (child->GetStretchX() == true)
 			{
-				available_size.w =
-				    (available_size.w - fwend.m_non_stretch_size.w) / Max(static_cast<int>(fwend.m_stretch_childs), 1);
-				available_size.w = Max(available_size.w, child->GetNaturalSize().w);
+				available_size.x = (available_size.x - fwend.m_non_stretch_size.x) /
+				                   std::max(static_cast<int>(fwend.m_stretch_childs), 1);
+				available_size.x = std::max(available_size.x, child->GetNaturalSize().x);
 			}
 			size = child->GetSize(available_size);
-			next_offset = {(no < fwend.m_children.size() - 1) ? size.w : 0, 0};
+			next_offset = {(no < fwend.m_children.size() - 1) ? size.x : 0, 0};
 		}
 		break;
 		case Box::Direction::Vertical:
 		{
 			if (child->GetStretchY() == true)
 			{
-				available_size.h =
-				    (available_size.h - fwend.m_non_stretch_size.h) / Max(static_cast<int>(fwend.m_stretch_childs), 1);
-				available_size.h = Max(available_size.h, child->GetNaturalSize().h);
+				available_size.y = (available_size.y - fwend.m_non_stretch_size.y) /
+				                   std::max(static_cast<int>(fwend.m_stretch_childs), 1);
+				available_size.y = std::max(available_size.y, child->GetNaturalSize().y);
 			}
 			size = child->GetSize(available_size);
-			next_offset = {0, (no < fwend.m_children.size() - 1) ? size.h : 0};
+			next_offset = {0, (no < fwend.m_children.size() - 1) ? size.y : 0};
 		}
 		break;
 		}
@@ -894,31 +847,29 @@ class yuika::BoxFriend
 	}
 };
 
-yuika::Widget::ChildGet yuika::Box::GetChild(size_t no, Size available_size)
+yuika::Widget::ChildGet yuika::Box::GetChild(size_t no, Vector available_size)
 {
 	return BoxFriend::GetChild(*this, no, GetSize(available_size));
 }
 
-const yuika::Widget::ChildGet yuika::Box::GetChild(size_t no, Size available_size) const
+const yuika::Widget::ChildGet yuika::Box::GetChild(size_t no, Vector available_size) const
 {
 	return BoxFriend::GetChild(*this, no, GetSize(available_size));
 }
 
 yuika::Widget& yuika::Box::GetChild(size_t no)
 {
-	if (no >= m_children.size())
-		throw 1; // TODO
+	EXCEPT(no >= m_children.size(), 1); // TODO
 	return *m_children.at(no);
 }
 
 const yuika::Widget& yuika::Box::GetChild(size_t no) const
 {
-	if (no >= m_children.size())
-		throw 1; // TODO
+	EXCEPT(no >= m_children.size(), 1); // TODO
 	return *m_children.at(no);
 }
 
-yuika::Size yuika::Box::UpdateNaturalSize(SimpleApi& api)
+yuika::Vector yuika::Box::UpdateNaturalSize(SimpleApi& api)
 {
 	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
 	{
@@ -929,26 +880,24 @@ yuika::Size yuika::Box::UpdateNaturalSize(SimpleApi& api)
 
 		for (auto& child : m_children)
 		{
-			const Size size = child->UpdateNaturalSize(api); // [Recursion]
+			const Vector size = child->UpdateNaturalSize(api); // [Recursion]
 
 			switch (m_direction)
 			{
 			case Direction::Horizontal:
-				m_natural_size.w += size.w;
-				m_natural_size.h = Max(size.h, m_natural_size.h);
+				m_natural_size.x += size.x;
+				m_natural_size.y = std::max(size.y, m_natural_size.y);
 				m_stretch_childs += static_cast<size_t>(child->GetStretchX());
 				break;
 			case Direction::Vertical:
-				m_natural_size.w = Max(size.w, m_natural_size.w);
-				m_natural_size.h += size.h;
+				m_natural_size.x = std::max(size.x, m_natural_size.x);
+				m_natural_size.y += size.y;
 				m_stretch_childs += static_cast<size_t>(child->GetStretchY());
 				break;
 			}
 
-			if (child->GetStretchX() == false)
-				m_non_stretch_size.w += size.w;
-			if (child->GetStretchY() == false)
-				m_non_stretch_size.h += size.h;
+			m_non_stretch_size.x += (child->GetStretchX() == false) ? size.x : 0;
+			m_non_stretch_size.y += (child->GetStretchY() == false) ? size.y : 0;
 		}
 	}
 
@@ -974,9 +923,7 @@ void yuika::Text::OnDraw(DrawApi& api, Rect allowed_draw_area) const
 {
 	api.SetHitArea({allowed_draw_area.pos, allowed_draw_area.size});
 	// api.DrawCheckerBoardRectangle(DrawApi::RED, {allowed_draw_area.pos, allowed_draw_area.size});
-
-	api.DrawText(DrawApi::BLACK, {allowed_draw_area.pos.x + TEXT_MARGIN / 2, allowed_draw_area.pos.y + TEXT_MARGIN / 2},
-	             m_text.c_str());
+	api.DrawText(DrawApi::BLACK, allowed_draw_area.pos + TEXT_MARGIN / 2, m_text.c_str());
 }
 
 
@@ -985,12 +932,12 @@ size_t yuika::Text::GetChildrenNo() const
 	return 0;
 };
 
-yuika::Widget::ChildGet yuika::Text::GetChild(size_t, Size)
+yuika::Widget::ChildGet yuika::Text::GetChild(size_t, Vector)
 {
 	throw 1;
 };
 
-const yuika::Widget::ChildGet yuika::Text::GetChild(size_t, Size) const
+const yuika::Widget::ChildGet yuika::Text::GetChild(size_t, Vector) const
 {
 	throw 1;
 };
@@ -1005,15 +952,14 @@ const yuika::Widget& yuika::Text::GetChild(size_t) const
 	throw 1;
 };
 
-yuika::Size yuika::Text::UpdateNaturalSize(SimpleApi& api)
+yuika::Vector yuika::Text::UpdateNaturalSize(SimpleApi& api)
 {
 	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
 	{
 		m_natural_size_updated = true;
 
 		m_natural_size = api.TextSize(m_text.c_str());
-		m_natural_size.w += TEXT_MARGIN;
-		m_natural_size.h += TEXT_MARGIN;
+		m_natural_size += TEXT_MARGIN;
 	}
 
 	return m_natural_size;
@@ -1033,7 +979,7 @@ yuika::Button::Button(Style style) : Wrapper()
 
 void yuika::Button::OnDraw(DrawApi& api, Rect allowed_draw_area) const
 {
-	const Size size = GetSize(allowed_draw_area.size);
+	const Vector size = GetSize(allowed_draw_area.size);
 
 	api.SetHitArea({allowed_draw_area.pos, size});
 	api.DrawRectangle(DrawApi::BACKGROUND, {allowed_draw_area.pos, size});
@@ -1052,14 +998,13 @@ void yuika::Button::OnDraw(DrawApi& api, Rect allowed_draw_area) const
 		api.DrawBorder({allowed_draw_area.pos, size}, DrawApi::BevelStyle::Outset);
 		break;
 	case State::Pressed:
-		api.DrawBorder({{allowed_draw_area.pos.x + 1, allowed_draw_area.pos.y + 1}, {size.w - 2, size.h - 2}},
-		               DrawApi::BevelStyle::Inset);
+		api.DrawBorder({allowed_draw_area.pos + 1, size - 2}, DrawApi::BevelStyle::Inset);
 		api.DrawBorder({allowed_draw_area.pos, size}, DrawApi::BevelStyle::Solid, DrawApi::BLACK);
 		break;
 	}
 }
 
-yuika::EventPropagation yuika::Button::OnMouse(yuika::MouseGesture gesture, yuika::Position, const yuika::Widget&)
+yuika::EventPropagation yuika::Button::OnMouse(MouseGesture gesture, Vector, const Widget&)
 {
 	const State prev_state = m_state;
 
@@ -1093,26 +1038,23 @@ yuika::EventPropagation yuika::Button::OnMouse(yuika::MouseGesture gesture, yuik
 	return yuika::EventPropagation::KeepPassingIt;
 }
 
-yuika::Widget::ChildGet yuika::Button::GetChild(size_t, Size available_size)
+yuika::Widget::ChildGet yuika::Button::GetChild(size_t, Vector available_size)
 {
-	if (m_content == nullptr)
-		throw 1; // TODO
+	EXCEPT(m_content == nullptr, 1); // TODO
 
-	const Size size = GetSize(available_size);
 	if (m_state == State::Pressed)
-		return {*m_content, {1, 1}, {size.w - 2, size.h - 2}, {}};
+		return {*m_content, {1, 1}, GetSize(available_size) - 2, {}};
 
-	return {*m_content, {}, size, {}};
+	return {*m_content, {}, GetSize(available_size), {}};
 }
 
-const yuika::Widget::ChildGet yuika::Button::GetChild(size_t, Size available_size) const
+
+const yuika::Widget::ChildGet yuika::Button::GetChild(size_t, Vector available_size) const
 {
-	if (m_content == nullptr)
-		throw 1; // TODO
+	EXCEPT(m_content == nullptr, 1); // TODO
 
-	const Size size = GetSize(available_size);
 	if (m_state == State::Pressed)
-		return {*m_content, {1, 1}, {size.w - 2, size.h - 2}, {}};
+		return {*m_content, {1, 1}, GetSize(available_size) - 2, {}};
 
-	return {*m_content, {}, size, {}};
+	return {*m_content, {}, GetSize(available_size), {}};
 }

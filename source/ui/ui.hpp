@@ -39,7 +39,7 @@ class UiBackend
 	size_t m_buffer_size;
 	void* m_buffer;
 
-	yuika::Position m_cursor;
+	yuika::Vector m_cursor;
 	yuika::Screen m_yui;
 
 	class BrokenState : public std::runtime_error

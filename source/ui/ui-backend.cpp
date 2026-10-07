@@ -478,13 +478,13 @@ void UiBackend::OnFdEvent()
 
 			// First update yui, it has to react to previous inputs
 			const auto changed_area = m_yui.Draw({m_width, m_height}, reinterpret_cast<uint32_t*>(m_buffer));
-			if (changed_area.size.w > 0 || changed_area.size.h > 0)
+			if (changed_area.size.x > 0 || changed_area.size.y > 0)
 			{
 				// We put it into screen, obviously
 				XPutImage(m_x11_display, m_x11_window, DefaultGC(m_x11_display, 0), m_x11_image, changed_area.pos.x,
 				          changed_area.pos.y, changed_area.pos.x, changed_area.pos.y,
-				          static_cast<unsigned int>(changed_area.size.w),
-				          static_cast<unsigned int>(changed_area.size.h));
+				          static_cast<unsigned int>(changed_area.size.x),
+				          static_cast<unsigned int>(changed_area.size.y));
 			}
 
 			// Then, we meet our obligations with X11

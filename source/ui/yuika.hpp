@@ -23,20 +23,28 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 namespace yuika
 {
 
-struct Position
+struct Vector
 {
 	int x, y;
-};
 
-struct Size
-{
-	int w, h;
+	// clang-format off
+	Vector& operator+=(const Vector& other) { this->x += other.x; this->y += other.y; return *this; }
+	Vector& operator-=(const Vector& other) { this->x -= other.x; this->y -= other.y; return *this; }
+
+	Vector& operator+=(int other) { this->x += other; this->y += other; return *this; }
+	Vector& operator-=(int other) { this->x -= other; this->y -= other; return *this; }
+
+	Vector operator+(const Vector& other) const { return {this->x + other.x, this->y + other.y}; }
+	Vector operator-(const Vector& other) const { return {this->x - other.x, this->y - other.y}; }
+	Vector operator+(int other) const           { return {this->x + other, this->y + other}; }
+	Vector operator-(int other) const           { return {this->x - other, this->y - other}; }
+	// clang-format on
 };
 
 struct Rect
 {
-	Position pos;
-	Size size;
+	Vector pos;
+	Vector size;
 };
 
 enum class MouseGesture : uint8_t
@@ -60,7 +68,7 @@ enum class EventPropagation : uint8_t
 class SimpleApi
 {
   public:
-	virtual Size TextSize(const char* text) = 0;
+	virtual Vector TextSize(const char* text) = 0;
 };
 
 class DrawApi : public SimpleApi
@@ -74,7 +82,7 @@ class DrawApi : public SimpleApi
 	static constexpr Colour GREEN = 0xFF00FF00;
 	static constexpr Colour BLUE = 0xFF0000FF;
 	static constexpr Colour PINK = 0xFFFF00FF;
-	static constexpr Colour BACKGROUND = 0xFFD4D0C8;
+	static constexpr Colour BACKGROUND = 0xFFD4D0C8; // Windows 2000
 	static constexpr Colour BEVEL_MID = 0xFF808080;
 	static constexpr Colour BEVEL_SHADOW = 0xFF404040;
 	static constexpr Colour BEVEL_LIGHT = WHITE;
@@ -90,8 +98,8 @@ class DrawApi : public SimpleApi
 		Solid,
 	};
 
-	virtual void DrawBorder(Rect rect, BevelStyle style, Colour color = BLACK) = 0;
-	virtual void DrawText(Colour colour, Position pos, const char* text) = 0;
+	virtual void DrawBorder(Rect rect, BevelStyle style, Colour colour = BLACK) = 0;
+	virtual void DrawText(Colour colour, Vector pos, const char* text) = 0;
 };
 
 
@@ -104,20 +112,20 @@ class Widget
 	struct ChildGet
 	{
 		Widget& child;
-		Position child_offset; // Relative from parent
-		Size child_size;
-		Position next_offset; // Relative from parent
+		Vector child_offset; // Relative from parent
+		Vector child_size;
+		Vector next_offset; // Relative from parent
 	};
 
 	virtual size_t GetChildrenNo() const = 0;
-	virtual ChildGet GetChild(size_t no, Size available_size) = 0;             // Throws if there is no child
-	virtual const ChildGet GetChild(size_t no, Size available_size) const = 0; // Ditto
-	virtual Widget& GetChild(size_t no) = 0;                                   // Ditto
-	virtual const Widget& GetChild(size_t no) const = 0;                       // Ditto
+	virtual ChildGet GetChild(size_t no, Vector available_size) = 0;             // Throws if there is no child
+	virtual const ChildGet GetChild(size_t no, Vector available_size) const = 0; // Ditto
+	virtual Widget& GetChild(size_t no) = 0;                                     // Ditto
+	virtual const Widget& GetChild(size_t no) const = 0;                         // Ditto
 
-	virtual Size UpdateNaturalSize(SimpleApi& api) = 0; // Also returns natural size
-	virtual Size GetNaturalSize() const;
-	virtual Size GetSize(Size available_size) const;
+	virtual Vector UpdateNaturalSize(SimpleApi& api) = 0; // Also returns natural size
+	virtual Vector GetNaturalSize() const;
+	virtual Vector GetSize(Vector available_size) const;
 
 	virtual void OnDraw(DrawApi& api, Rect allowed_draw_area) const; // On- prefixed methods are called from screen,
 	                                                                 // widgets themselves shouldn't called these
@@ -131,10 +139,10 @@ class Widget
 	void SetInvalidated(bool value);
 	bool GetInvalidated() const;
 
-	virtual EventPropagation OnMouse(MouseGesture gesture, Position cursor_pos, const Widget& target);
+	virtual EventPropagation OnMouse(MouseGesture gesture, Vector cursor_pos, const Widget& target);
 
   protected:
-	Size m_natural_size = {};        // Most widgets should follow/implement this,
+	Vector m_natural_size = {};      // Most widgets should follow/implement this,
 	bool m_stretch_x : 1;            // this,
 	bool m_stretch_y : 1;            // this,
 	bool m_natural_size_updated : 1; // and this
@@ -159,12 +167,12 @@ class Wrapper : public Widget
 		return ret;
 	}
 
-	ChildGet GetChild(size_t no, Size available_size) override;
-	const ChildGet GetChild(size_t no, Size available_size) const override;
+	ChildGet GetChild(size_t no, Vector available_size) override;
+	const ChildGet GetChild(size_t no, Vector available_size) const override;
 	Widget& GetChild(size_t no) override;
 	const Widget& GetChild(size_t no) const override;
 
-	Size UpdateNaturalSize(SimpleApi& api) override;
+	Vector UpdateNaturalSize(SimpleApi& api) override;
 
   protected:
 	std::unique_ptr<Widget> m_content;
@@ -204,12 +212,12 @@ class Box : public Container
 		return ret;
 	}
 
-	ChildGet GetChild(size_t no, Size available_size) override;
-	const ChildGet GetChild(size_t no, Size available_size) const override;
+	ChildGet GetChild(size_t no, Vector available_size) override;
+	const ChildGet GetChild(size_t no, Vector available_size) const override;
 	Widget& GetChild(size_t no) override;
 	const Widget& GetChild(size_t no) const override;
 
-	Size UpdateNaturalSize(SimpleApi& api) override;
+	Vector UpdateNaturalSize(SimpleApi& api) override;
 
   protected:
 	friend BoxFriend; // :)
@@ -217,7 +225,7 @@ class Box : public Container
 	Direction m_direction = Direction::Horizontal;
 	std::vector<std::unique_ptr<Widget>> m_children;
 	size_t m_stretch_childs = 0;
-	Size m_non_stretch_size = {};
+	Vector m_non_stretch_size = {};
 };
 
 
@@ -241,11 +249,11 @@ class Text : public Widget
 	void OnDraw(DrawApi& api, Rect allowed_draw_area) const override;
 
 	size_t GetChildrenNo() const override;
-	ChildGet GetChild(size_t, Size) override;
-	const ChildGet GetChild(size_t, Size) const override;
+	ChildGet GetChild(size_t, Vector) override;
+	const ChildGet GetChild(size_t, Vector) const override;
 	Widget& GetChild(size_t) override;
 	const Widget& GetChild(size_t) const override;
-	Size UpdateNaturalSize(SimpleApi& api) override;
+	Vector UpdateNaturalSize(SimpleApi& api) override;
 
   private:
 	std::string m_text;
@@ -270,10 +278,10 @@ class Button : public Wrapper
 
 	Button(Style style = Style::Normal);
 	void OnDraw(DrawApi& api, Rect allowed_draw_area) const override;
-	yuika::EventPropagation OnMouse(yuika::MouseGesture gesture, yuika::Position, const yuika::Widget& target) override;
+	EventPropagation OnMouse(MouseGesture gesture, Vector, const Widget& target) override;
 
-	Widget::ChildGet GetChild(size_t, Size available_size) override;
-	const Widget::ChildGet GetChild(size_t, Size available_size) const override;
+	Widget::ChildGet GetChild(size_t, Vector available_size) override;
+	const Widget::ChildGet GetChild(size_t, Vector available_size) const override;
 
   protected:
 	Style m_style;
@@ -299,18 +307,18 @@ class Screen
   public:
 	void Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask);
 	void Deinitialise() noexcept;
-	Rect Draw(Size size, uint32_t* out);
+	Rect Draw(Vector size, uint32_t* out);
 
-	void MousePress(Position cursor_pos);
-	void MouseRelease(Position cursor_pos);
-	void MouseMoves(Position cursor_pos);
+	void MousePress(Vector cursor_pos);
+	void MouseRelease(Vector cursor_pos);
+	void MouseMoves(Vector cursor_pos);
 
 	Wrapper& GetRoot();
 
   private:
 	friend ScreenFriend; // :)
 
-	Size m_size;
+	Vector m_size;
 	uint32_t* m_out;
 	uint32_t m_dummy;
 
@@ -357,6 +365,9 @@ class Screen
 	uint8_t* m_font;
 
 	bool m_invalidated;
+
+	void ColourConversion(uint32_t* in_out, Vector size, int stride) const;
+	void Bubble(MouseGesture gesture, Vector cursor_pos, MiniTreeEntry* target);
 };
 
 } // namespace yuika

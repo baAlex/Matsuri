@@ -40,7 +40,7 @@ struct App
 	bool needs_redraw;
 
 	yui::Screen screen;
-	yui::Size window_size;
+	yui::Vector window_size;
 
 	ChangedAreas changed_areas[CHANGED_AREAS_NO];
 	int changed_areas_cursor;
@@ -53,7 +53,7 @@ static int sUpdateTexture(App* app)
 		SDL_DestroyTexture(app->texture);
 
 	if ((app->texture = SDL_CreateTexture(app->renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING,
-	                                      app->window_size.w, app->window_size.h)) == nullptr)
+	                                      app->window_size.x, app->window_size.y)) == nullptr)
 	{
 		printf("SDL_CreateTexture(), %s\n", SDL_GetError());
 		return 1;
@@ -82,7 +82,7 @@ class VoiceRack : public yui::HBox
 		AddNewChild<yui::ButtonWithText>("Pan +").SetId("#pan+");
 	}
 
-	yui::EventPropagation OnMouse(yui::MouseGesture gesture, yui::Position, const yui::Widget& target) override
+	yui::EventPropagation OnMouse(yui::MouseGesture gesture, yui::Vector, const yui::Widget& target) override
 	{
 		// Event delegation example, not sure if is right,
 		// just now I learned about it:
@@ -111,7 +111,7 @@ class ClickableText : public yui::Text
   public:
 	ClickableText(const std::string& text) : yui::Text(text) {}
 
-	yui::EventPropagation OnMouse(yui::MouseGesture gesture, yui::Position, const yui::Widget& target) override
+	yui::EventPropagation OnMouse(yui::MouseGesture gesture, yui::Vector, const yui::Widget& target) override
 	{
 		if (gesture == yui::MouseGesture::Click)
 			printf("Click on target \"%s\"\n", target.GetId());
@@ -204,10 +204,10 @@ SDL_AppResult SDL_AppInit(void** app_raw, int, char**)
 		goto return_failure;
 	}
 
-	app->window_size.w = 1280 / 2;
-	app->window_size.h = 720 / 2;
+	app->window_size.x = 1280 / 2;
+	app->window_size.y = 720 / 2;
 
-	if (SDL_CreateWindowAndRenderer("Test test test", app->window_size.w, app->window_size.h, SDL_WINDOW_RESIZABLE,
+	if (SDL_CreateWindowAndRenderer("Test test test", app->window_size.x, app->window_size.y, SDL_WINDOW_RESIZABLE,
 	                                &app->window, &app->renderer) == false)
 	{
 		printf("SDL_CreateWindowAndRenderer(), %s\n", SDL_GetError());
@@ -219,7 +219,12 @@ SDL_AppResult SDL_AppInit(void** app_raw, int, char**)
 	if (sUpdateTexture(app) != 0)
 		goto return_failure;
 
+#if 0 // Fake lower bpp
+	app->screen.Initialise(0x00800000, 0x00008000, 0x00000080);
+#else
 	app->screen.Initialise(0x00FF0000, 0x0000FF00, 0x000000FF);
+#endif
+
 	sCreateUi(app->screen.GetRoot());
 
 	memset(app->changed_areas, 0, sizeof(ChangedAreas) * static_cast<size_t>(CHANGED_AREAS_NO));
@@ -256,8 +261,8 @@ SDL_AppResult SDL_AppEvent(void* app_raw, SDL_Event* event)
 	}
 	else if (event->type == SDL_EVENT_WINDOW_RESIZED)
 	{
-		app->window_size.w = event->window.data1;
-		app->window_size.h = event->window.data2;
+		app->window_size.x = event->window.data1;
+		app->window_size.y = event->window.data2;
 		sUpdateTexture(app);
 	}
 
@@ -274,14 +279,14 @@ SDL_AppResult SDL_AppIterate(void* app_raw)
 	if (SDL_LockTexture(app->texture, nullptr, &pixels, &stride) == true)
 	{
 		const yui::Rect changed_area = app->screen.Draw(app->window_size, reinterpret_cast<uint32_t*>(pixels));
-		if (changed_area.size.w > 0 || changed_area.size.h > 0)
+		if (changed_area.size.x > 0 || changed_area.size.y > 0)
 		{
 			ChangedAreas* a = app->changed_areas + app->changed_areas_cursor;
 			app->changed_areas_cursor = (app->changed_areas_cursor + 1) % CHANGED_AREAS_NO;
 			a->rect.x = static_cast<float>(changed_area.pos.x);
 			a->rect.y = static_cast<float>(changed_area.pos.y);
-			a->rect.w = static_cast<float>(changed_area.size.w);
-			a->rect.h = static_cast<float>(changed_area.size.h);
+			a->rect.w = static_cast<float>(changed_area.size.x);
+			a->rect.h = static_cast<float>(changed_area.size.y);
 			a->life = 0.75f;
 			a->r = static_cast<uint8_t>(SDL_rand(256 - 32) + 32);
 			a->g = static_cast<uint8_t>(SDL_rand(256 - 32) + 32);
@@ -298,7 +303,7 @@ SDL_AppResult SDL_AppIterate(void* app_raw)
 	SDL_SetRenderDrawColor(app->renderer, 255, 255, 255, 255);
 	SDL_RenderTexture(app->renderer, app->texture, nullptr, nullptr);
 
-	if (true)
+	if (false)
 	{
 		for (ChangedAreas* a = app->changed_areas; a < app->changed_areas + CHANGED_AREAS_NO; a += 1)
 		{
