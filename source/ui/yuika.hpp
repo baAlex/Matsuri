@@ -33,11 +33,15 @@ struct Vector
 
 	Vector& operator+=(int other) { this->x += other; this->y += other; return *this; }
 	Vector& operator-=(int other) { this->x -= other; this->y -= other; return *this; }
+	Vector& operator*=(int other) { this->x *= other; this->y *= other; return *this; }
+	Vector& operator/=(int other) { this->x /= other; this->y /= other; return *this; }
 
 	Vector operator+(const Vector& other) const { return {this->x + other.x, this->y + other.y}; }
 	Vector operator-(const Vector& other) const { return {this->x - other.x, this->y - other.y}; }
 	Vector operator+(int other) const           { return {this->x + other, this->y + other}; }
 	Vector operator-(int other) const           { return {this->x - other, this->y - other}; }
+	Vector operator*(int other) const           { return {this->x * other, this->y * other}; }
+	Vector operator/(int other) const           { return {this->x / other, this->y / other}; }
 	// clang-format on
 };
 
@@ -65,13 +69,16 @@ enum class EventPropagation : uint8_t
 	StopIt
 };
 
-class SimpleApi
+class Widget;
+
+class LayoutApi
 {
   public:
-	virtual Vector TextSize(const char* text) = 0;
+	virtual Vector TextSize(const char* text) = 0; // Vertical is x-size only, forget about ascenders and descenders
+	virtual Vector Margin(const Widget&) = 0;
 };
 
-class DrawApi : public SimpleApi
+class DrawApi : public LayoutApi
 {
   public:
 	using Colour = uint32_t;
@@ -95,7 +102,7 @@ class DrawApi : public SimpleApi
 	{
 		Inset,
 		Outset,
-		Solid,
+		Solid, // Uses 'colour' argument
 	};
 
 	virtual void DrawBorder(Rect rect, BevelStyle style, Colour colour = BLACK) = 0;
@@ -113,22 +120,21 @@ class Widget
 	{
 		Widget& child;
 		Vector child_offset; // Relative from parent
-		Vector child_size;
-		Vector next_offset; // Relative from parent
+		Vector child_size;   // Includes child margin
+		Vector next_offset;  // Relative from parent
 	};
 
 	virtual size_t GetChildrenNo() const = 0;
-	virtual ChildGet GetChild(size_t no, Vector available_size) = 0;             // Throws if there is no child
-	virtual const ChildGet GetChild(size_t no, Vector available_size) const = 0; // Ditto
-	virtual Widget& GetChild(size_t no) = 0;                                     // Ditto
-	virtual const Widget& GetChild(size_t no) const = 0;                         // Ditto
+	virtual ChildGet GetChild(LayoutApi& api, size_t no,
+	                          Vector available_size) const = 0; // Throws if there is no child
+	virtual Widget& GetChild(size_t no) const = 0;              // Ditto
 
-	virtual Vector UpdateNaturalSize(SimpleApi& api) = 0; // Also returns natural size
-	virtual Vector GetNaturalSize() const;
+	virtual Vector UpdateNaturalSize(LayoutApi& api) = 0; // Also returns natural size
+	virtual Vector GetNaturalSize() const;                // Includes margin
 	virtual Vector GetSize(Vector available_size) const;
 
 	virtual void OnDraw(DrawApi& api, Rect allowed_draw_area) const; // On- prefixed methods are called from screen,
-	                                                                 // widgets themselves shouldn't called these
+	                                                                 // widgets themselves shouldn't call these
 
 	virtual Widget& SetStretch(bool x, bool y);
 	virtual bool GetStretchX() const;
@@ -136,6 +142,8 @@ class Widget
 
 	void SetId(const char* id);
 	const char* GetId() const;
+	void SetClassId(const char* id); // A la CSS
+	const char* GetClassId() const;
 	void SetInvalidated(bool value);
 	bool GetInvalidated() const;
 
@@ -150,6 +158,7 @@ class Widget
   private:
 	bool m_invalidated : 1;
 	const char* m_id;
+	const char* m_class_id;
 };
 
 
@@ -167,12 +176,9 @@ class Wrapper : public Widget
 		return ret;
 	}
 
-	ChildGet GetChild(size_t no, Vector available_size) override;
-	const ChildGet GetChild(size_t no, Vector available_size) const override;
-	Widget& GetChild(size_t no) override;
-	const Widget& GetChild(size_t no) const override;
-
-	Vector UpdateNaturalSize(SimpleApi& api) override;
+	ChildGet GetChild(LayoutApi& api, size_t no, Vector available_size) const override;
+	Widget& GetChild(size_t no) const override;
+	Vector UpdateNaturalSize(LayoutApi& api) override;
 
   protected:
 	std::unique_ptr<Widget> m_content;
@@ -212,12 +218,9 @@ class Box : public Container
 		return ret;
 	}
 
-	ChildGet GetChild(size_t no, Vector available_size) override;
-	const ChildGet GetChild(size_t no, Vector available_size) const override;
-	Widget& GetChild(size_t no) override;
-	const Widget& GetChild(size_t no) const override;
-
-	Vector UpdateNaturalSize(SimpleApi& api) override;
+	ChildGet GetChild(LayoutApi& api, size_t no, Vector available_size) const override;
+	Widget& GetChild(size_t no) const override;
+	Vector UpdateNaturalSize(LayoutApi& api) override;
 
   protected:
 	friend BoxFriend; // :)
@@ -249,11 +252,9 @@ class Text : public Widget
 	void OnDraw(DrawApi& api, Rect allowed_draw_area) const override;
 
 	size_t GetChildrenNo() const override;
-	ChildGet GetChild(size_t, Vector) override;
-	const ChildGet GetChild(size_t, Vector) const override;
-	Widget& GetChild(size_t) override;
-	const Widget& GetChild(size_t) const override;
-	Vector UpdateNaturalSize(SimpleApi& api) override;
+	ChildGet GetChild(LayoutApi&, size_t, Vector) const override;
+	Widget& GetChild(size_t) const override;
+	Vector UpdateNaturalSize(LayoutApi& api) override;
 
   private:
 	std::string m_text;
@@ -279,9 +280,7 @@ class Button : public Wrapper
 	Button(Style style = Style::Normal);
 	void OnDraw(DrawApi& api, Rect allowed_draw_area) const override;
 	EventPropagation OnMouse(MouseGesture gesture, Vector, const Widget& target) override;
-
-	Widget::ChildGet GetChild(size_t, Vector available_size) override;
-	const Widget::ChildGet GetChild(size_t, Vector available_size) const override;
+	Widget::ChildGet GetChild(LayoutApi& api, size_t, Vector available_size) const override;
 
   protected:
 	Style m_style;
