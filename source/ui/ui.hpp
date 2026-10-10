@@ -78,6 +78,7 @@ class UiFrontend : public UiBackend
 {
   public:
 	void Initialise(int width, int height);
+	static void CreateUi(yuika::Frame& root);
 };
 
 #endif

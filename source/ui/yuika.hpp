@@ -98,14 +98,14 @@ class DrawApi : public LayoutApi
 	virtual void DrawRectangle(Colour colour, Rect rect) = 0;
 	virtual void DrawCheckerBoardRectangle(Colour colour, Rect rect) = 0;
 
-	enum class BevelStyle : uint8_t
+	enum class BorderStyle : uint8_t
 	{
 		Inset,
 		Outset,
 		Solid, // Uses 'colour' argument
 	};
 
-	virtual void DrawBorder(Rect rect, BevelStyle style, Colour colour = BLACK) = 0;
+	virtual void DrawBorder(Rect rect, BorderStyle style, Colour colour = BLACK) = 0;
 	virtual void DrawText(Colour colour, Vector pos, const char* text) = 0;
 };
 
@@ -162,10 +162,26 @@ class Widget
 };
 
 
-class Wrapper : public Widget
+class Leaf : public Widget // Widget without children
 {
   public:
-	size_t GetChildrenNo() const override; // Always returns 1
+	size_t GetChildrenNo() const override; // Always returns zero
+	ChildGet GetChild(LayoutApi&, size_t, Vector) const override;
+	Widget& GetChild(size_t) const override;
+	Vector UpdateNaturalSize(LayoutApi&) override;
+};
+
+class Spacer : public Leaf
+{
+  public:
+	Spacer(bool stretch_x = true, bool stretch_y = true);
+};
+
+
+class Frame : public Widget // Widget with one children
+{
+  public:
+	size_t GetChildrenNo() const override; // Returns zero or one
 	Widget& SetChild(std::unique_ptr<Widget> widget);
 
 	template <typename T, typename... ARGS> T& SetNewChild(ARGS&&... args)
@@ -185,7 +201,7 @@ class Wrapper : public Widget
 };
 
 
-class Container : public Widget
+class Container : public Widget // Widget with many children
 {
   public:
 	virtual Widget& AddChild(std::unique_ptr<Widget> widget) = 0;
@@ -261,7 +277,7 @@ class Text : public Widget
 };
 
 
-class Button : public Wrapper
+class Button : public Frame
 {
   public:
 	enum class Style : uint8_t
@@ -312,7 +328,7 @@ class Screen
 	void MouseRelease(Vector cursor_pos);
 	void MouseMoves(Vector cursor_pos);
 
-	Wrapper& GetRoot();
+	Frame& GetRoot();
 
   private:
 	friend ScreenFriend; // :)
@@ -323,7 +339,7 @@ class Screen
 
 	uint32_t m_masks[3];
 
-	class Root final : public Wrapper
+	class Root final : public Frame
 	{
 	  public:
 		Root() = default;

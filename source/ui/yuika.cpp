@@ -197,11 +197,11 @@ class yuika::ScreenFriend
 			}
 		}
 
-		void DrawBorder(Rect rect, BevelStyle style, Colour colour) noexcept override
+		void DrawBorder(Rect rect, BorderStyle style, Colour colour) noexcept override
 		{
 			switch (style)
 			{
-			case BevelStyle::Inset:
+			case BorderStyle::Inset:
 				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y}, {rect.size.x - 1, 1}});
 				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.y - 1}});
 				// DrawRectangle(BEVEL_LIGHT, {{rect.pos.x + rect.size.x - 1, rect.pos.y}, {1, rect.size.y}});
@@ -211,7 +211,7 @@ class yuika::ScreenFriend
 				DrawRectangle(BEVEL_MID, {{rect.pos.x + rect.size.x - 1, rect.pos.y}, {1, rect.size.y}});
 				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y + rect.size.y - 1}, {rect.size.x, 1}});
 				break;
-			case BevelStyle::Outset:
+			case BorderStyle::Outset:
 				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y}, {rect.size.x - 1, 1}});
 				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.y - 1}});
 				DrawRectangle(BEVEL_SHADOW, {{rect.pos.x + rect.size.x - 1, rect.pos.y}, {1, rect.size.y}});
@@ -220,7 +220,7 @@ class yuika::ScreenFriend
 				DrawRectangle(BEVEL_MID, {{rect.pos.x + rect.size.x - 2, rect.pos.y + 1}, {1, rect.size.y - 2}});
 				DrawRectangle(BEVEL_MID, {{rect.pos.x + 1, rect.pos.y + rect.size.y - 2}, {rect.size.x - 2, 1}});
 				break;
-			case BevelStyle::Solid:
+			case BorderStyle::Solid:
 				DrawRectangle(colour, {{rect.pos.x, rect.pos.y}, {rect.size.x - 1, 1}});
 				DrawRectangle(colour, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.y - 1}});
 				DrawRectangle(colour, {{rect.pos.x + rect.size.x - 1, rect.pos.y}, {1, rect.size.y}});
@@ -310,10 +310,10 @@ class yuika::ScreenFriend
 			// TODO, use a hashmap, using GetId() as key first, then GetClassId()
 			if (strcmp(widget.GetClassId(), "text") == 0)
 				return {18, 18};
-			else if (strcmp(widget.GetClassId(), "box") == 0)
-				return {4, 4};
+			/*else if (strcmp(widget.GetClassId(), "box") == 0)
+			    return {4, 4};
 			else if (strcmp(widget.GetClassId(), "button") == 0)
-				return {2, 2};
+			    return {2, 2};*/
 
 			return {};
 		}
@@ -670,7 +670,7 @@ void yuika::Screen::MouseMoves(Vector cursor_pos)
 }
 
 
-yuika::Wrapper& yuika::Screen::GetRoot()
+yuika::Frame& yuika::Screen::GetRoot()
 {
 	return *m_root;
 }
@@ -764,31 +764,66 @@ yuika::EventPropagation yuika::Widget::OnMouse(MouseGesture, Vector, const Widge
 // ############################
 
 
-size_t yuika::Wrapper::GetChildrenNo() const
+size_t yuika::Leaf::GetChildrenNo() const
+{
+	return 0;
+}
+
+yuika::Widget::ChildGet yuika::Leaf::GetChild(LayoutApi&, size_t, Vector) const
+{
+	throw 1; // TODO
+}
+
+yuika::Widget& yuika::Leaf::GetChild(size_t) const
+{
+	throw 1; // TODO
+}
+
+yuika::Vector yuika::Leaf::UpdateNaturalSize(LayoutApi& api)
+{
+	if (m_natural_size_updated == false)
+	{
+		m_natural_size_updated = true;
+		m_natural_size = api.Margin(*this);
+	}
+
+	return m_natural_size;
+}
+
+yuika::Spacer::Spacer(bool x, bool y)
+{
+	SetStretch(x, y);
+}
+
+
+// ############################
+
+
+size_t yuika::Frame::GetChildrenNo() const
 {
 	return (m_content == nullptr) ? 0 : 1;
 }
 
-yuika::Widget& yuika::Wrapper::SetChild(std::unique_ptr<Widget> widget)
+yuika::Widget& yuika::Frame::SetChild(std::unique_ptr<Widget> widget)
 {
 	m_content = std::move(widget);
 	m_natural_size_updated = false;
 	return *m_content;
 }
 
-yuika::Widget::ChildGet yuika::Wrapper::GetChild(LayoutApi&, size_t, Vector available_size) const
+yuika::Widget::ChildGet yuika::Frame::GetChild(LayoutApi&, size_t, Vector available_size) const
 {
 	EXCEPT(m_content == nullptr, 1); // TODO
 	return {*m_content, {}, GetSize(available_size), {}};
 }
 
-yuika::Widget& yuika::Wrapper::GetChild(size_t) const
+yuika::Widget& yuika::Frame::GetChild(size_t) const
 {
 	EXCEPT(m_content == nullptr, 1); // TODO
 	return *m_content;
 }
 
-yuika::Vector yuika::Wrapper::UpdateNaturalSize(LayoutApi& api)
+yuika::Vector yuika::Frame::UpdateNaturalSize(LayoutApi& api)
 {
 	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
 	{
@@ -964,7 +999,7 @@ yuika::Vector yuika::Text::UpdateNaturalSize(LayoutApi& api)
 // ############################
 
 
-yuika::Button::Button(Style style) : Wrapper()
+yuika::Button::Button(Style style) : Frame()
 {
 	m_style = style;
 	m_state = State::Normal;
@@ -984,7 +1019,7 @@ void yuika::Button::OnDraw(DrawApi& api, Rect allowed_draw_area) const
 	{
 	case State::Normal:
 		if (m_style != Style::Flat)
-			api.DrawBorder({allowed_draw_area.pos, size}, DrawApi::BevelStyle::Outset);
+			api.DrawBorder({allowed_draw_area.pos, size}, DrawApi::BorderStyle::Outset);
 		break;
 	case State::Over:
 // #ifndef NDEBUG
@@ -992,11 +1027,11 @@ void yuika::Button::OnDraw(DrawApi& api, Rect allowed_draw_area) const
 		// White for debugging purposes
 		api.DrawRectangle(DrawApi::WHITE, {allowed_draw_area.pos, size});
 #endif
-		api.DrawBorder({allowed_draw_area.pos, size}, DrawApi::BevelStyle::Outset);
+		api.DrawBorder({allowed_draw_area.pos, size}, DrawApi::BorderStyle::Outset);
 		break;
 	case State::Pressed:
-		api.DrawBorder({allowed_draw_area.pos + 1, size - 2}, DrawApi::BevelStyle::Inset);
-		api.DrawBorder({allowed_draw_area.pos, size}, DrawApi::BevelStyle::Solid, DrawApi::BLACK);
+		api.DrawBorder({allowed_draw_area.pos + 1, size - 2}, DrawApi::BorderStyle::Inset);
+		api.DrawBorder({allowed_draw_area.pos, size}, DrawApi::BorderStyle::Solid, DrawApi::BLACK);
 		break;
 	}
 }

@@ -17,7 +17,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "yuika.hpp"
+#include "ui.hpp"
 namespace yui = yuika;
 
 
@@ -63,128 +63,6 @@ static int sUpdateTexture(App* app)
 }
 
 
-class VoiceRack : public yui::HBox
-{
-  public:
-	VoiceRack(const std::string& name)
-	{
-		m_name = name;
-		SetStretch(true, false);
-
-		AddNewChild<yui::ButtonWithText>(name);
-
-		AddNewChild<yui::Button>().SetStretch(true, true);
-		AddNewChild<yui::ButtonWithText>("Vol -").SetId("#vol-");
-		AddNewChild<yui::ButtonWithText>("Vol +").SetId("#vol+");
-
-		AddNewChild<yui::Button>().SetStretch(true, true);
-		AddNewChild<yui::ButtonWithText>("Pan -").SetId("#pan-");
-		AddNewChild<yui::ButtonWithText>("Pan +").SetId("#pan+");
-	}
-
-	yui::EventPropagation OnMouse(yui::MouseGesture gesture, yui::Vector, const yui::Widget& target) override
-	{
-		// Event delegation example, not sure if is right,
-		// just now I learned about it:
-		// https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Event_bubbling
-
-		if (gesture == yui::MouseGesture::Click)
-			printf("%s | Click on target \"%s\"\n", m_name.c_str(), target.GetId());
-		else if (gesture == yui::MouseGesture::Press)
-			printf("%s | Press on target \"%s\"\n", m_name.c_str(), target.GetId());
-		else if (gesture == yui::MouseGesture::Release)
-			printf("%s | Release on target \"%s\"\n", m_name.c_str(), target.GetId());
-		else if (gesture == yui::MouseGesture::Enters)
-			printf("%s | Enters on target \"%s\"\n", m_name.c_str(), target.GetId());
-		else if (gesture == yui::MouseGesture::Leaves)
-			printf("%s | Leaves on target \"%s\"\n", m_name.c_str(), target.GetId());
-
-		return yui::EventPropagation::KeepPassingIt;
-	}
-
-  private:
-	std::string m_name;
-};
-
-class ClickableText : public yui::Text
-{
-  public:
-	ClickableText(const std::string& text) : yui::Text(text) {}
-
-	yui::EventPropagation OnMouse(yui::MouseGesture gesture, yui::Vector, const yui::Widget& target) override
-	{
-		if (gesture == yui::MouseGesture::Click)
-			printf("Click on target \"%s\"\n", target.GetId());
-		else if (gesture == yui::MouseGesture::Press)
-			printf("Press on target \"%s\"\n", target.GetId());
-		else if (gesture == yui::MouseGesture::Release)
-			printf("Release on target \"%s\"\n", target.GetId());
-
-		return yui::EventPropagation::KeepPassingIt;
-	}
-};
-
-static void sCreateUi(yui::Wrapper& root)
-{
-	auto& main_container = root.SetNewChild<yui::VBox>();
-	main_container.SetStretch(true, true);
-
-#if 1
-	auto& titlebar = main_container.AddNewChild<yui::HBox>();
-	titlebar.SetStretch(true, false);
-	titlebar.AddNewChild<yui::ButtonWithText>("|");
-	titlebar.AddNewChild<yui::ButtonWithText>("Microsoft (a) [b] Word!? - {Document 1}").SetStretch(true, false);
-	titlebar.AddNewChild<yui::ButtonWithText>("_");
-	titlebar.AddNewChild<yui::ButtonWithText>("[]");
-	titlebar.AddNewChild<yui::ButtonWithText>("X");
-
-	auto& menu = main_container.AddNewChild<yui::HBox>();
-	menu.AddNewChild<yui::ButtonWithText>("File", yui::Button::Style::Flat);
-	menu.AddNewChild<yui::ButtonWithText>("Edit", yui::Button::Style::Flat);
-	menu.AddNewChild<yui::ButtonWithText>("View", yui::Button::Style::Flat);
-	menu.AddNewChild<yui::ButtonWithText>("Insert", yui::Button::Style::Flat);
-	menu.AddNewChild<yui::ButtonWithText>("Format", yui::Button::Style::Flat);
-	menu.AddNewChild<yui::ButtonWithText>("Tools", yui::Button::Style::Flat);
-	menu.AddNewChild<yui::ButtonWithText>("Table", yui::Button::Style::Flat);
-	menu.AddNewChild<yui::ButtonWithText>("Window", yui::Button::Style::Flat);
-	menu.AddNewChild<yui::ButtonWithText>("Help", yui::Button::Style::Flat);
-
-	auto& top_toolbar = main_container.AddNewChild<yui::HBox>();
-	top_toolbar.AddNewChild<yui::ButtonWithText>("0"); // New
-	top_toolbar.AddNewChild<yui::ButtonWithText>("1"); // Open
-	top_toolbar.AddNewChild<yui::ButtonWithText>("2"); // Save
-	top_toolbar.AddNewChild<yui::ButtonWithText>("3"); // Print
-	top_toolbar.AddNewChild<yui::ButtonWithText>("4"); // Search
-	top_toolbar.AddNewChild<yui::ButtonWithText>("5"); // Spell
-	top_toolbar.AddNewChild<yui::ButtonWithText>("6"); // Cut
-	top_toolbar.AddNewChild<yui::ButtonWithText>("7"); // Copy
-	top_toolbar.AddNewChild<yui::ButtonWithText>("8"); // Paste
-	top_toolbar.AddNewChild<yui::ButtonWithText>("9"); // Format
-	top_toolbar.AddNewChild<yui::ButtonWithText>("A"); // Undo
-	top_toolbar.AddNewChild<yui::ButtonWithText>("B"); // Redo
-
-	auto& bottom_toolbar = main_container.AddNewChild<yui::HBox>();
-	bottom_toolbar.AddNewChild<yui::ButtonWithText>("Normal");          // Style
-	bottom_toolbar.AddNewChild<yui::ButtonWithText>("Times New Roman"); // Font
-	bottom_toolbar.AddNewChild<yui::ButtonWithText>("10");              // Size
-	bottom_toolbar.AddNewChild<yui::ButtonWithText>("C");               // Bold
-	bottom_toolbar.AddNewChild<yui::ButtonWithText>("D");               // Italic
-	bottom_toolbar.AddNewChild<yui::ButtonWithText>("E");               // Underline
-	bottom_toolbar.AddNewChild<yui::ButtonWithText>("F");               // Left
-	bottom_toolbar.AddNewChild<yui::ButtonWithText>("?");               // Center
-	bottom_toolbar.AddNewChild<yui::ButtonWithText>("!");               // Right
-
-	auto& content = main_container.AddNewChild<yui::VBox>();
-	content.SetStretch(true, true);
-#endif
-
-	main_container.AddNewChild<VoiceRack>("Bass drum").SetId("#bd_rack");
-	main_container.AddNewChild<VoiceRack>("Snare").SetId("#sd_rack");
-
-	main_container.AddNewChild<ClickableText>("Test Text").SetId("#test_text");
-}
-
-
 SDL_AppResult SDL_AppInit(void** app_raw, int, char**)
 {
 	App* app;
@@ -225,7 +103,7 @@ SDL_AppResult SDL_AppInit(void** app_raw, int, char**)
 	app->screen.Initialise(0x00FF0000, 0x0000FF00, 0x000000FF);
 #endif
 
-	sCreateUi(app->screen.GetRoot());
+	UiFrontend::CreateUi(app->screen.GetRoot());
 
 	memset(app->changed_areas, 0, sizeof(ChangedAreas) * static_cast<size_t>(CHANGED_AREAS_NO));
 	app->changed_areas_cursor = 0;
