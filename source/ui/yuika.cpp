@@ -386,8 +386,8 @@ class yuika::ScreenFriend
 			cursor += current.widget->GetChildrenNo();
 			for (size_t i = 0; i < current.widget->GetChildrenNo(); i += 1)
 			{
-				const auto [child, child_offset, child_size, next_offset] =
-				    current.widget->GetChild(api, i, current.allowed_draw_area.size);
+				const auto [child, child_offset, child_size, next_offset] = current.widget->GetChildInLayout(
+				    api, i, current.allowed_draw_area.size, current.allowed_draw_area.pos);
 
 				const Vector child_margin = api.Margin(child);
 
@@ -681,6 +681,7 @@ yuika::Frame& yuika::Screen::GetRoot()
 
 yuika::Widget::Widget()
 {
+	m_natural_size = {};
 	m_stretch_x = false; // Is not possible to set bitfields on headers
 	m_stretch_y = false; // (a C++ quirk)
 	m_natural_size_updated = false;
@@ -694,19 +695,22 @@ yuika::Vector yuika::Widget::GetNaturalSize() const
 	return m_natural_size;
 }
 
-void yuika::Widget::SetId(const char* id)
+yuika::Widget& yuika::Widget::SetId(const char* id)
 {
 	m_id = id;
+	return *this;
 }
 
-void yuika::Widget::SetClassId(const char* class_id)
+yuika::Widget& yuika::Widget::SetClassId(const char* class_id)
 {
 	m_class_id = class_id;
+	return *this;
 }
 
-void yuika::Widget::SetInvalidated(bool value)
+yuika::Widget& yuika::Widget::SetInvalidated(bool value)
 {
 	m_invalidated = value;
+	return *this;
 }
 
 bool yuika::Widget::GetInvalidated() const
@@ -769,7 +773,7 @@ size_t yuika::Leaf::GetChildrenNo() const
 	return 0;
 }
 
-yuika::Widget::ChildGet yuika::Leaf::GetChild(LayoutApi&, size_t, Vector) const
+yuika::Widget::ChildInLayout yuika::Leaf::GetChildInLayout(LayoutApi&, size_t, Vector, Vector) const
 {
 	throw 1; // TODO
 }
@@ -811,10 +815,10 @@ yuika::Widget& yuika::Frame::SetChild(std::unique_ptr<Widget> widget)
 	return *m_content;
 }
 
-yuika::Widget::ChildGet yuika::Frame::GetChild(LayoutApi&, size_t, Vector available_size) const
+yuika::Widget::ChildInLayout yuika::Frame::GetChildInLayout(LayoutApi&, size_t, Vector size, Vector) const
 {
 	EXCEPT(m_content == nullptr, 1); // TODO
-	return {*m_content, {}, GetSize(available_size), {}};
+	return {*m_content, {}, m_content->GetSize(size), {}};
 }
 
 yuika::Widget& yuika::Frame::GetChild(size_t) const
@@ -840,11 +844,24 @@ yuika::Vector yuika::Frame::UpdateNaturalSize(LayoutApi& api)
 // ############################
 
 
-yuika::Box::Box(Direction direction) : Container()
+yuika::Box::Box(Direction direction, bool wrap) : Container()
 {
 	m_direction = direction;
+	m_stretch_childs = 0;
 	m_non_stretch_size = {};
+	m_wrap = wrap;
 	SetClassId("box");
+}
+
+yuika::Box& yuika::Box::SetWrap(bool wrap)
+{
+	m_wrap = wrap;
+	return *this;
+}
+
+bool yuika::Box::GetWrap() const
+{
+	return m_wrap;
 }
 
 size_t yuika::Box::GetChildrenNo() const
@@ -862,7 +879,8 @@ yuika::Widget& yuika::Box::AddChild(std::unique_ptr<Widget> widget)
 class yuika::BoxFriend
 {
   public:
-	template <typename T> static Widget::ChildGet GetChild(T& fwend, LayoutApi&, size_t no, Vector available_size)
+	template <typename T>
+	static Widget::ChildInLayout GetChildInLayout(T& fwend, LayoutApi&, size_t no, Vector fwend_size, Vector cursor)
 	{
 		EXCEPT(no >= fwend.m_children.size(), 1); // TODO
 		auto& child = fwend.m_children.at(no);
@@ -874,26 +892,35 @@ class yuika::BoxFriend
 		{
 		case Box::Direction::Horizontal:
 		{
-			if (child->GetStretchX() == true)
+			if (fwend.m_wrap == false && child->GetStretchX() == true) // TODO, wrap interacts poorly with stretch
 			{
-				available_size.x = (available_size.x - fwend.m_non_stretch_size.x) /
-				                   std::max(static_cast<int>(fwend.m_stretch_childs), 1);
-				available_size.x = std::max(available_size.x, child->GetNaturalSize().x);
+				fwend_size.x =
+				    (fwend_size.x - fwend.m_non_stretch_size.x) / std::max(static_cast<int>(fwend.m_stretch_childs), 1);
+				fwend_size.x = std::max(fwend_size.x, child->GetNaturalSize().x);
 			}
-			child_size = child->GetSize(available_size);
-			next_offset = {(no < fwend.m_children.size() - 1) ? child_size.x : 0, 0};
+
+			child_size = child->GetSize(fwend_size);
+			next_offset = {child_size.x, 0};
+
+			if (fwend.m_wrap == true && cursor.x + next_offset.x + child_size.x > fwend_size.x)
+			{
+				next_offset.x -= cursor.x + child_size.x;
+				next_offset.y = fwend.m_natural_size.y; // Works as it's an infinite horizontal row,
+				                                        // all rows will have the same height tho
+			}
 		}
 		break;
 		case Box::Direction::Vertical:
 		{
 			if (child->GetStretchY() == true)
 			{
-				available_size.y = (available_size.y - fwend.m_non_stretch_size.y) /
-				                   std::max(static_cast<int>(fwend.m_stretch_childs), 1);
-				available_size.y = std::max(available_size.y, child->GetNaturalSize().y);
+				fwend_size.y =
+				    (fwend_size.y - fwend.m_non_stretch_size.y) / std::max(static_cast<int>(fwend.m_stretch_childs), 1);
+				fwend_size.y = std::max(fwend_size.y, child->GetNaturalSize().y);
 			}
-			child_size = child->GetSize(available_size);
-			next_offset = {0, (no < fwend.m_children.size() - 1) ? child_size.y : 0};
+
+			child_size = child->GetSize(fwend_size);
+			next_offset = {0, child_size.y};
 		}
 		break;
 		}
@@ -902,9 +929,9 @@ class yuika::BoxFriend
 	}
 };
 
-yuika::Widget::ChildGet yuika::Box::GetChild(LayoutApi& api, size_t no, Vector available_size) const
+yuika::Widget::ChildInLayout yuika::Box::GetChildInLayout(LayoutApi& api, size_t no, Vector size, Vector cursor) const
 {
-	return BoxFriend::GetChild(*this, api, no, GetSize(available_size));
+	return BoxFriend::GetChildInLayout(*this, api, no, GetSize(size), cursor);
 }
 
 yuika::Widget& yuika::Box::GetChild(size_t no) const
@@ -924,24 +951,24 @@ yuika::Vector yuika::Box::UpdateNaturalSize(LayoutApi& api)
 
 		for (auto& child : m_children)
 		{
-			const Vector size = child->UpdateNaturalSize(api); // [Recursion]
+			const Vector child_natural_size = child->UpdateNaturalSize(api); // [Recursion]
 
 			switch (m_direction)
 			{
 			case Direction::Horizontal:
-				m_natural_size.x += size.x;
-				m_natural_size.y = std::max(size.y, m_natural_size.y);
+				m_natural_size.x += child_natural_size.x;
+				m_natural_size.y = std::max(child_natural_size.y, m_natural_size.y);
 				m_stretch_childs += static_cast<size_t>(child->GetStretchX());
 				break;
 			case Direction::Vertical:
-				m_natural_size.x = std::max(size.x, m_natural_size.x);
-				m_natural_size.y += size.y;
+				m_natural_size.x = std::max(child_natural_size.x, m_natural_size.x);
+				m_natural_size.y += child_natural_size.y;
 				m_stretch_childs += static_cast<size_t>(child->GetStretchY());
 				break;
 			}
 
-			m_non_stretch_size.x += (child->GetStretchX() == false) ? size.x : 0;
-			m_non_stretch_size.y += (child->GetStretchY() == false) ? size.y : 0;
+			m_non_stretch_size.x += (child->GetStretchX() == false) ? child_natural_size.x : 0;
+			m_non_stretch_size.y += (child->GetStretchY() == false) ? child_natural_size.y : 0;
 		}
 
 		m_natural_size += api.Margin(*this);
@@ -950,8 +977,8 @@ yuika::Vector yuika::Box::UpdateNaturalSize(LayoutApi& api)
 	return m_natural_size;
 }
 
-yuika::HBox::HBox() : Box(Direction::Horizontal) {}
-yuika::VBox::VBox() : Box(Direction::Vertical) {}
+yuika::HBox::HBox(bool wrap) : Box(Direction::Horizontal, wrap) {}
+yuika::VBox::VBox(bool wrap) : Box(Direction::Vertical, wrap) {}
 
 
 // ############################
@@ -974,7 +1001,7 @@ size_t yuika::Text::GetChildrenNo() const
 	return 0;
 };
 
-yuika::Widget::ChildGet yuika::Text::GetChild(LayoutApi&, size_t, Vector) const
+yuika::Widget::ChildInLayout yuika::Text::GetChildInLayout(LayoutApi&, size_t, Vector, Vector) const
 {
 	throw 1;
 };
@@ -1079,12 +1106,12 @@ yuika::EventPropagation yuika::Button::OnMouse(MouseGesture gesture, Vector, con
 	return yuika::EventPropagation::KeepPassingIt;
 }
 
-yuika::Widget::ChildGet yuika::Button::GetChild(LayoutApi&, size_t, Vector available_size) const
+yuika::Widget::ChildInLayout yuika::Button::GetChildInLayout(LayoutApi&, size_t, Vector size, Vector) const
 {
 	EXCEPT(m_content == nullptr, 1); // TODO
 
 	if (m_state == State::Pressed)
-		return {*m_content, {1, 1}, GetSize(available_size) - 2, {}};
+		return {*m_content, {1, 1}, m_content->GetSize(size - 2), {}};
 
-	return {*m_content, {}, GetSize(available_size), {}};
+	return {*m_content, {}, m_content->GetSize(size), {}};
 }

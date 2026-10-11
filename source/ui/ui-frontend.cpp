@@ -50,7 +50,7 @@ class VoiceRack : public yui::HBox
 		right_buttons.SetStretch(false, true);
 
 		right_buttons.AddNewChild<yui::Spacer>();
-		right_buttons.AddNewChild<yui::ButtonWithText>("Lock");
+		right_buttons.AddNewChild<yui::ButtonWithText>("L"); // Lock
 		right_buttons.AddNewChild<yui::Spacer>();
 	}
 };
@@ -63,6 +63,7 @@ class VoiceFrame : public yui::Frame
 
 	VoiceFrame(const char* label) : m_label(label)
 	{
+		// SetStretch(true, false); // For debuging how features interact each other
 		m_extra_height = {};
 	}
 
@@ -80,15 +81,15 @@ class VoiceFrame : public yui::Frame
 		return m_natural_size;
 	}
 
-	yui::Widget::ChildGet GetChild(yui::LayoutApi&, size_t, yui::Vector available_size) const override
+	yui::Widget::ChildInLayout GetChildInLayout(yui::LayoutApi&, size_t, yui::Vector size, yui::Vector) const override
 	{
-		return {*m_content, m_extra_height, GetSize(available_size), {}};
+		return {*m_content, m_extra_height, m_content->GetSize(size), {}};
 	}
 
 	void OnDraw(yui::DrawApi& api, yui::Rect allowed_draw_area) const override
 	{
 		api.SetHitArea(allowed_draw_area);
-		api.DrawText(yui::DrawApi::BLACK, {allowed_draw_area.pos}, m_label);
+		api.DrawText(yui::DrawApi::BLACK, allowed_draw_area.pos, m_label);
 		api.DrawBorder({allowed_draw_area.pos + m_extra_height, allowed_draw_area.size - m_extra_height},
 		               yui::DrawApi::BorderStyle::Outset);
 	}
@@ -126,11 +127,17 @@ void UiFrontend::CreateUi(yui::Frame& root)
 
 	auto& voices = main_container.AddNewChild<yui::HBox>();
 	voices.SetStretch(true, true);
+	voices.SetWrap(true);
 
 	voices.AddNewChild<VoiceFrame>("Bass Drum").SetNewChild<VoiceRack>();
 	voices.AddNewChild<VoiceFrame>("Snare Drum").SetNewChild<VoiceRack>();
-	voices.AddNewChild<VoiceFrame>("Closed Hat").SetNewChild<VoiceRack>();
-	voices.AddNewChild<VoiceFrame>("Open Hat").SetNewChild<VoiceRack>();
+	voices.AddNewChild<VoiceFrame>("Hat Closed").SetNewChild<VoiceRack>();
+	voices.AddNewChild<VoiceFrame>("Hat Open").SetNewChild<VoiceRack>();
+	voices.AddNewChild<VoiceFrame>("Cymbal").SetNewChild<VoiceRack>();
+	voices.AddNewChild<VoiceFrame>("Tom High").SetNewChild<VoiceRack>();
+	voices.AddNewChild<VoiceFrame>("Tom Low").SetNewChild<VoiceRack>();
+
+	main_container.AddNewChild<yui::ButtonWithText>("<Status bar>").SetStretch(true, false);
 }
 
 

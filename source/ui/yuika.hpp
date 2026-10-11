@@ -116,7 +116,7 @@ class Widget
 	Widget();
 	virtual ~Widget() noexcept = default;
 
-	struct ChildGet
+	struct ChildInLayout
 	{
 		Widget& child;
 		Vector child_offset; // Relative from parent
@@ -125,9 +125,9 @@ class Widget
 	};
 
 	virtual size_t GetChildrenNo() const = 0;
-	virtual ChildGet GetChild(LayoutApi& api, size_t no,
-	                          Vector available_size) const = 0; // Throws if there is no child
-	virtual Widget& GetChild(size_t no) const = 0;              // Ditto
+	virtual ChildInLayout GetChildInLayout(LayoutApi& api, size_t no, Vector size,
+	                                       Vector cursor) const = 0; // Throws if there is no child
+	virtual Widget& GetChild(size_t no) const = 0;                   // Ditto
 
 	virtual Vector UpdateNaturalSize(LayoutApi& api) = 0; // Also returns natural size
 	virtual Vector GetNaturalSize() const;                // Includes margin
@@ -140,17 +140,17 @@ class Widget
 	virtual bool GetStretchX() const;
 	virtual bool GetStretchY() const;
 
-	void SetId(const char* id);
+	Widget& SetId(const char* id);
 	const char* GetId() const;
-	void SetClassId(const char* id); // A la CSS
+	Widget& SetClassId(const char* id); // A la CSS
 	const char* GetClassId() const;
-	void SetInvalidated(bool value);
+	Widget& SetInvalidated(bool value);
 	bool GetInvalidated() const;
 
 	virtual EventPropagation OnMouse(MouseGesture gesture, Vector cursor_pos, const Widget& target);
 
   protected:
-	Vector m_natural_size = {};      // Most widgets should follow/implement this,
+	Vector m_natural_size;           // Most widgets should follow/implement this,
 	bool m_stretch_x : 1;            // this,
 	bool m_stretch_y : 1;            // this,
 	bool m_natural_size_updated : 1; // and this
@@ -166,7 +166,7 @@ class Leaf : public Widget // Widget without children
 {
   public:
 	size_t GetChildrenNo() const override; // Always returns zero
-	ChildGet GetChild(LayoutApi&, size_t, Vector) const override;
+	ChildInLayout GetChildInLayout(LayoutApi&, size_t, Vector, Vector) const override;
 	Widget& GetChild(size_t) const override;
 	Vector UpdateNaturalSize(LayoutApi&) override;
 };
@@ -192,7 +192,7 @@ class Frame : public Widget // Widget with one children
 		return ret;
 	}
 
-	ChildGet GetChild(LayoutApi& api, size_t no, Vector available_size) const override;
+	ChildInLayout GetChildInLayout(LayoutApi& api, size_t no, Vector size, Vector cursor) const override;
 	Widget& GetChild(size_t no) const override;
 	Vector UpdateNaturalSize(LayoutApi& api) override;
 
@@ -221,7 +221,7 @@ class Box : public Container
 		Vertical
 	};
 
-	Box(Direction direction);
+	Box(Direction direction, bool wrap = false);
 
 	size_t GetChildrenNo() const override;
 	Widget& AddChild(std::unique_ptr<Widget> widget) override;
@@ -234,30 +234,34 @@ class Box : public Container
 		return ret;
 	}
 
-	ChildGet GetChild(LayoutApi& api, size_t no, Vector available_size) const override;
+	ChildInLayout GetChildInLayout(LayoutApi& api, size_t no, Vector size, Vector cursor) const override;
 	Widget& GetChild(size_t no) const override;
 	Vector UpdateNaturalSize(LayoutApi& api) override;
+
+	Box& SetWrap(bool);
+	bool GetWrap() const;
 
   protected:
 	friend BoxFriend; // :)
 
-	Direction m_direction = Direction::Horizontal;
+	Direction m_direction;
 	std::vector<std::unique_ptr<Widget>> m_children;
-	size_t m_stretch_childs = 0;
-	Vector m_non_stretch_size = {};
+	size_t m_stretch_childs;
+	Vector m_non_stretch_size;
+	bool m_wrap : 1;
 };
 
 
 class HBox : public Box
 {
   public:
-	HBox();
+	HBox(bool wrap = false);
 };
 
 class VBox : public Box
 {
   public:
-	VBox();
+	VBox(bool wrap = false);
 };
 
 
@@ -268,7 +272,7 @@ class Text : public Widget
 	void OnDraw(DrawApi& api, Rect allowed_draw_area) const override;
 
 	size_t GetChildrenNo() const override;
-	ChildGet GetChild(LayoutApi&, size_t, Vector) const override;
+	ChildInLayout GetChildInLayout(LayoutApi&, size_t, Vector, Vector) const override;
 	Widget& GetChild(size_t) const override;
 	Vector UpdateNaturalSize(LayoutApi& api) override;
 
@@ -296,7 +300,7 @@ class Button : public Frame
 	Button(Style style = Style::Normal);
 	void OnDraw(DrawApi& api, Rect allowed_draw_area) const override;
 	EventPropagation OnMouse(MouseGesture gesture, Vector, const Widget& target) override;
-	Widget::ChildGet GetChild(LayoutApi& api, size_t, Vector available_size) const override;
+	Widget::ChildInLayout GetChildInLayout(LayoutApi& api, size_t, Vector size, Vector cursor) const override;
 
   protected:
 	Style m_style;
@@ -347,7 +351,7 @@ class Screen
 
 	Root* m_root; // A pointer, so it can survive a memset and being in a C struct
 
-	static constexpr size_t STACK_LEN = 256; // TODO, hardcoded
+	static constexpr size_t STACK_LEN = 512; // TODO, hardcoded
 
 	struct MiniTreeEntry
 	{

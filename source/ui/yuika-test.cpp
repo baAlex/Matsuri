@@ -82,8 +82,8 @@ SDL_AppResult SDL_AppInit(void** app_raw, int, char**)
 		goto return_failure;
 	}
 
-	app->window_size.x = 1280 / 2;
-	app->window_size.y = 720 / 2;
+	app->window_size.x = 600;
+	app->window_size.y = 450;
 
 	if (SDL_CreateWindowAndRenderer("Test test test", app->window_size.x, app->window_size.y, SDL_WINDOW_RESIZABLE,
 	                                &app->window, &app->renderer) == false)
