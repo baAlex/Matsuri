@@ -26,6 +26,7 @@ extern "C"
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #elif (MATSURI_UI == MATSURI_UI_WIN32)
+#define NOGDI
 #include <windows.h>
 #endif
 }
