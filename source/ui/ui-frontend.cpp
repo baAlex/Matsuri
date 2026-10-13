@@ -65,6 +65,7 @@ class VoiceFrame : public yui::Frame
 	{
 		// SetStretch(true, false); // For debuging how features interact each other
 		m_extra_height = {};
+		SetClassId("voice-frame");
 	}
 
 	void OnLayout(yui::LayoutApi& api) override

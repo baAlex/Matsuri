@@ -18,7 +18,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #include <string.h>
 
 
-#include "arialn.inc"
+#include "sans-serif.txt"
 
 // clang-format off
 #define EXCEPT(code, exception_object) if( code ) { throw (exception_object); }
@@ -312,6 +312,8 @@ class yuika::ScreenFriend
 			// TODO, use a hashmap, using GetId() as key first, then GetClassId()
 			if (strcmp(widget.GetClassId(), "text") == 0)
 				return {18, 18};
+			if (strcmp(widget.GetClassId(), "voice-frame") == 0)
+				return {16, 16};
 			/*else if (strcmp(widget.GetClassId(), "box") == 0)
 			    return {4, 4};
 			else if (strcmp(widget.GetClassId(), "button") == 0)
