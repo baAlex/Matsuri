@@ -27,7 +27,8 @@ extern "C"
 #include <X11/Xutil.h>
 #elif (MATSURI_UI == MATSURI_UI_WIN32)
 #include <windows.h>
-#undef DrawText
+#undef DrawText // Microsoft's pre-processor is renaming 'yuika::DrawApi::DrawText' to 'DrawTextA',
+                // then failing to compile.
 #endif
 }
 

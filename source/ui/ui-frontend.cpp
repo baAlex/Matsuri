@@ -67,18 +67,12 @@ class VoiceFrame : public yui::Frame
 		m_extra_height = {};
 	}
 
-	yui::Vector UpdateNaturalSize(yui::LayoutApi& api) override
+	void OnLayout(yui::LayoutApi& api) override
 	{
-		if (m_natural_size_updated == false)
-		{
-			m_extra_height.y = api.TextSize("x").y; // TODO, make a new api out of this
+		m_extra_height.y = api.TextSize("x").y; // TODO, make a new api out of this
 
-			m_natural_size_updated = true;
-			m_natural_size = api.Margin(*this) + m_extra_height;
-			m_natural_size += m_content->UpdateNaturalSize(api); // [Recursion]
-		}
-
-		return m_natural_size;
+		m_natural_size = api.Margin(*this) + m_extra_height;
+		m_natural_size += m_content->GetNaturalSize();
 	}
 
 	yui::Widget::ChildInLayout GetChildInLayout(yui::LayoutApi&, size_t, yui::Vector size, yui::Vector) const override
@@ -101,20 +95,8 @@ class Toolbar : public yui::HBox
 	Toolbar()
 	{
 		SetStretch(true, false);
-
-		auto& left_pane = AddNewChild<yui::HBox>();
-		left_pane.SetStretch(true, true);
-
-		AddNewChild<yui::ButtonWithText>("1"); // Center pane
-		AddNewChild<yui::ButtonWithText>("2");
-		AddNewChild<yui::ButtonWithText>("3");
-		AddNewChild<yui::ButtonWithText>("4");
-
-		auto& right_pane = AddNewChild<yui::HBox>();
-		right_pane.SetStretch(true, true);
-
-		right_pane.AddNewChild<yui::Spacer>();
-		right_pane.AddNewChild<yui::ButtonWithText>("Matsuri", yui::Button::Style::Flat);
+		AddNewChild<yui::Spacer>();
+		AddNewChild<yui::ButtonWithText>("Matsuri", yui::Button::Style::Flat);
 	}
 };
 
@@ -123,6 +105,7 @@ void UiFrontend::CreateUi(yui::Frame& root)
 	auto& main_container = root.SetNewChild<yui::VBox>();
 	main_container.SetStretch(true, true);
 
+#if 1
 	main_container.AddNewChild<Toolbar>();
 
 	auto& voices = main_container.AddNewChild<yui::HBox>();
@@ -138,6 +121,11 @@ void UiFrontend::CreateUi(yui::Frame& root)
 	voices.AddNewChild<VoiceFrame>("Tom Low").SetNewChild<VoiceRack>();
 
 	main_container.AddNewChild<yui::ButtonWithText>("<Status bar>").SetStretch(true, false);
+#else
+	main_container.AddNewChild<yui::Text>("Simple test");
+	main_container.AddNewChild<yui::ButtonWithText>("Hello 1");
+	main_container.AddNewChild<yui::ButtonWithText>("Hello 2");
+#endif
 }
 
 

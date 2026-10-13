@@ -124,17 +124,26 @@ class Widget
 		Vector next_offset;  // Relative from parent
 	};
 
+	enum class Validation
+	{
+		Draw,
+		Layout
+	};
+
 	virtual size_t GetChildrenNo() const = 0;
+	virtual Widget& GetChild(size_t no) const = 0; // Throws if there is no child
 	virtual ChildInLayout GetChildInLayout(LayoutApi& api, size_t no, Vector size,
-	                                       Vector cursor) const = 0; // Throws if there is no child
-	virtual Widget& GetChild(size_t no) const = 0;                   // Ditto
+	                                       Vector cursor) const = 0; // Ditto
 
-	virtual Vector UpdateNaturalSize(LayoutApi& api) = 0; // Also returns natural size
-	virtual Vector GetNaturalSize() const;                // Includes margin
-	virtual Vector GetSize(Vector available_size) const;
+	virtual Vector GetNaturalSize() const;               // Includes margin
+	virtual Vector GetSize(Vector available_size) const; // Includes margin
 
-	virtual void OnDraw(DrawApi& api, Rect allowed_draw_area) const; // On- prefixed methods are called from screen,
-	                                                                 // widgets themselves shouldn't call these
+	// On- prefixed methods are called from screen, from specific points of execution,
+	// widgets themselves shouldn't call these
+
+	virtual void OnLayout(LayoutApi& api);
+	virtual void OnDraw(DrawApi& api, Rect allowed_draw_area) const;
+	virtual EventPropagation OnMouse(MouseGesture gesture, Vector cursor_pos, const Widget& target);
 
 	virtual Widget& SetStretch(bool x, bool y);
 	virtual bool GetStretchX() const;
@@ -144,19 +153,17 @@ class Widget
 	const char* GetId() const;
 	Widget& SetClassId(const char* id); // A la CSS
 	const char* GetClassId() const;
-	Widget& SetInvalidated(bool value);
-	bool GetInvalidated() const;
-
-	virtual EventPropagation OnMouse(MouseGesture gesture, Vector cursor_pos, const Widget& target);
+	Widget& SetValidation(Validation, bool value);
+	bool GetValidation(Validation) const;
 
   protected:
-	Vector m_natural_size;           // Most widgets should follow/implement this,
-	bool m_stretch_x : 1;            // this,
-	bool m_stretch_y : 1;            // this,
-	bool m_natural_size_updated : 1; // and this
+	Vector m_natural_size; // Most widgets should follow/implement this,
+	bool m_stretch_x : 1;  // this,
+	bool m_stretch_y : 1;  // and this
 
   private:
-	bool m_invalidated : 1;
+	bool m_draw_valid : 1;
+	bool m_layout_valid : 1;
 	const char* m_id;
 	const char* m_class_id;
 };
@@ -166,9 +173,8 @@ class Leaf : public Widget // Widget without children
 {
   public:
 	size_t GetChildrenNo() const override; // Always returns zero
-	ChildInLayout GetChildInLayout(LayoutApi&, size_t, Vector, Vector) const override;
 	Widget& GetChild(size_t) const override;
-	Vector UpdateNaturalSize(LayoutApi&) override;
+	ChildInLayout GetChildInLayout(LayoutApi&, size_t, Vector, Vector) const override;
 };
 
 class Spacer : public Leaf
@@ -192,9 +198,9 @@ class Frame : public Widget // Widget with one children
 		return ret;
 	}
 
-	ChildInLayout GetChildInLayout(LayoutApi& api, size_t no, Vector size, Vector cursor) const override;
 	Widget& GetChild(size_t no) const override;
-	Vector UpdateNaturalSize(LayoutApi& api) override;
+	ChildInLayout GetChildInLayout(LayoutApi& api, size_t no, Vector size, Vector cursor) const override;
+	void OnLayout(LayoutApi& api) override;
 
   protected:
 	std::unique_ptr<Widget> m_content;
@@ -234,9 +240,9 @@ class Box : public Container
 		return ret;
 	}
 
-	ChildInLayout GetChildInLayout(LayoutApi& api, size_t no, Vector size, Vector cursor) const override;
 	Widget& GetChild(size_t no) const override;
-	Vector UpdateNaturalSize(LayoutApi& api) override;
+	ChildInLayout GetChildInLayout(LayoutApi& api, size_t no, Vector size, Vector cursor) const override;
+	void OnLayout(LayoutApi& api) override;
 
 	Box& SetWrap(bool);
 	bool GetWrap() const;
@@ -265,16 +271,12 @@ class VBox : public Box
 };
 
 
-class Text : public Widget
+class Text : public Leaf
 {
   public:
 	Text(std::string text);
 	void OnDraw(DrawApi& api, Rect allowed_draw_area) const override;
-
-	size_t GetChildrenNo() const override;
-	ChildInLayout GetChildInLayout(LayoutApi&, size_t, Vector, Vector) const override;
-	Widget& GetChild(size_t) const override;
-	Vector UpdateNaturalSize(LayoutApi& api) override;
+	void OnLayout(LayoutApi& api) override;
 
   private:
 	std::string m_text;
@@ -298,9 +300,9 @@ class Button : public Frame
 	};
 
 	Button(Style style = Style::Normal);
+	Widget::ChildInLayout GetChildInLayout(LayoutApi& api, size_t, Vector size, Vector cursor) const override;
 	void OnDraw(DrawApi& api, Rect allowed_draw_area) const override;
 	EventPropagation OnMouse(MouseGesture gesture, Vector, const Widget& target) override;
-	Widget::ChildInLayout GetChildInLayout(LayoutApi& api, size_t, Vector size, Vector cursor) const override;
 
   protected:
 	Style m_style;
@@ -355,13 +357,17 @@ class Screen
 
 	struct MiniTreeEntry
 	{
+		// CreateMiniTree()
 		Widget* widget;
-		MiniTreeEntry* last_child;
 		MiniTreeEntry* parent;
+		MiniTreeEntry* last_child;
+		int depth;
 
+		// DrawWidget()
 		Rect last_draw_at;
-
 		Rect hit_area;
+
+		//
 		bool pressed_as_target : 1;
 		bool pressed_indirectly : 1;
 		bool cursor_inside : 1;
@@ -372,10 +378,13 @@ class Screen
 
 	struct StackEntry
 	{
+		// CreateMiniTree(), DrawWidget()
 		Widget* widget;
-		MiniTreeEntry* parent_mini;
 		MiniTreeEntry* mini;
+		MiniTreeEntry* parent_mini;
+		int depth;
 
+		// DrawWidget()
 		Rect allowed_draw_area;
 	};
 
@@ -383,8 +392,10 @@ class Screen
 
 	uint8_t* m_font;
 
-	bool m_invalidated;
+	bool m_draw_valid;
+	bool m_layout_valid;
 
+	void CreateMiniTree();
 	void ColourConversion(uint32_t* in_out, Vector size, int stride) const;
 	void Bubble(MouseGesture gesture, Vector cursor_pos, MiniTreeEntry* target);
 };

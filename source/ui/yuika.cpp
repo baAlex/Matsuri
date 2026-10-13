@@ -11,6 +11,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
 #include "yuika.hpp"
+
 #include <algorithm>
 #include <assert.h>
 #include <limits.h>
@@ -106,7 +107,8 @@ void yuika::Screen::Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask
 	m_masks[1] = g_mask;
 	m_masks[0] = b_mask;
 
-	m_invalidated = false;
+	m_draw_valid = false;
+	m_layout_valid = false;
 
 	// SDF,
 	// do fragment-shader work offline, as we are 2d
@@ -319,127 +321,77 @@ class yuika::ScreenFriend
 		}
 	};
 
-	template <bool UPDATE_MINI_TREE>
-	static void IterateWidgetTree(DrawApiImplementation& api, Widget* widget, Rect allowed_draw_area)
+	static void DrawWidget(DrawApiImplementation& api, Widget* widget, Screen::MiniTreeEntry* mini,
+	                       Rect allowed_draw_area)
 	{
-		// Non-recursive, it has the good feature of carry information while
-		// descending the tree, like depth, drawable area, and more; also from our
-		// end we can identify on which widget we are without asking it to widgets
-		// themselves
+		// Screen::CreateMiniTree() is the full version of this function
 
+		assert(mini->widget == widget);
 		size_t cursor = 1;
 
-		if constexpr (UPDATE_MINI_TREE == true)
-			api.fwend->m_mini_tree_len = 1;
+		// This is a bit hacky, but we need to find where children's
+		// mini tree entries start
+		size_t mini_tree_index =
+		    static_cast<size_t>(mini->last_child - api.fwend->m_mini_tree) - mini->widget->GetChildrenNo() + 1;
 
 		// Add root first
 		{
 			Screen::StackEntry* stack_entry = api.fwend->m_stack + 0;
 			stack_entry->widget = widget;
 			stack_entry->allowed_draw_area = allowed_draw_area;
-
-			if constexpr (UPDATE_MINI_TREE == true)
-			{
-				stack_entry->parent_mini = nullptr;
-				stack_entry->mini = api.fwend->m_mini_tree;
-
-				Screen::MiniTreeEntry* mini_entry = api.fwend->m_mini_tree + 0;
-				memset(mini_entry, 0, sizeof(Screen::MiniTreeEntry));
-				mini_entry->widget = api.fwend->m_root;
-			}
+			stack_entry->mini = mini;
 		}
 
 		// Now widget as normal
 		while (cursor > 0)
 		{
-			Screen::StackEntry current = api.fwend->m_stack[--cursor];
+			Screen::StackEntry stack_entry = api.fwend->m_stack[--cursor];
 
 			// Draw widget
-			current.widget->SetInvalidated(false);
+			api.hit_area = {};
+			stack_entry.widget->OnDraw(api, stack_entry.allowed_draw_area);
+			stack_entry.widget->SetValidation(Widget::Validation::Draw, true);
 
-			if constexpr (UPDATE_MINI_TREE == false)
+			// Update mini tree entry
+			if (stack_entry.mini != nullptr)
 			{
-				// TODO?, I'm ignoring the hit area, we are not adjusting the tree anyways
-				current.widget->OnDraw(api, current.allowed_draw_area);
-			}
-			else
-			{
-				api.hit_area = {};
-				current.widget->OnDraw(api, current.allowed_draw_area);
-
-				// Update mini tree entry,
-				// those fields that weren't know when mini tree entry was created
-				if (current.mini != nullptr)
-				{
-					current.mini->last_draw_at = current.allowed_draw_area;
-					current.mini->hit_area = api.hit_area;
-				}
-
-				if (current.parent_mini != nullptr)
-					current.parent_mini->last_child = current.mini;
+				assert(stack_entry.mini->widget == stack_entry.widget); // Did the hack work?
+				stack_entry.mini->last_draw_at = stack_entry.allowed_draw_area;
+				stack_entry.mini->hit_area = api.hit_area;
 			}
 
 			// Iterate children
-			if (cursor + current.widget->GetChildrenNo() >= Screen::STACK_LEN)
+			const size_t childs_no = stack_entry.widget->GetChildrenNo();
+			if (cursor + childs_no >= Screen::STACK_LEN)
 				throw 1; // TODO
 
-			cursor += current.widget->GetChildrenNo();
-			for (size_t i = 0; i < current.widget->GetChildrenNo(); i += 1)
+			cursor += childs_no;
+			for (size_t i = 0; i < childs_no; i += 1)
 			{
-				const auto [child, child_offset, child_size, next_offset] = current.widget->GetChildInLayout(
-				    api, i, current.allowed_draw_area.size, current.allowed_draw_area.pos);
+				const auto [child, child_offset, child_size, next_offset] = stack_entry.widget->GetChildInLayout(
+				    api, i, stack_entry.allowed_draw_area.size, stack_entry.allowed_draw_area.pos);
 
 				const Vector child_margin = api.Margin(child);
 
-				Screen::StackEntry* stack_entry =
-				    api.fwend->m_stack + cursor - 1 - i; // TODO, clang-tidy has an issue with this
+				Screen::StackEntry* child_stack_entry = api.fwend->m_stack + cursor - 1 - i;
 
-				if constexpr (UPDATE_MINI_TREE == false)
-				{
-					// Stack children,
-					// just for iteration in this function
-					stack_entry->widget = &child;
-					stack_entry->allowed_draw_area = {current.allowed_draw_area.pos + child_offset + child_margin / 2,
-					                                  child_size - child_margin};
-				}
-				else
-				{
-					// Stack children
-					stack_entry->widget = &child;
-					stack_entry->parent_mini = current.mini;
-					stack_entry->mini = &api.fwend->m_mini_tree[api.fwend->m_mini_tree_len];
-					stack_entry->allowed_draw_area = {current.allowed_draw_area.pos + child_offset + child_margin / 2,
-					                                  child_size - child_margin};
+				// Stack children
+				child_stack_entry->widget = &child;
+				child_stack_entry->mini = api.fwend->m_mini_tree + mini_tree_index;
+				child_stack_entry->allowed_draw_area = {
+				    stack_entry.allowed_draw_area.pos + child_offset + child_margin / 2, child_size - child_margin};
 
-					// Store children in mini tree,
-					// other parts of the code will use it
-					Screen::MiniTreeEntry* mini_entry = api.fwend->m_mini_tree + api.fwend->m_mini_tree_len;
-					api.fwend->m_mini_tree_len++;
+				// Move draw cursor
+				stack_entry.allowed_draw_area.pos += next_offset;
 
-					memset(mini_entry, 0, sizeof(Screen::MiniTreeEntry));
-					mini_entry->widget = &child;
-					mini_entry->parent = current.mini;
-				}
-
-				//
-				current.allowed_draw_area.pos += next_offset;
+				// Next mini tree entry
+				mini_tree_index++;
 			}
 		}
-	}
-
-	static void DrawWidgetsAndSetMiniTree(DrawApiImplementation& api)
-	{
-		IterateWidgetTree<true>(api, api.fwend->m_root, Rect{{}, api.fwend->m_size});
-	}
-
-	static void DrawWidget(DrawApiImplementation& api, Widget* widget, Rect allowed_draw_area)
-	{
-		IterateWidgetTree<false>(api, widget, allowed_draw_area);
 	}
 };
 
 
-static constexpr bool UPDATE_NATURAL_SIZE_LIKE_CRAZY = false;
 static constexpr bool DRAW_LIKE_CRAZY = false;
 
 void yuika::Screen::ColourConversion(uint32_t* in_out, Vector size, int stride) const
@@ -486,21 +438,123 @@ void yuika::Screen::ColourConversion(uint32_t* in_out, Vector size, int stride) 
 	}
 }
 
+
+void yuika::Screen::CreateMiniTree()
+{
+	// Non-recursive, it has the good feature of carry information while
+	// descending the tree, like depth, drawable area, and more; also from our
+	// end we can identify on which widget we are without asking it to widgets
+	// themselves
+
+	size_t cursor = 1;
+	m_mini_tree_len = 1;
+
+	// Add root first
+	{
+		Screen::StackEntry* stack_entry = m_stack + 0;
+		stack_entry->widget = m_root;
+		stack_entry->mini = m_mini_tree;
+		stack_entry->parent_mini = nullptr;
+		stack_entry->depth = 1;
+
+		Screen::MiniTreeEntry* mini_entry = m_mini_tree + 0;
+		mini_entry->widget = m_root;
+		mini_entry->parent = nullptr;
+		mini_entry->last_child = nullptr;
+		mini_entry->depth = 1;
+	}
+
+	// Now widgets as normal
+	while (cursor > 0)
+	{
+		Screen::StackEntry stack_entry = m_stack[--cursor];
+
+		// Update mini tree entry,
+		// fields that weren't know when mini tree entry was created
+		if (stack_entry.parent_mini != nullptr)
+			stack_entry.parent_mini->last_child = stack_entry.mini;
+
+		// Iterate children
+		const size_t childs_no = stack_entry.widget->GetChildrenNo();
+		if (cursor + childs_no >= Screen::STACK_LEN)
+			throw 1; // TODO
+
+		cursor += childs_no;
+		for (size_t i = 0; i < childs_no; i += 1)
+		{
+			Widget& child = stack_entry.widget->GetChild(i);
+
+			Screen::StackEntry* child_stack_entry = m_stack + cursor - 1 - i; // TODO, clang-tidy has an issue with this
+
+			// Stack children,
+			// just for iteration in this function
+			child_stack_entry->widget = &child;
+			child_stack_entry->mini = m_mini_tree + m_mini_tree_len;
+			child_stack_entry->parent_mini = stack_entry.mini;
+			child_stack_entry->depth = stack_entry.depth + 1;
+
+			// Store children in mini tree,
+			// other parts of the code will use it
+			child_stack_entry->mini->widget = &child;
+			child_stack_entry->mini->parent = stack_entry.mini;
+			child_stack_entry->mini->last_child = nullptr;
+			child_stack_entry->mini->depth = stack_entry.depth + 1;
+
+			// Allocate mini tree entry
+			m_mini_tree_len++;
+		}
+	}
+
+	// Developers, developers, developers
+	if (false)
+	{
+		printf("\n### CreateMiniTree():\n\n");
+
+		for (const MiniTreeEntry* m = m_mini_tree; m < m_mini_tree + m_mini_tree_len; m += 1)
+		{
+			printf("%p | ", reinterpret_cast<const void*>(m));
+			for (int i = 0; i < m->depth; i += 1)
+				printf("-");
+			printf(" \"%s\" (childs: %zu, last one: %p)\n", m->widget->GetId(), m->widget->GetChildrenNo(),
+			       reinterpret_cast<const void*>(m->last_child));
+		}
+
+		printf("\nWidgets: %zu\n", m_mini_tree_len);
+	}
+}
+
+
 yuika::Rect yuika::Screen::Draw(Vector size, uint32_t* out)
 {
 	ScreenFriend::DrawApiImplementation draw_api;
 	draw_api.fwend = this;
 
-	m_out = out;
+	// Is layout updated?
+	if (m_layout_valid == false)
+	{
+		m_layout_valid = true;
+		CreateMiniTree();
 
-	// Full draw
+		// Call OnLayout(), in reverse starting from deepest childs, leafs.
+		// The idea is to widgets use this opportunity to update their size,
+		// and sizes depends on the size of their child, and the childs of
+		// these childs. The idea of doing it in reverse is to avoid recursion.
+		for (const MiniTreeEntry* m = m_mini_tree + m_mini_tree_len - 1; m >= m_mini_tree; m -= 1)
+		{
+			if (m->widget->GetValidation(Widget::Validation::Layout) == false)
+			{
+				m->widget->OnLayout(draw_api);
+				m->widget->SetValidation(Widget::Validation::Layout, true);
+			}
+		}
+	}
+
+	// Do a full draw?
 	if (m_size.x != size.x || m_size.y != size.y || DRAW_LIKE_CRAZY == true)
 	{
+		m_draw_valid = true;
 		m_size = size;
-		m_invalidated = false; // We are doing a full draw
-
-		// Update natural sizes
-		m_root->UpdateNaturalSize(draw_api); // [Recursion]
+		m_out = out;
 
 		// Draw
 #ifndef NDEBUG
@@ -509,41 +563,30 @@ yuika::Rect yuika::Screen::Draw(Vector size, uint32_t* out)
 		draw_api.DrawRectangle(DrawApi::WHITE, {{0, 0}, m_size});
 #endif
 
-		ScreenFriend::DrawWidgetsAndSetMiniTree(draw_api);
+		ScreenFriend::DrawWidget(draw_api, m_root, m_mini_tree, Rect{{}, m_size});
 		ColourConversion(out, m_size, m_size.x);
-
-		// Developers, developers, developers
-		if (false)
-		{
-			for (const MiniTreeEntry* m = m_mini_tree; m < m_mini_tree + m_mini_tree_len; m += 1)
-			{
-				printf("%p | ", reinterpret_cast<const void*>(m));
-				printf("%s (childs: %zu, last one: %p)\n", m->widget->GetId(), m->widget->GetChildrenNo(),
-				       reinterpret_cast<const void*>(m->last_child));
-			}
-		}
 
 		// Done!
 		return {{0, 0}, m_size};
 	}
 
-	// Partial draw
-	if (m_invalidated == true)
+	// Partial draw?
+	if (m_draw_valid == false)
 	{
+		m_draw_valid = true;
 		Rect changed_area = sInverseRect();
-		m_invalidated = false;
 
 		// TODO, here I should set "scissoring area = invalidated area" (a la' OpenGL),
 		// (as soon I implement it). Btw, it's called "clipping rectangle" in Win32,
 		// also Windows is doing the same, making the scissoring area the sames as
 		// the invalidated area. (Petzold, Programming Windows, p78)
 
-		for (const MiniTreeEntry* i = m_mini_tree; i < m_mini_tree + m_mini_tree_len; i += 1)
+		for (MiniTreeEntry* i = m_mini_tree; i < m_mini_tree + m_mini_tree_len; i += 1)
 		{
 			// TODO, like most for loops iterating the mini tree, an obvious optimisation is to
 			// keep different list/arrays/mini-trees, and not use the same one for everything
 
-			if (i->widget->GetInvalidated() == false)
+			if (i->widget->GetValidation(Widget::Validation::Draw) == true)
 				continue;
 
 #ifndef NDEBUG
@@ -552,7 +595,7 @@ yuika::Rect yuika::Screen::Draw(Vector size, uint32_t* out)
 			draw_api.DrawRectangle(DrawApi::WHITE, i->last_draw_at);
 #endif
 
-			ScreenFriend::DrawWidget(draw_api, i->widget, i->last_draw_at);
+			ScreenFriend::DrawWidget(draw_api, i->widget, i, i->last_draw_at);
 			ColourConversion(out + static_cast<size_t>(i->last_draw_at.pos.x + m_size.x * i->last_draw_at.pos.y),
 			                 i->last_draw_at.size, m_size.x);
 
@@ -570,19 +613,22 @@ yuika::Rect yuika::Screen::Draw(Vector size, uint32_t* out)
 
 void yuika::Screen::Bubble(MouseGesture gesture, Vector cursor_pos, MiniTreeEntry* target)
 {
+	// We do bubbling here
+	// https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Event_bubbling
+
 	for (MiniTreeEntry* i = target; i != nullptr; i = i->parent)
 	{
 		if (i->widget->OnMouse(gesture, cursor_pos, *target->widget) == EventPropagation::StopIt)
 			break;
-		m_invalidated |= i->widget->GetInvalidated();
+		if (i->widget->GetValidation(Widget::Validation::Draw) == false)
+			m_draw_valid = false;
+		if (i->widget->GetValidation(Widget::Validation::Layout) == false)
+			m_layout_valid = false;
 	}
 }
 
 void yuika::Screen::MousePress(Vector cursor_pos)
 {
-	// We do bubbling here
-	// https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Event_bubbling
-
 	// Find target, going down the mini tree
 	MiniTreeEntry* target = nullptr;
 	for (MiniTreeEntry* next = m_mini_tree; next != nullptr;)
@@ -681,11 +727,10 @@ yuika::Frame& yuika::Screen::GetRoot()
 
 yuika::Widget::Widget()
 {
-	m_natural_size = {};
 	m_stretch_x = false; // Is not possible to set bitfields on headers
 	m_stretch_y = false; // (a C++ quirk)
-	m_natural_size_updated = false;
-	m_invalidated = false;
+	m_draw_valid = false;
+	m_layout_valid = false;
 	m_id = "";
 	m_class_id = "";
 }
@@ -707,15 +752,24 @@ yuika::Widget& yuika::Widget::SetClassId(const char* class_id)
 	return *this;
 }
 
-yuika::Widget& yuika::Widget::SetInvalidated(bool value)
+yuika::Widget& yuika::Widget::SetValidation(Widget::Validation v, bool value)
 {
-	m_invalidated = value;
+	switch (v)
+	{
+	case Widget::Validation::Draw: m_draw_valid = value; break;
+	case Widget::Validation::Layout: m_layout_valid = value; break;
+	}
+
 	return *this;
 }
 
-bool yuika::Widget::GetInvalidated() const
+bool yuika::Widget::GetValidation(Widget::Validation v) const
 {
-	return m_invalidated;
+	switch (v)
+	{
+	case Widget::Validation::Draw: return m_draw_valid;
+	case Widget::Validation::Layout: return m_layout_valid;
+	}
 }
 
 const char* yuika::Widget::GetId() const
@@ -764,6 +818,11 @@ yuika::EventPropagation yuika::Widget::OnMouse(MouseGesture, Vector, const Widge
 	return EventPropagation::KeepPassingIt;
 }
 
+void yuika::Widget::OnLayout(LayoutApi& api)
+{
+	m_natural_size = api.Margin(*this);
+}
+
 
 // ############################
 
@@ -783,17 +842,6 @@ yuika::Widget& yuika::Leaf::GetChild(size_t) const
 	throw 1; // TODO
 }
 
-yuika::Vector yuika::Leaf::UpdateNaturalSize(LayoutApi& api)
-{
-	if (m_natural_size_updated == false)
-	{
-		m_natural_size_updated = true;
-		m_natural_size = api.Margin(*this);
-	}
-
-	return m_natural_size;
-}
-
 yuika::Spacer::Spacer(bool x, bool y)
 {
 	SetStretch(x, y);
@@ -811,7 +859,7 @@ size_t yuika::Frame::GetChildrenNo() const
 yuika::Widget& yuika::Frame::SetChild(std::unique_ptr<Widget> widget)
 {
 	m_content = std::move(widget);
-	m_natural_size_updated = false;
+	SetValidation(Widget::Validation::Layout, false);
 	return *m_content;
 }
 
@@ -827,17 +875,11 @@ yuika::Widget& yuika::Frame::GetChild(size_t) const
 	return *m_content;
 }
 
-yuika::Vector yuika::Frame::UpdateNaturalSize(LayoutApi& api)
+void yuika::Frame::OnLayout(LayoutApi& api)
 {
-	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
-	{
-		m_natural_size_updated = true;
-		m_natural_size = api.Margin(*this);
-		if (m_content != nullptr)
-			m_natural_size += m_content->UpdateNaturalSize(api); // [Recursion]
-	}
-
-	return m_natural_size;
+	m_natural_size = api.Margin(*this);
+	if (m_content != nullptr)
+		m_natural_size += m_content->GetNaturalSize();
 }
 
 
@@ -872,7 +914,7 @@ size_t yuika::Box::GetChildrenNo() const
 yuika::Widget& yuika::Box::AddChild(std::unique_ptr<Widget> widget)
 {
 	m_children.push_back(std::move(widget));
-	m_natural_size_updated = false;
+	SetValidation(Widget::Validation::Layout, false);
 	return *m_children.back();
 }
 
@@ -940,41 +982,35 @@ yuika::Widget& yuika::Box::GetChild(size_t no) const
 	return *m_children.at(no);
 }
 
-yuika::Vector yuika::Box::UpdateNaturalSize(LayoutApi& api)
+void yuika::Box::OnLayout(LayoutApi& api)
 {
-	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
+	m_natural_size = {};
+	m_non_stretch_size = {};
+	m_stretch_childs = 0;
+
+	for (auto& child : m_children)
 	{
-		m_natural_size_updated = true;
-		m_natural_size = {};
-		m_non_stretch_size = {};
-		m_stretch_childs = 0;
+		const Vector child_natural_size = child->GetNaturalSize();
 
-		for (auto& child : m_children)
+		switch (m_direction)
 		{
-			const Vector child_natural_size = child->UpdateNaturalSize(api); // [Recursion]
-
-			switch (m_direction)
-			{
-			case Direction::Horizontal:
-				m_natural_size.x += child_natural_size.x;
-				m_natural_size.y = std::max(child_natural_size.y, m_natural_size.y);
-				m_stretch_childs += static_cast<size_t>(child->GetStretchX());
-				break;
-			case Direction::Vertical:
-				m_natural_size.x = std::max(child_natural_size.x, m_natural_size.x);
-				m_natural_size.y += child_natural_size.y;
-				m_stretch_childs += static_cast<size_t>(child->GetStretchY());
-				break;
-			}
-
-			m_non_stretch_size.x += (child->GetStretchX() == false) ? child_natural_size.x : 0;
-			m_non_stretch_size.y += (child->GetStretchY() == false) ? child_natural_size.y : 0;
+		case Direction::Horizontal:
+			m_natural_size.x += child_natural_size.x;
+			m_natural_size.y = std::max(child_natural_size.y, m_natural_size.y);
+			m_stretch_childs += static_cast<size_t>(child->GetStretchX());
+			break;
+		case Direction::Vertical:
+			m_natural_size.x = std::max(child_natural_size.x, m_natural_size.x);
+			m_natural_size.y += child_natural_size.y;
+			m_stretch_childs += static_cast<size_t>(child->GetStretchY());
+			break;
 		}
 
-		m_natural_size += api.Margin(*this);
+		m_non_stretch_size.x += (child->GetStretchX() == false) ? child_natural_size.x : 0;
+		m_non_stretch_size.y += (child->GetStretchY() == false) ? child_natural_size.y : 0;
 	}
 
-	return m_natural_size;
+	m_natural_size += api.Margin(*this);
 }
 
 yuika::HBox::HBox(bool wrap) : Box(Direction::Horizontal, wrap) {}
@@ -984,7 +1020,7 @@ yuika::VBox::VBox(bool wrap) : Box(Direction::Vertical, wrap) {}
 // ############################
 
 
-yuika::Text::Text(std::string text) : Widget()
+yuika::Text::Text(std::string text) : Leaf()
 {
 	m_text = std::move(text);
 	SetClassId("text");
@@ -996,30 +1032,9 @@ void yuika::Text::OnDraw(DrawApi& api, Rect allowed_draw_area) const
 	api.DrawText(DrawApi::BLACK, allowed_draw_area.pos, m_text.c_str());
 }
 
-size_t yuika::Text::GetChildrenNo() const
+void yuika::Text::OnLayout(LayoutApi& api)
 {
-	return 0;
-};
-
-yuika::Widget::ChildInLayout yuika::Text::GetChildInLayout(LayoutApi&, size_t, Vector, Vector) const
-{
-	throw 1;
-};
-
-yuika::Widget& yuika::Text::GetChild(size_t) const
-{
-	throw 1;
-};
-
-yuika::Vector yuika::Text::UpdateNaturalSize(LayoutApi& api)
-{
-	if (m_natural_size_updated == false || UPDATE_NATURAL_SIZE_LIKE_CRAZY == true)
-	{
-		m_natural_size_updated = true;
-		m_natural_size = api.TextSize(m_text.c_str()) + api.Margin(*this);
-	}
-
-	return m_natural_size;
+	m_natural_size = api.TextSize(m_text.c_str()) + api.Margin(*this);
 };
 
 
@@ -1049,9 +1064,7 @@ void yuika::Button::OnDraw(DrawApi& api, Rect allowed_draw_area) const
 			api.DrawBorder({allowed_draw_area.pos, size}, DrawApi::BorderStyle::Outset);
 		break;
 	case State::Over:
-// #ifndef NDEBUG
-#if 1
-		// White for debugging purposes
+#if 1 // #ifndef NDEBUG // White for debugging purposes
 		api.DrawRectangle(DrawApi::WHITE, {allowed_draw_area.pos, size});
 #endif
 		api.DrawBorder({allowed_draw_area.pos, size}, DrawApi::BorderStyle::Outset);
@@ -1086,9 +1099,7 @@ yuika::EventPropagation yuika::Button::OnMouse(MouseGesture gesture, Vector, con
 
 	if (m_inside == true)
 	{
-// #ifndef NDEBUG
-#if 1
-		// Classic Windows theme don't highlight on mouse over, XP's Luna theme does
+#if 1 // #ifndef NDEBUG // Classic Windows don't highlight on mouse over
 		m_state = (m_pressed == true) ? State::Pressed : State::Over;
 #else
 		if (m_style != Style::Flat)
@@ -1101,7 +1112,7 @@ yuika::EventPropagation yuika::Button::OnMouse(MouseGesture gesture, Vector, con
 		m_state = State::Normal;
 
 	if (prev_state != m_state)
-		SetInvalidated(true);
+		SetValidation(Widget::Validation::Draw, false);
 
 	return yuika::EventPropagation::KeepPassingIt;
 }
