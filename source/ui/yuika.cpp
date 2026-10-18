@@ -14,8 +14,6 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 
 #include <algorithm>
 #include <assert.h>
-#include <limits.h>
-#include <string.h>
 
 
 #include "sans-serif.txt"
@@ -23,34 +21,6 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 // clang-format off
 #define EXCEPT(code, exception_object) if( code ) { throw (exception_object); }
 // clang-format on
-
-
-static bool sInside(yuika::Vector pos, yuika::Rect rect)
-{
-	if (pos.x >= rect.pos.x && pos.y >= rect.pos.y && //
-	    pos.x < rect.pos.x + rect.size.x && pos.y < rect.pos.y + rect.size.y)
-		return true;
-	return false;
-}
-
-static yuika::Rect sUnion(yuika::Rect a, yuika::Rect b)
-{
-	const int x1 = std::min(a.pos.x, b.pos.x);
-	const int y1 = std::min(a.pos.y, b.pos.y);
-	const int x2 = std::max(a.pos.x + a.size.x, b.pos.x + b.size.x);
-	const int y2 = std::max(a.pos.y + a.size.y, b.pos.y + b.size.y);
-	return {{x1, y1}, {x2 - x1, y2 - y1}};
-}
-
-static yuika::Rect sInverseRect()
-{
-	yuika::Rect ret;
-	ret.pos.x = INT_MAX;
-	ret.pos.y = INT_MAX;
-	ret.size.x = INT_MIN;
-	ret.size.y = INT_MIN;
-	return ret;
-}
 
 
 #if defined(__clang__) || defined(__GNUC__)
@@ -206,12 +176,8 @@ class yuika::ScreenFriend
 			case BorderStyle::Inset:
 				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y}, {rect.size.x - 1, 1}});
 				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.y - 1}});
-				// DrawRectangle(BEVEL_LIGHT, {{rect.pos.x + rect.size.x - 1, rect.pos.y}, {1, rect.size.y}});
-				// DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y + rect.size.y - 1}, {rect.size.x, 1}});
-
-				// Windows 2000 is simpler than 9x:
-				DrawRectangle(BEVEL_MID, {{rect.pos.x + rect.size.x - 1, rect.pos.y}, {1, rect.size.y}});
-				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y + rect.size.y - 1}, {rect.size.x, 1}});
+				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x + rect.size.x - 1, rect.pos.y}, {1, rect.size.y}});
+				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y + rect.size.y - 1}, {rect.size.x, 1}});
 				break;
 			case BorderStyle::Outset:
 				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y}, {rect.size.x - 1, 1}});
@@ -310,9 +276,9 @@ class yuika::ScreenFriend
 		Vector Margin(const Widget& widget) override
 		{
 			// TODO, use a hashmap, using GetId() as key first, then GetClassId()
-			if (strcmp(widget.GetClassId(), "text") == 0)
+			if (widget.GetClassId() == "Text")
 				return {18, 18};
-			if (strcmp(widget.GetClassId(), "voice-frame") == 0)
+			if (widget.GetClassId() == "VoiceFrame")
 				return {16, 16};
 			/*else if (strcmp(widget.GetClassId(), "box") == 0)
 			    return {4, 4};
@@ -517,7 +483,7 @@ void yuika::Screen::CreateMiniTree()
 			printf("%p | ", reinterpret_cast<const void*>(m));
 			for (int i = 0; i < m->depth; i += 1)
 				printf("-");
-			printf(" \"%s\" (childs: %zu, last one: %p)\n", m->widget->GetId(), m->widget->GetChildrenNo(),
+			printf(" \"%s\" (childs: %zu, last one: %p)\n", m->widget->GetId().c_str(), m->widget->GetChildrenNo(),
 			       reinterpret_cast<const void*>(m->last_child));
 		}
 
@@ -562,7 +528,7 @@ yuika::Rect yuika::Screen::Draw(Vector size, uint32_t* out)
 #ifndef NDEBUG
 		draw_api.DrawRectangle(DrawApi::PINK, {{0, 0}, m_size});
 #else
-		draw_api.DrawRectangle(DrawApi::WHITE, {{0, 0}, m_size});
+		draw_api.DrawRectangle(DrawApi::BACKGROUND, {{0, 0}, m_size});
 #endif
 
 		ScreenFriend::DrawWidget(draw_api, m_root, m_mini_tree, Rect{{}, m_size});
@@ -576,7 +542,7 @@ yuika::Rect yuika::Screen::Draw(Vector size, uint32_t* out)
 	if (m_draw_valid == false)
 	{
 		m_draw_valid = true;
-		Rect changed_area = sInverseRect();
+		Rect changed_area = Rect::Inverse();
 
 		// TODO, here I should set "scissoring area = invalidated area" (a la' OpenGL),
 		// (as soon I implement it). Btw, it's called "clipping rectangle" in Win32,
@@ -601,7 +567,7 @@ yuika::Rect yuika::Screen::Draw(Vector size, uint32_t* out)
 			ColourConversion(out + static_cast<size_t>(i->last_draw_at.pos.x + m_size.x * i->last_draw_at.pos.y),
 			                 i->last_draw_at.size, m_size.x);
 
-			changed_area = sUnion(i->last_draw_at, changed_area);
+			changed_area = i->last_draw_at.Union(changed_area);
 		}
 
 		// Done!
@@ -618,14 +584,22 @@ void yuika::Screen::Bubble(MouseGesture gesture, Vector cursor_pos, MiniTreeEntr
 	// We do bubbling here
 	// https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Event_bubbling
 
+	Widget* target_widget = target->widget;
+	uint32_t cookie = target_widget->GetCookie();
+
 	for (MiniTreeEntry* i = target; i != nullptr; i = i->parent)
 	{
-		if (i->widget->OnMouse(gesture, cursor_pos, *target->widget) == EventPropagation::StopIt)
-			break;
+		const EventPropagation propagation = i->widget->OnMouse(gesture, cursor_pos, cookie, *target_widget);
+
 		if (i->widget->GetValidation(Widget::Validation::Draw) == false)
 			m_draw_valid = false;
 		if (i->widget->GetValidation(Widget::Validation::Layout) == false)
 			m_layout_valid = false;
+
+		if (propagation == EventPropagation::StopIt)
+			break;
+		else if (propagation == EventPropagation::TakePlaceAsTarget)
+			target_widget = i->widget;
 	}
 }
 
@@ -643,7 +617,7 @@ void yuika::Screen::MousePress(Vector cursor_pos)
 		MiniTreeEntry* child = target->last_child;
 		for (size_t child_no = 0; child_no < target->widget->GetChildrenNo(); child_no += 1, child -= 1)
 		{
-			if (sInside(cursor_pos, child->hit_area) == true)
+			if (child->hit_area.IsPointInside(cursor_pos) == true)
 			{
 				next = child;
 				break;
@@ -672,7 +646,7 @@ void yuika::Screen::MouseRelease(Vector cursor_pos)
 		if (target->pressed_indirectly == true) // TODO, same
 		{
 			target->pressed_indirectly = false;
-			if (sInside(cursor_pos, target->hit_area) == true)
+			if (target->hit_area.IsPointInside(cursor_pos) == true)
 				Bubble(MouseGesture::Click, cursor_pos, target);
 		}
 	}
@@ -683,7 +657,7 @@ void yuika::Screen::MouseMoves(Vector cursor_pos)
 	// Leaves event
 	for (MiniTreeEntry* target = m_mini_tree; target < m_mini_tree + m_mini_tree_len; target += 1)
 	{
-		if (target->cursor_inside == true && sInside(cursor_pos, target->hit_area) == false)
+		if (target->cursor_inside == true && target->hit_area.IsPointInside(cursor_pos) == false)
 		{
 			target->cursor_inside = false;
 			Bubble(MouseGesture::Leaves, cursor_pos, target);
@@ -708,7 +682,7 @@ void yuika::Screen::MouseMoves(Vector cursor_pos)
 		MiniTreeEntry* child = target->last_child;
 		for (size_t child_no = 0; child_no < target->widget->GetChildrenNo(); child_no += 1, child -= 1)
 		{
-			if (sInside(cursor_pos, child->hit_area) == true)
+			if (child->hit_area.IsPointInside(cursor_pos) == true)
 			{
 				next = child;
 				break;
@@ -733,24 +707,29 @@ yuika::Widget::Widget()
 	m_stretch_y = false; // (a C++ quirk)
 	m_draw_valid = false;
 	m_layout_valid = false;
-	m_id = "";
-	m_class_id = "";
+	m_cookie = 0;
 }
 
-yuika::Vector yuika::Widget::GetNaturalSize() const
+yuika::Vector yuika::Widget::GetMinimumSize() const
 {
-	return m_natural_size;
+	return m_minimum_size;
 }
 
-yuika::Widget& yuika::Widget::SetId(const char* id)
+yuika::Widget& yuika::Widget::SetId(const std::string& id)
 {
 	m_id = id;
 	return *this;
 }
 
-yuika::Widget& yuika::Widget::SetClassId(const char* class_id)
+yuika::Widget& yuika::Widget::SetClassId(const std::string& class_id)
 {
 	m_class_id = class_id;
+	return *this;
+}
+
+yuika::Widget& yuika::Widget::SetCookie(uint32_t cookie)
+{
+	m_cookie = cookie;
 	return *this;
 }
 
@@ -774,14 +753,19 @@ bool yuika::Widget::GetValidation(Widget::Validation v) const
 	}
 }
 
-const char* yuika::Widget::GetId() const
+const std::string& yuika::Widget::GetId() const
 {
 	return m_id;
 }
 
-const char* yuika::Widget::GetClassId() const
+const std::string& yuika::Widget::GetClassId() const
 {
 	return m_class_id;
+}
+
+uint32_t yuika::Widget::GetCookie() const
+{
+	return m_cookie;
 }
 
 yuika::Widget& yuika::Widget::SetStretch(bool x, bool y)
@@ -803,7 +787,7 @@ bool yuika::Widget::GetStretchY() const
 
 yuika::Vector yuika::Widget::GetSize(Vector available_size) const
 {
-	Vector size = m_natural_size;
+	Vector size = m_minimum_size;
 	size.x = (GetStretchX() == true || size.x > available_size.x) ? available_size.x : size.x;
 	size.y = (GetStretchY() == true || size.y > available_size.y) ? available_size.y : size.y;
 	return size;
@@ -815,14 +799,14 @@ void yuika::Widget::OnDraw(DrawApi& api, Rect allowed_draw_area) const
 	api.SetHitArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
 }
 
-yuika::EventPropagation yuika::Widget::OnMouse(MouseGesture, Vector, const Widget&)
+yuika::EventPropagation yuika::Widget::OnMouse(MouseGesture, Vector, uint32_t&, const Widget&)
 {
 	return EventPropagation::KeepPassingIt;
 }
 
 void yuika::Widget::OnLayout(LayoutApi& api)
 {
-	m_natural_size = api.Margin(*this);
+	m_minimum_size = api.Margin(*this);
 }
 
 
@@ -847,6 +831,7 @@ yuika::Widget& yuika::Leaf::GetChild(size_t) const
 yuika::Spacer::Spacer(bool x, bool y)
 {
 	SetStretch(x, y);
+	SetClassId("Spacer");
 }
 
 
@@ -879,9 +864,9 @@ yuika::Widget& yuika::Frame::GetChild(size_t) const
 
 void yuika::Frame::OnLayout(LayoutApi& api)
 {
-	m_natural_size = api.Margin(*this);
+	m_minimum_size = api.Margin(*this);
 	if (m_content != nullptr)
-		m_natural_size += m_content->GetNaturalSize();
+		m_minimum_size += m_content->GetMinimumSize();
 }
 
 
@@ -894,7 +879,7 @@ yuika::Box::Box(Direction direction, bool wrap) : Container()
 	m_stretch_childs = 0;
 	m_non_stretch_size = {};
 	m_wrap = wrap;
-	SetClassId("box");
+	SetClassId("Box");
 }
 
 yuika::Box& yuika::Box::SetWrap(bool wrap)
@@ -940,17 +925,26 @@ class yuika::BoxFriend
 			{
 				fwend_size.x =
 				    (fwend_size.x - fwend.m_non_stretch_size.x) / std::max(static_cast<int>(fwend.m_stretch_childs), 1);
-				fwend_size.x = std::max(fwend_size.x, child->GetNaturalSize().x);
+				fwend_size.x = std::max(fwend_size.x, child->GetMinimumSize().x);
 			}
 
 			child_size = child->GetSize(fwend_size);
 			next_offset = {child_size.x, 0};
 
-			if (fwend.m_wrap == true && cursor.x + next_offset.x + child_size.x > fwend_size.x)
+			// If there is no space for next widget, move cursor left and a row below
+			if (fwend.m_wrap == true)
 			{
-				next_offset.x -= cursor.x + child_size.x;
-				next_offset.y = fwend.m_natural_size.y; // Works as it's an infinite horizontal row,
-				                                        // all rows will have the same height tho
+				Vector next_size = {};
+
+				if (no + 1 < fwend.m_children.size())
+					next_size.x = fwend.m_children.at(no + 1)->GetMinimumSize().x; // TODO, a bit ugly to ask size twice
+
+				if (cursor.x + child_size.x + next_size.x > fwend_size.x)
+				{
+					next_offset.x -= cursor.x + child_size.x;
+					next_offset.y = fwend.m_minimum_size.y; // Works as it's an infinite horizontal row,
+					                                        // all rows will have the same height tho
+				}
 			}
 		}
 		break;
@@ -960,7 +954,7 @@ class yuika::BoxFriend
 			{
 				fwend_size.y =
 				    (fwend_size.y - fwend.m_non_stretch_size.y) / std::max(static_cast<int>(fwend.m_stretch_childs), 1);
-				fwend_size.y = std::max(fwend_size.y, child->GetNaturalSize().y);
+				fwend_size.y = std::max(fwend_size.y, child->GetMinimumSize().y);
 			}
 
 			child_size = child->GetSize(fwend_size);
@@ -986,37 +980,44 @@ yuika::Widget& yuika::Box::GetChild(size_t no) const
 
 void yuika::Box::OnLayout(LayoutApi& api)
 {
-	m_natural_size = {};
+	m_minimum_size = {};
 	m_non_stretch_size = {};
 	m_stretch_childs = 0;
 
 	for (auto& child : m_children)
 	{
-		const Vector child_natural_size = child->GetNaturalSize();
+		const Vector child_minimum_size = child->GetMinimumSize();
 
 		switch (m_direction)
 		{
 		case Direction::Horizontal:
-			m_natural_size.x += child_natural_size.x;
-			m_natural_size.y = std::max(child_natural_size.y, m_natural_size.y);
+			m_minimum_size.x += child_minimum_size.x;
+			m_minimum_size.y = std::max(child_minimum_size.y, m_minimum_size.y);
 			m_stretch_childs += static_cast<size_t>(child->GetStretchX());
 			break;
 		case Direction::Vertical:
-			m_natural_size.x = std::max(child_natural_size.x, m_natural_size.x);
-			m_natural_size.y += child_natural_size.y;
+			m_minimum_size.x = std::max(child_minimum_size.x, m_minimum_size.x);
+			m_minimum_size.y += child_minimum_size.y;
 			m_stretch_childs += static_cast<size_t>(child->GetStretchY());
 			break;
 		}
 
-		m_non_stretch_size.x += (child->GetStretchX() == false) ? child_natural_size.x : 0;
-		m_non_stretch_size.y += (child->GetStretchY() == false) ? child_natural_size.y : 0;
+		m_non_stretch_size.x += (child->GetStretchX() == false) ? child_minimum_size.x : 0;
+		m_non_stretch_size.y += (child->GetStretchY() == false) ? child_minimum_size.y : 0;
 	}
 
-	m_natural_size += api.Margin(*this);
+	m_minimum_size += api.Margin(*this);
 }
 
-yuika::HBox::HBox(bool wrap) : Box(Direction::Horizontal, wrap) {}
-yuika::VBox::VBox(bool wrap) : Box(Direction::Vertical, wrap) {}
+yuika::HBox::HBox(bool wrap) : Box(Direction::Horizontal, wrap)
+{
+	SetClassId("HBox");
+}
+
+yuika::VBox::VBox(bool wrap) : Box(Direction::Vertical, wrap)
+{
+	SetClassId("VBox");
+}
 
 
 // ############################
@@ -1025,31 +1026,33 @@ yuika::VBox::VBox(bool wrap) : Box(Direction::Vertical, wrap) {}
 yuika::Text::Text(std::string text) : Leaf()
 {
 	m_text = std::move(text);
-	SetClassId("text");
+	SetClassId("Text");
 }
 
 void yuika::Text::OnDraw(DrawApi& api, Rect allowed_draw_area) const
 {
 	api.SetHitArea({allowed_draw_area.pos, api.TextSize(m_text.c_str())});
+	api.DrawCheckerBoardRectangle(DrawApi::RED, {allowed_draw_area.pos, api.TextSize(m_text.c_str())});
 	api.DrawText(DrawApi::BLACK, allowed_draw_area.pos, m_text.c_str());
 }
 
 void yuika::Text::OnLayout(LayoutApi& api)
 {
-	m_natural_size = api.TextSize(m_text.c_str()) + api.Margin(*this);
+	m_minimum_size = api.TextSize(m_text.c_str()) + api.Margin(*this);
 };
 
 
 // ############################
 
 
-yuika::Button::Button(Style style) : Frame()
+yuika::Button::Button(Style style, EventPropagation default_propagation) : Frame()
 {
 	m_style = style;
 	m_state = State::Normal;
 	m_pressed = false;
 	m_inside = false;
-	SetClassId("button");
+	m_default_propagation = default_propagation;
+	SetClassId("Button");
 }
 
 void yuika::Button::OnDraw(DrawApi& api, Rect allowed_draw_area) const
@@ -1078,7 +1081,7 @@ void yuika::Button::OnDraw(DrawApi& api, Rect allowed_draw_area) const
 	}
 }
 
-yuika::EventPropagation yuika::Button::OnMouse(MouseGesture gesture, Vector, const Widget& target)
+yuika::EventPropagation yuika::Button::OnMouse(MouseGesture gesture, Vector, uint32_t& cookie, const Widget& target)
 {
 	const State prev_state = m_state;
 
@@ -1116,7 +1119,9 @@ yuika::EventPropagation yuika::Button::OnMouse(MouseGesture gesture, Vector, con
 	if (prev_state != m_state)
 		SetValidation(Widget::Validation::Draw, false);
 
-	return yuika::EventPropagation::KeepPassingIt;
+	if (m_default_propagation == EventPropagation::TakePlaceAsTarget)
+		cookie = GetCookie();
+	return m_default_propagation;
 }
 
 yuika::Widget::ChildInLayout yuika::Button::GetChildInLayout(LayoutApi&, size_t, Vector size, Vector) const
@@ -1127,4 +1132,12 @@ yuika::Widget::ChildInLayout yuika::Button::GetChildInLayout(LayoutApi&, size_t,
 		return {*m_content, {1, 1}, m_content->GetSize(size - 2), {}};
 
 	return {*m_content, {}, m_content->GetSize(size), {}};
+}
+
+
+yuika::ButtonWithText::ButtonWithText(const std::string& text, Style style, EventPropagation default_propagation)
+    : Button(style, default_propagation)
+{
+	SetNewChild<Text>(text);
+	SetClassId("ButtonWithText");
 }

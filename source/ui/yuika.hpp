@@ -13,6 +13,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 #ifndef YUIKA_HPP
 #define YUIKA_HPP
 
+#include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -49,6 +50,33 @@ struct Rect
 {
 	Vector pos;
 	Vector size;
+
+	bool IsPointInside(Vector pos) const
+	{
+		if (pos.x >= this->pos.x && pos.y >= this->pos.y && //
+		    pos.x < this->pos.x + this->size.x && pos.y < this->pos.y + this->size.y)
+			return true;
+		return false;
+	}
+
+	Rect Union(Rect other) const
+	{
+		const int x1 = std::min(this->pos.x, other.pos.x);
+		const int y1 = std::min(this->pos.y, other.pos.y);
+		const int x2 = std::max(this->pos.x + this->size.x, other.pos.x + other.size.x);
+		const int y2 = std::max(this->pos.y + this->size.y, other.pos.y + other.size.y);
+		return {{x1, y1}, {x2 - x1, y2 - y1}};
+	}
+
+	static Rect Inverse()
+	{
+		Rect ret;
+		ret.pos.x = INT_MAX;
+		ret.pos.y = INT_MAX;
+		ret.size.x = INT_MIN;
+		ret.size.y = INT_MIN;
+		return ret;
+	}
 };
 
 enum class MouseGesture : uint8_t
@@ -66,7 +94,8 @@ enum class MouseGesture : uint8_t
 enum class EventPropagation : uint8_t
 {
 	KeepPassingIt,
-	StopIt
+	StopIt,
+	TakePlaceAsTarget
 };
 
 class Widget;
@@ -120,11 +149,11 @@ class Widget
 	{
 		Widget& child;
 		Vector child_offset; // Relative from parent
-		Vector child_size;   // Includes child margin
+		Vector child_size;   // Includes margin
 		Vector next_offset;  // Relative from parent
 	};
 
-	enum class Validation
+	enum class Validation : uint8_t
 	{
 		Draw,
 		Layout
@@ -135,7 +164,7 @@ class Widget
 	virtual ChildInLayout GetChildInLayout(LayoutApi& api, size_t no, Vector size,
 	                                       Vector cursor) const = 0; // Ditto
 
-	virtual Vector GetNaturalSize() const;               // Includes margin
+	virtual Vector GetMinimumSize() const;               // Includes margin
 	virtual Vector GetSize(Vector available_size) const; // Includes margin
 
 	// On- prefixed methods are called from screen, from specific points of execution,
@@ -143,29 +172,32 @@ class Widget
 
 	virtual void OnLayout(LayoutApi& api);
 	virtual void OnDraw(DrawApi& api, Rect allowed_draw_area) const;
-	virtual EventPropagation OnMouse(MouseGesture gesture, Vector cursor_pos, const Widget& target);
+	virtual EventPropagation OnMouse(MouseGesture gesture, Vector cursor_pos, uint32_t& cookie, const Widget& target);
 
 	virtual Widget& SetStretch(bool x, bool y);
 	virtual bool GetStretchX() const;
 	virtual bool GetStretchY() const;
 
-	Widget& SetId(const char* id);
-	const char* GetId() const;
-	Widget& SetClassId(const char* id); // A la CSS
-	const char* GetClassId() const;
+	Widget& SetId(const std::string& text);
+	const std::string& GetId() const;
+	Widget& SetClassId(const std::string& id); // A la CSS
+	const std::string& GetClassId() const;
+	Widget& SetCookie(uint32_t cookie);
+	uint32_t GetCookie() const;
 	Widget& SetValidation(Validation, bool value);
 	bool GetValidation(Validation) const;
 
   protected:
-	Vector m_natural_size; // Most widgets should follow/implement this,
+	Vector m_minimum_size; // Most widgets should follow/implement this,
 	bool m_stretch_x : 1;  // this,
 	bool m_stretch_y : 1;  // and this
 
   private:
 	bool m_draw_valid : 1;
 	bool m_layout_valid : 1;
-	const char* m_id;
-	const char* m_class_id;
+	std::string m_id;
+	std::string m_class_id;
+	uint32_t m_cookie;
 };
 
 
@@ -299,26 +331,25 @@ class Button : public Frame
 		Pressed
 	};
 
-	Button(Style style = Style::Normal);
+	Button(Style style = Style::Normal, EventPropagation default_propagation = EventPropagation::TakePlaceAsTarget);
 	Widget::ChildInLayout GetChildInLayout(LayoutApi& api, size_t, Vector size, Vector cursor) const override;
 	void OnDraw(DrawApi& api, Rect allowed_draw_area) const override;
-	EventPropagation OnMouse(MouseGesture gesture, Vector, const Widget& target) override;
+	EventPropagation OnMouse(MouseGesture gesture, Vector, uint32_t&, const Widget& target) override;
 
   protected:
 	Style m_style;
 	State m_state;
 	bool m_pressed : 1;
 	bool m_inside : 1;
+	EventPropagation m_default_propagation;
 };
 
 
 class ButtonWithText : public Button
 {
   public:
-	ButtonWithText(const std::string& text, Style style = Style::Normal) : Button(style)
-	{
-		SetNewChild<Text>(text);
-	}
+	ButtonWithText(const std::string& text, Style style = Style::Normal,
+	               EventPropagation default_propagation = EventPropagation::TakePlaceAsTarget);
 };
 
 
