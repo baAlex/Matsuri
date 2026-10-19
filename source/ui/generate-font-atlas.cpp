@@ -589,7 +589,7 @@ int main(int argc, const char* argv[])
 
 	try
 	{
-		sRenderAtlas(argv[1], 14, 2, argv[2]);
+		sRenderAtlas(argv[1], 16, 2, argv[2]);
 	}
 	catch (const std::exception& err)
 	{
