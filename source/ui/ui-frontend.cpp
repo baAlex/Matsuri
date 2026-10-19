@@ -11,6 +11,7 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 */
 
 #include "ui.hpp"
+#include <assert.h>
 
 
 namespace yui = yuika;
@@ -78,7 +79,6 @@ class VoiceRack : public yui::HBox
 		bottom_row.AddNewChild<KnobValuePair>("LEN", "100%").SetCookie(COOKIE_LEN); // Beyond as well
 
 		auto& right_buttons = AddNewChild<yui::VBox>();
-		right_buttons.SetStretch(false, true);
 
 		right_buttons.AddNewChild<yui::ButtonWithText>("S").SetStretch(true, false).SetCookie(COOKIE_SOLO);
 		right_buttons.AddNewChild<yui::ButtonWithText>("M").SetStretch(true, false).SetCookie(COOKIE_MUTE);
@@ -95,23 +95,30 @@ class VoiceRack : public yui::HBox
 class VoiceFrame : public yui::Frame // Just decoration
 {
   public:
-	static constexpr int PADDING = 4;
+	static constexpr int PADDING = 16; // Is not a good idea to bloat yuika with proper padding right now,
+	                                   // let's keep it on the widget side of things
 	const char* m_label;
 	yui::Vector m_extra_height;
 
 	VoiceFrame(const char* label) : m_label(label)
 	{
-		// SetStretch(true, false); // For debuging how features interact each other
-		m_extra_height = {};
+		SetStretch(true, false); // Stretching and wrapping, is a cool programming achievement (it
+		                         // behaves like a fancy CSS flexbox), but looks horrible at the eye
+		                         // with all the widgets moving when resizing, and how irregular the
+		                         // spacing between them is comparing row and row (is like justified
+		                         // text in Word)(which I don't like)
+
 		SetClassId("VoiceFrame");
+		m_extra_height = {};
 	}
 
 	void OnLayout(yui::LayoutApi& api) override
 	{
-		m_extra_height.y = api.TextSize("x").y; // TODO, make a new api out of this
+		m_extra_height.y = api.TextSize("").y; // TODO?, the day I implement clipping the ascenders will be decimated
 
 		m_minimum_size = api.Margin(*this) + m_extra_height;
-		m_minimum_size += m_content->GetMinimumSize() + PADDING;
+		if (GetChildrenNo() != 0)
+			m_minimum_size += m_content->GetMinimumSize() + PADDING;
 	}
 
 	yui::Widget::ChildInLayout GetChildInLayout(yui::LayoutApi&, size_t, yui::Vector size, yui::Vector) const override
@@ -119,12 +126,17 @@ class VoiceFrame : public yui::Frame // Just decoration
 		return {*m_content, m_extra_height + PADDING / 2, m_content->GetSize(size - PADDING), {}};
 	}
 
-	void OnDraw(yui::DrawApi& api, yui::Rect allowed_draw_area) const override
+	void OnDraw(yui::DrawApi& api, yui::Rect allowed_draw_area) override
 	{
 		api.SetHitArea(allowed_draw_area);
-		api.DrawText(yui::DrawApi::BLACK, allowed_draw_area.pos, m_label);
 		api.DrawBorder({allowed_draw_area.pos + m_extra_height, allowed_draw_area.size - m_extra_height},
-		               yui::DrawApi::BorderStyle::Inset);
+		               yui::DrawApi::BorderStyle::Frame);
+
+		api.DrawText(yui::DrawApi::BLACK, {allowed_draw_area.pos.x + PADDING / 2, allowed_draw_area.pos.y}, m_label);
+
+#if 0
+		api.DrawCheckerBoardRectangle(yui::DrawApi::RED, allowed_draw_area);
+#endif
 	}
 };
 
@@ -157,6 +169,23 @@ void UiFrontend::CreateUi(yui::Frame& root)
 
 #if 1
 	main_container.AddNewChild<Toolbar>();
+
+	{
+		// Just another toolbar for debugging purposes
+		auto& dev_toolbar = main_container.AddNewChild<yui::HBox>();
+		dev_toolbar.SetStretch(true, false);
+		dev_toolbar.AddNewChild<yui::Button>().SetStretch(true, true);
+		dev_toolbar.AddNewChild<yui::ButtonWithText>("File");
+		dev_toolbar.AddNewChild<yui::ButtonWithText>("Edit");
+		dev_toolbar.AddNewChild<yui::ButtonWithText>("View");
+		dev_toolbar.AddNewChild<yui::ButtonWithText>("Format");
+		dev_toolbar.AddNewChild<yui::ButtonWithText>("Tools");
+		dev_toolbar.AddNewChild<yui::ButtonWithText>("Table");
+		dev_toolbar.AddNewChild<yui::ButtonWithText>("Window");
+		dev_toolbar.AddNewChild<yui::ButtonWithText>("Help");
+		dev_toolbar.AddNewChild<yui::Button>().SetStretch(true, true);
+		dev_toolbar.AddNewChild<yui::ButtonWithText>("?");
+	}
 
 	auto& voices = main_container.AddNewChild<yui::HBox>();
 	voices.SetStretch(true, true);

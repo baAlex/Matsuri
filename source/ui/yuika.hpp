@@ -131,6 +131,7 @@ class DrawApi : public LayoutApi
 	{
 		Inset,
 		Outset,
+		Frame,
 		Solid, // Uses 'colour' argument
 	};
 
@@ -171,7 +172,7 @@ class Widget
 	// widgets themselves shouldn't call these
 
 	virtual void OnLayout(LayoutApi& api);
-	virtual void OnDraw(DrawApi& api, Rect allowed_draw_area) const;
+	virtual void OnDraw(DrawApi& api, Rect allowed_draw_area);
 	virtual EventPropagation OnMouse(MouseGesture gesture, Vector cursor_pos, uint32_t& cookie, const Widget& target);
 
 	virtual Widget& SetStretch(bool x, bool y);
@@ -275,6 +276,7 @@ class Box : public Container
 	Widget& GetChild(size_t no) const override;
 	ChildInLayout GetChildInLayout(LayoutApi& api, size_t no, Vector size, Vector cursor) const override;
 	void OnLayout(LayoutApi& api) override;
+	void OnDraw(DrawApi& api, Rect allowed_draw_area) override;
 
 	Box& SetWrap(bool);
 	bool GetWrap() const;
@@ -282,10 +284,20 @@ class Box : public Container
   protected:
 	friend BoxFriend; // :)
 
+	Vector m_updated_layout_at;
+
+	struct ChildEntry
+	{
+		std::unique_ptr<Widget> widget;
+		size_t row;
+		size_t position; // In row
+
+		int stretch_extra; // This one is tricky, it'ss only defined
+		                   // on entries with 'position == 0'
+	};
+
 	Direction m_direction;
-	std::vector<std::unique_ptr<Widget>> m_children;
-	size_t m_stretch_childs;
-	Vector m_non_stretch_size;
+	std::vector<ChildEntry> m_children;
 	bool m_wrap : 1;
 };
 
@@ -307,7 +319,7 @@ class Text : public Leaf
 {
   public:
 	Text(std::string text);
-	void OnDraw(DrawApi& api, Rect allowed_draw_area) const override;
+	void OnDraw(DrawApi& api, Rect allowed_draw_area) override;
 	void OnLayout(LayoutApi& api) override;
 
   private:
@@ -333,7 +345,7 @@ class Button : public Frame
 
 	Button(Style style = Style::Normal, EventPropagation default_propagation = EventPropagation::TakePlaceAsTarget);
 	Widget::ChildInLayout GetChildInLayout(LayoutApi& api, size_t, Vector size, Vector cursor) const override;
-	void OnDraw(DrawApi& api, Rect allowed_draw_area) const override;
+	void OnDraw(DrawApi& api, Rect allowed_draw_area) override;
 	EventPropagation OnMouse(MouseGesture gesture, Vector, uint32_t&, const Widget& target) override;
 
   protected:

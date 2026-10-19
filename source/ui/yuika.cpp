@@ -61,56 +61,6 @@ static int sFindLastSet(uint32_t v) noexcept
 #endif
 
 
-void yuika::Screen::Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask)
-{
-	m_size = {1, 1};
-	m_out = &m_dummy;
-
-	m_root = new Root();
-	m_root->SetStretch(true, true); // A good default value
-	m_root->SetId("#__root");
-
-	if ((m_font = reinterpret_cast<uint8_t*>(malloc(sizeof(uint8_t) * ATLAS_WIDTH * ATLAS_HEIGHT))) == nullptr)
-		throw 1; // TODO
-
-	m_masks[2] = r_mask;
-	m_masks[1] = g_mask;
-	m_masks[0] = b_mask;
-
-	m_draw_valid = false;
-	m_layout_valid = false;
-
-	// SDF,
-	// do fragment-shader work offline, as we are 2d
-	for (size_t i = 0; i < ATLAS_WIDTH * ATLAS_HEIGHT; i += 1)
-	{
-		const auto min = static_cast<float>(128 - 8) / 255.0f;
-		const auto max = static_cast<float>(128 + 8) / 255.0f;
-
-		auto p = static_cast<float>(255 - ATLAS_DATA[i]) / 255.0f;
-
-		p = (std::clamp(p, min, max) - min) / (max - min);
-
-		// https://registry.khronos.org/OpenGL-Refpages/gl4/html/smoothstep.xhtml
-		const float p2 = p * p * (3.0f - 2.0f * p); // I'm not sure, Valve uses it, but they
-		// didn't take gamma in consideration, also, should I compensate it here since the
-		// blitter has no idea what gamma is?.
-
-		// Edit, it looks better, sharper. It's a balance with the hinting.
-
-		p = (p2 + p) * 0.5f; // Edit2, a bit of both worlds
-
-		m_font[i] = static_cast<uint8_t>(p * 255.0f);
-	}
-}
-
-void yuika::Screen::Deinitialise() noexcept
-{
-	delete m_root;
-	free(m_font);
-}
-
-
 class yuika::ScreenFriend
 {
   public:
@@ -187,6 +137,18 @@ class yuika::ScreenFriend
 
 				DrawRectangle(BEVEL_MID, {{rect.pos.x + rect.size.x - 2, rect.pos.y + 1}, {1, rect.size.y - 2}});
 				DrawRectangle(BEVEL_MID, {{rect.pos.x + 1, rect.pos.y + rect.size.y - 2}, {rect.size.x - 2, 1}});
+				break;
+			case BorderStyle::Frame:
+				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y}, {rect.size.x - 2, 1}});
+				DrawRectangle(BEVEL_MID, {{rect.pos.x, rect.pos.y + 1}, {1, rect.size.y - 1}});
+				DrawRectangle(BEVEL_MID, {{rect.pos.x + rect.size.x - 2, rect.pos.y}, {1, rect.size.y - 1}});
+				DrawRectangle(BEVEL_MID, {{rect.pos.x + 1, rect.pos.y + rect.size.y - 2}, {rect.size.x - 3, 1}});
+
+				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x + rect.size.x - 1, rect.pos.y}, {1, rect.size.y}});
+				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x, rect.pos.y + rect.size.y - 1}, {rect.size.x, 1}});
+				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x + 1, rect.pos.y + 1}, {rect.size.x - 3, 1}});
+				DrawRectangle(BEVEL_LIGHT, {{rect.pos.x + 1, rect.pos.y + 2}, {1, rect.size.y - 4}});
+
 				break;
 			case BorderStyle::Solid:
 				DrawRectangle(colour, {{rect.pos.x, rect.pos.y}, {rect.size.x - 1, 1}});
@@ -358,6 +320,56 @@ class yuika::ScreenFriend
 		}
 	}
 };
+
+
+void yuika::Screen::Initialise(uint32_t r_mask, uint32_t g_mask, uint32_t b_mask)
+{
+	m_size = {1, 1};
+	m_out = &m_dummy;
+
+	m_root = new Root();
+	m_root->SetStretch(true, true); // A good default value
+	m_root->SetId("#__root");
+
+	if ((m_font = reinterpret_cast<uint8_t*>(malloc(sizeof(uint8_t) * ATLAS_WIDTH * ATLAS_HEIGHT))) == nullptr)
+		throw 1; // TODO
+
+	m_masks[2] = r_mask;
+	m_masks[1] = g_mask;
+	m_masks[0] = b_mask;
+
+	m_draw_valid = false;
+	m_layout_valid = false;
+
+	// SDF,
+	// do fragment-shader work offline, as we are 2d
+	for (size_t i = 0; i < ATLAS_WIDTH * ATLAS_HEIGHT; i += 1)
+	{
+		const auto min = static_cast<float>(128 - 8) / 255.0f;
+		const auto max = static_cast<float>(128 + 8) / 255.0f;
+
+		auto p = static_cast<float>(255 - ATLAS_DATA[i]) / 255.0f;
+
+		p = (std::clamp(p, min, max) - min) / (max - min);
+
+		// https://registry.khronos.org/OpenGL-Refpages/gl4/html/smoothstep.xhtml
+		const float p2 = p * p * (3.0f - 2.0f * p); // I'm not sure, Valve uses it, but they
+		// didn't take gamma in consideration, also, should I compensate it here since the
+		// blitter has no idea what gamma is?.
+
+		// Edit, it looks better, sharper. It's a balance with the hinting.
+
+		p = (p2 + p) * 0.5f; // Edit2, a bit of both worlds
+
+		m_font[i] = static_cast<uint8_t>(p * 255.0f);
+	}
+}
+
+void yuika::Screen::Deinitialise() noexcept
+{
+	delete m_root;
+	free(m_font);
+}
 
 
 static constexpr bool DRAW_LIKE_CRAZY = false;
@@ -793,7 +805,7 @@ yuika::Vector yuika::Widget::GetSize(Vector available_size) const
 	return size;
 }
 
-void yuika::Widget::OnDraw(DrawApi& api, Rect allowed_draw_area) const
+void yuika::Widget::OnDraw(DrawApi& api, Rect allowed_draw_area)
 {
 	// There are less surprises by setting a hit area by default
 	api.SetHitArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
@@ -875,9 +887,8 @@ void yuika::Frame::OnLayout(LayoutApi& api)
 
 yuika::Box::Box(Direction direction, bool wrap) : Container()
 {
+	m_updated_layout_at = {};
 	m_direction = direction;
-	m_stretch_childs = 0;
-	m_non_stretch_size = {};
 	m_wrap = wrap;
 	SetClassId("Box");
 }
@@ -900,9 +911,12 @@ size_t yuika::Box::GetChildrenNo() const
 
 yuika::Widget& yuika::Box::AddChild(std::unique_ptr<Widget> widget)
 {
-	m_children.push_back(std::move(widget));
+	ChildEntry entry = {};
+	entry.widget = std::move(widget);
+	m_children.push_back(std::move(entry));
+
 	SetValidation(Widget::Validation::Layout, false);
-	return *m_children.back();
+	return *m_children.back().widget;
 }
 
 class yuika::BoxFriend
@@ -912,8 +926,8 @@ class yuika::BoxFriend
 	static Widget::ChildInLayout GetChildInLayout(T& fwend, LayoutApi&, size_t no, Vector fwend_size, Vector cursor)
 	{
 		EXCEPT(no >= fwend.m_children.size(), 1); // TODO
-		auto& child = fwend.m_children.at(no);
-
+		auto& child_entry = fwend.m_children.at(no);
+		auto& row_start_entry = fwend.m_children.at(no - child_entry.position);
 		Vector next_offset;
 		Vector child_size;
 
@@ -921,49 +935,39 @@ class yuika::BoxFriend
 		{
 		case Box::Direction::Horizontal:
 		{
-			if (fwend.m_wrap == false && child->GetStretchX() == true) // TODO, wrap interacts poorly with stretch
-			{
-				fwend_size.x =
-				    (fwend_size.x - fwend.m_non_stretch_size.x) / std::max(static_cast<int>(fwend.m_stretch_childs), 1);
-				fwend_size.x = std::max(fwend_size.x, child->GetMinimumSize().x);
-			}
+			if (child_entry.widget->GetStretchX() == true)
+				fwend_size.x = child_entry.widget->GetMinimumSize().x + row_start_entry.stretch_extra;
 
-			child_size = child->GetSize(fwend_size);
+			child_size = child_entry.widget->GetSize(fwend_size);
 			next_offset = {child_size.x, 0};
 
-			// If there is no space for next widget, move cursor left and a row below
-			if (fwend.m_wrap == true)
+			if (fwend.m_wrap == true && no + 1 < fwend.m_children.size() &&
+			    fwend.m_children.at(no + 1).row != child_entry.row)
 			{
-				Vector next_size = {};
-
-				if (no + 1 < fwend.m_children.size())
-					next_size.x = fwend.m_children.at(no + 1)->GetMinimumSize().x; // TODO, a bit ugly to ask size twice
-
-				if (cursor.x + child_size.x + next_size.x > fwend_size.x)
-				{
-					next_offset.x -= cursor.x + child_size.x;
-					next_offset.y = fwend.m_minimum_size.y; // Works as it's an infinite horizontal row,
-					                                        // all rows will have the same height tho
-				}
+				next_offset.x -= cursor.x + next_offset.x;
+				next_offset.y = fwend.m_minimum_size.y;
 			}
 		}
 		break;
 		case Box::Direction::Vertical:
 		{
-			if (child->GetStretchY() == true)
-			{
-				fwend_size.y =
-				    (fwend_size.y - fwend.m_non_stretch_size.y) / std::max(static_cast<int>(fwend.m_stretch_childs), 1);
-				fwend_size.y = std::max(fwend_size.y, child->GetMinimumSize().y);
-			}
+			if (child_entry.widget->GetStretchY() == true)
+				fwend_size.y = child_entry.widget->GetMinimumSize().y + row_start_entry.stretch_extra;
 
-			child_size = child->GetSize(fwend_size);
+			child_size = child_entry.widget->GetSize(fwend_size);
 			next_offset = {0, child_size.y};
+
+			if (fwend.m_wrap == true && no + 1 < fwend.m_children.size() &&
+			    fwend.m_children.at(no + 1).row != child_entry.row)
+			{
+				next_offset.y -= cursor.y + next_offset.y;
+				next_offset.x = fwend.m_minimum_size.x;
+			}
 		}
 		break;
 		}
 
-		return {*child, {}, child_size, next_offset};
+		return {*child_entry.widget, {}, child_size, next_offset};
 	}
 };
 
@@ -975,35 +979,103 @@ yuika::Widget::ChildInLayout yuika::Box::GetChildInLayout(LayoutApi& api, size_t
 yuika::Widget& yuika::Box::GetChild(size_t no) const
 {
 	EXCEPT(no >= m_children.size(), 1); // TODO
-	return *m_children.at(no);
+	return *m_children.at(no).widget;
+}
+
+void yuika::Box::OnDraw(DrawApi& api, Rect allowed_draw_area)
+{
+	api.SetHitArea({allowed_draw_area.pos, GetSize(allowed_draw_area.size)});
+
+	// Do layout calculations,
+	// OnDraw() always get called before any GetChildInLayout(),
+	// so this's a good place. Also, note that nomenclature here
+	// is horizontal-centric even if boxes can be vertical
+	if (m_updated_layout_at.x != allowed_draw_area.size.x || m_updated_layout_at.y != allowed_draw_area.size.y)
+	{
+		// printf("%p Bep bop, doing expensive layout update...\n", reinterpret_cast<void*>(this));
+		m_updated_layout_at = allowed_draw_area.size;
+
+		ChildEntry* row_start_entry = &m_children.at(0);
+		row_start_entry->stretch_extra = 0;
+
+		int allowed_width;
+		switch (m_direction)
+		{
+		case Direction::Horizontal: allowed_width = GetSize(allowed_draw_area.size).x; break;
+		case Direction::Vertical: allowed_width = GetSize(allowed_draw_area.size).y; break;
+		}
+
+		size_t row_no = 0;
+		int row_stretch_childs_no = 0;
+		int row_min_width = 0;
+		int position = 0;
+
+		for (ChildEntry& child_entry : m_children)
+		{
+			int child_min_width;
+			bool child_stretches;
+
+			switch (m_direction)
+			{
+			case Direction::Horizontal:
+				child_min_width = child_entry.widget->GetMinimumSize().x;
+				child_stretches = child_entry.widget->GetStretchX();
+				break;
+			case Direction::Vertical:
+				child_min_width = child_entry.widget->GetMinimumSize().y;
+				child_stretches = child_entry.widget->GetStretchY();
+				break;
+			}
+
+			// Wrap logic
+			if (m_wrap == true && row_min_width + child_min_width > allowed_width)
+			{
+				if (row_stretch_childs_no > 0)
+					row_start_entry->stretch_extra = std::max(0, allowed_width - row_min_width) / row_stretch_childs_no;
+
+				row_no += 1;
+				row_stretch_childs_no = 0;
+				row_min_width = 0;
+				position = 0;
+
+				row_start_entry = &child_entry;
+			}
+
+			// Generic row logic
+			row_stretch_childs_no += child_stretches;
+			row_min_width += child_min_width;
+
+			// Update child entry
+			child_entry.row = row_no;
+			child_entry.position = static_cast<size_t>(position);
+			position += 1;
+		}
+
+		// One final touch on row logic
+		if (row_stretch_childs_no > 0)
+			row_start_entry->stretch_extra = std::max(0, allowed_width - row_min_width) / row_stretch_childs_no;
+	}
 }
 
 void yuika::Box::OnLayout(LayoutApi& api)
 {
 	m_minimum_size = {};
-	m_non_stretch_size = {};
-	m_stretch_childs = 0;
 
-	for (auto& child : m_children)
+	for (auto& child_entry : m_children)
 	{
-		const Vector child_minimum_size = child->GetMinimumSize();
+		const Vector child_minimum_size = child_entry.widget->GetMinimumSize();
 
 		switch (m_direction)
 		{
 		case Direction::Horizontal:
 			m_minimum_size.x += child_minimum_size.x;
 			m_minimum_size.y = std::max(child_minimum_size.y, m_minimum_size.y);
-			m_stretch_childs += static_cast<size_t>(child->GetStretchX());
 			break;
 		case Direction::Vertical:
 			m_minimum_size.x = std::max(child_minimum_size.x, m_minimum_size.x);
 			m_minimum_size.y += child_minimum_size.y;
-			m_stretch_childs += static_cast<size_t>(child->GetStretchY());
 			break;
 		}
-
-		m_non_stretch_size.x += (child->GetStretchX() == false) ? child_minimum_size.x : 0;
-		m_non_stretch_size.y += (child->GetStretchY() == false) ? child_minimum_size.y : 0;
 	}
 
 	m_minimum_size += api.Margin(*this);
@@ -1029,17 +1101,19 @@ yuika::Text::Text(std::string text) : Leaf()
 	SetClassId("Text");
 }
 
-void yuika::Text::OnDraw(DrawApi& api, Rect allowed_draw_area) const
+void yuika::Text::OnDraw(DrawApi& api, Rect allowed_draw_area)
 {
 	api.SetHitArea({allowed_draw_area.pos, api.TextSize(m_text.c_str())});
-	api.DrawCheckerBoardRectangle(DrawApi::RED, {allowed_draw_area.pos, api.TextSize(m_text.c_str())});
 	api.DrawText(DrawApi::BLACK, allowed_draw_area.pos, m_text.c_str());
+#if 0
+	api.DrawCheckerBoardRectangle(DrawApi::RED, {allowed_draw_area.pos, api.TextSize(m_text.c_str())});
+#endif
 }
 
 void yuika::Text::OnLayout(LayoutApi& api)
 {
 	m_minimum_size = api.TextSize(m_text.c_str()) + api.Margin(*this);
-};
+}
 
 
 // ############################
@@ -1055,7 +1129,7 @@ yuika::Button::Button(Style style, EventPropagation default_propagation) : Frame
 	SetClassId("Button");
 }
 
-void yuika::Button::OnDraw(DrawApi& api, Rect allowed_draw_area) const
+void yuika::Button::OnDraw(DrawApi& api, Rect allowed_draw_area)
 {
 	const Vector size = GetSize(allowed_draw_area.size);
 
