@@ -292,8 +292,9 @@ class Box : public Container
 		size_t row;
 		size_t position; // In row
 
-		int stretch_extra; // This one is tricky, it'ss only defined
-		                   // on entries with 'position == 0'
+		int stretch;           // This one is tricky, it's only defined
+		                       // on entries with 'position == 0'
+		int stretch_remainder; // This one as well!
 	};
 
 	Direction m_direction;

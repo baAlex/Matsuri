@@ -237,15 +237,18 @@ class yuika::ScreenFriend
 
 		Vector Margin(const Widget& widget) override
 		{
+			if (widget.GetId() == "RackText")
+				return {8, 18 + 8};
+
 			// TODO, use a hashmap, using GetId() as key first, then GetClassId()
 			if (widget.GetClassId() == "Text")
 				return {18, 18};
-			if (widget.GetClassId() == "VoiceFrame")
+			if (widget.GetClassId() == "RackFrame")
 				return {16, 16};
-			/*else if (strcmp(widget.GetClassId(), "box") == 0)
-			    return {4, 4};
-			else if (strcmp(widget.GetClassId(), "button") == 0)
-			    return {2, 2};*/
+			if (widget.GetClassId() == "Button")
+				return {8, 8};
+			if (widget.GetClassId() == "ButtonWithText")
+				return {8, 8};
 
 			return {};
 		}
@@ -936,7 +939,11 @@ class yuika::BoxFriend
 		case Box::Direction::Horizontal:
 		{
 			if (child_entry.widget->GetStretchX() == true)
-				fwend_size.x = child_entry.widget->GetMinimumSize().x + row_start_entry.stretch_extra;
+			{
+				fwend_size.x = child_entry.widget->GetMinimumSize().x + row_start_entry.stretch;
+				if (static_cast<int>(child_entry.position) < row_start_entry.stretch_remainder)
+					fwend_size.x += 1;
+			}
 
 			child_size = child_entry.widget->GetSize(fwend_size);
 			next_offset = {child_size.x, 0};
@@ -945,14 +952,20 @@ class yuika::BoxFriend
 			    fwend.m_children.at(no + 1).row != child_entry.row)
 			{
 				next_offset.x -= cursor.x + next_offset.x;
-				next_offset.y = fwend.m_minimum_size.y;
+				next_offset.y = fwend.m_minimum_size.y; // Works, as minimum size is calculated without wrap
+				                                        // consideration (viewing box as a single row).
+				                                        // Tho, with this, all rows will have the same height.
 			}
 		}
 		break;
 		case Box::Direction::Vertical:
 		{
 			if (child_entry.widget->GetStretchY() == true)
-				fwend_size.y = child_entry.widget->GetMinimumSize().y + row_start_entry.stretch_extra;
+			{
+				fwend_size.y = child_entry.widget->GetMinimumSize().y + row_start_entry.stretch;
+				if (static_cast<int>(child_entry.position) < row_start_entry.stretch_remainder)
+					fwend_size.x += 1;
+			}
 
 			child_size = child_entry.widget->GetSize(fwend_size);
 			next_offset = {0, child_size.y};
@@ -996,7 +1009,7 @@ void yuika::Box::OnDraw(DrawApi& api, Rect allowed_draw_area)
 		m_updated_layout_at = allowed_draw_area.size;
 
 		ChildEntry* row_start_entry = &m_children.at(0);
-		row_start_entry->stretch_extra = 0;
+		row_start_entry->stretch = 0;
 
 		int allowed_width;
 		switch (m_direction)
@@ -1031,7 +1044,11 @@ void yuika::Box::OnDraw(DrawApi& api, Rect allowed_draw_area)
 			if (m_wrap == true && row_min_width + child_min_width > allowed_width)
 			{
 				if (row_stretch_childs_no > 0)
-					row_start_entry->stretch_extra = std::max(0, allowed_width - row_min_width) / row_stretch_childs_no;
+				{
+					row_start_entry->stretch = std::max(0, allowed_width - row_min_width) / row_stretch_childs_no;
+					row_start_entry->stretch_remainder =
+					    std::max(0, allowed_width - row_min_width) % row_stretch_childs_no;
+				}
 
 				row_no += 1;
 				row_stretch_childs_no = 0;
@@ -1047,13 +1064,17 @@ void yuika::Box::OnDraw(DrawApi& api, Rect allowed_draw_area)
 
 			// Update child entry
 			child_entry.row = row_no;
+			child_entry.stretch_remainder = 0;
 			child_entry.position = static_cast<size_t>(position);
 			position += 1;
 		}
 
 		// One final touch on row logic
 		if (row_stretch_childs_no > 0)
-			row_start_entry->stretch_extra = std::max(0, allowed_width - row_min_width) / row_stretch_childs_no;
+		{
+			row_start_entry->stretch = std::max(0, allowed_width - row_min_width) / row_stretch_childs_no;
+			row_start_entry->stretch_remainder = std::max(0, allowed_width - row_min_width) % row_stretch_childs_no;
+		}
 	}
 }
 

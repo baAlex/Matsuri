@@ -21,11 +21,11 @@ namespace yui = yuika;
 
 static constexpr uint32_t COOKIE_VOL = 0b000'001;
 static constexpr uint32_t COOKIE_PAN = 0b000'010;
-static constexpr uint32_t COOKIE_TRA = 0b000'011;
-static constexpr uint32_t COOKIE_TUN = 0b000'100;
-static constexpr uint32_t COOKIE_LEN = 0b000'101;
+static constexpr uint32_t COOKIE_TUN = 0b000'011;
+static constexpr uint32_t COOKIE_LEN = 0b000'100;
+static constexpr uint32_t COOKIE_MUTE = 0b000'101;
 static constexpr uint32_t COOKIE_SOLO = 0b000'110;
-static constexpr uint32_t COOKIE_MUTE = 0b000'111;
+static constexpr uint32_t COOKIE_MORE = 0b000'111;
 
 static constexpr uint32_t COOKIE_BD = 0b001'000;
 static constexpr uint32_t COOKIE_SD = 0b010'000;
@@ -36,53 +36,57 @@ static constexpr uint32_t COOKIE_TH = 0b110'000;
 static constexpr uint32_t COOKIE_TL = 0b111'000;
 
 
-class KnobValuePair : public yui::HBox
+class Knob : public yui::Button
 {
   public:
-	KnobValuePair(const std::string& label, const std::string& measure)
+	Knob(const std::string& label, const std::string& measure)
 	{
-		AddNewChild<yui::ButtonWithText>("[ ]").SetStretch(true, true);
-
-		auto& right_side = AddNewChild<yui::VBox>();
-		right_side.AddNewChild<yui::Text>(measure);
-		right_side.AddNewChild<yui::Text>(label);
+		auto& box = SetNewChild<yui::VBox>();
+		box.AddNewChild<yui::Text>(measure);
+		box.AddNewChild<yui::Text>(label);
 	}
 
-	yui::EventPropagation OnMouse(yui::MouseGesture, yui::Vector, uint32_t& cookie, const yui::Widget& target) override
+	yui::EventPropagation OnMouse(yui::MouseGesture gesture, yui::Vector position, uint32_t& cookie,
+	                              const Widget& target) override
 	{
+		const auto ret = yui::Button::OnMouse(gesture, position, cookie, target);
 		if (target.GetClassId() == "ButtonWithText")
 			cookie = GetCookie(); // Replace with our cookie
-		return yui::EventPropagation::KeepPassingIt;
+		return ret;
 	}
 };
-
-static constexpr uint32_t EXTRA_NONE = 1;
-static constexpr uint32_t EXTRA_TRANSIENT = 2;
 
 class VoiceRack : public yui::HBox
 {
   public:
-	VoiceRack(uint32_t extra = EXTRA_NONE)
+	VoiceRack(const char* label)
 	{
-		auto& left_table = AddNewChild<yui::VBox>();
+		SetStretch(true, false);
+
+		auto& vbox = AddNewChild<yui::VBox>();
+		vbox.SetStretch(true, false);
 
 		// TODO, I need a table widget
 
-		auto& top_row = left_table.AddNewChild<yui::HBox>();
-		top_row.AddNewChild<KnobValuePair>("VOL", "100%").SetCookie(COOKIE_VOL);
-		top_row.AddNewChild<KnobValuePair>("PAN", "CEN").SetCookie(COOKIE_PAN);
-		if ((extra & EXTRA_TRANSIENT) != 0)
-			top_row.AddNewChild<KnobValuePair>("TRA", "100%").SetCookie(COOKIE_TRA); // Should go beyond 100%
+		auto& row1 = vbox.AddNewChild<yui::HBox>();
+		row1.SetStretch(true, false);
+		row1.AddNewChild<yui::Text>(label).SetId("RackText");
+		row1.AddNewChild<yui::Spacer>();
+		row1.AddNewChild<yui::ButtonWithText>("+").SetCookie(COOKIE_MORE);
 
-		auto& bottom_row = left_table.AddNewChild<yui::HBox>();
-		bottom_row.AddNewChild<KnobValuePair>("TUN", "0").SetCookie(COOKIE_TUN);
-		bottom_row.AddNewChild<KnobValuePair>("LEN", "100%").SetCookie(COOKIE_LEN); // Beyond as well
+		auto& row2 = vbox.AddNewChild<yui::HBox>();
+		row2.AddNewChild<yui::ButtonWithText>("M").SetCookie(COOKIE_MUTE);
+		row2.AddNewChild<yui::ButtonWithText>("S").SetCookie(COOKIE_SOLO);
 
-		auto& right_buttons = AddNewChild<yui::VBox>();
+		auto& row3 = vbox.AddNewChild<yui::HBox>();
+		row3.SetStretch(true, false);
+		row3.AddNewChild<Knob>("VOL", "100%").SetCookie(COOKIE_VOL).SetStretch(true, false);
+		row3.AddNewChild<Knob>("PAN", "CEN").SetCookie(COOKIE_PAN).SetStretch(true, false);
 
-		right_buttons.AddNewChild<yui::ButtonWithText>("S").SetStretch(true, false).SetCookie(COOKIE_SOLO);
-		right_buttons.AddNewChild<yui::ButtonWithText>("M").SetStretch(true, false).SetCookie(COOKIE_MUTE);
-		right_buttons.AddNewChild<yui::Spacer>();
+		auto& row4 = vbox.AddNewChild<yui::HBox>();
+		row4.SetStretch(true, false);
+		row4.AddNewChild<Knob>("TUN", "0").SetCookie(COOKIE_TUN).SetStretch(true, false);
+		row4.AddNewChild<Knob>("LEN", "100%").SetCookie(COOKIE_LEN).SetStretch(true, false);
 	}
 
 	yui::EventPropagation OnMouse(yui::MouseGesture, yui::Vector, uint32_t& cookie, const yui::Widget&) override
@@ -92,47 +96,49 @@ class VoiceRack : public yui::HBox
 	}
 };
 
-class VoiceFrame : public yui::Frame // Just decoration
+class AboutRack : public yui::HBox
+{
+  public:
+	AboutRack()
+	{
+		AddNewChild<yui::ButtonWithText>("Matsuri", yui::Button::Style::Flat);
+	}
+};
+
+class RackFrame : public yui::Frame // Just decoration
 {
   public:
 	static constexpr int PADDING = 16; // Is not a good idea to bloat yuika with proper padding right now,
 	                                   // let's keep it on the widget side of things
-	const char* m_label;
-	yui::Vector m_extra_height;
 
-	VoiceFrame(const char* label) : m_label(label)
+	RackFrame()
 	{
-		SetStretch(true, false); // Stretching and wrapping, is a cool programming achievement (it
-		                         // behaves like a fancy CSS flexbox), but looks horrible at the eye
-		                         // with all the widgets moving when resizing, and how irregular the
-		                         // spacing between them is comparing row and row (is like justified
-		                         // text in Word)(which I don't like)
-
-		SetClassId("VoiceFrame");
-		m_extra_height = {};
+		SetStretch(true, false);
+		SetClassId("RackFrame");
 	}
 
-	void OnLayout(yui::LayoutApi& api) override
+	void OnLayout(yui::LayoutApi&) override
 	{
-		m_extra_height.y = api.TextSize("").y; // TODO?, the day I implement clipping the ascenders will be decimated
-
-		m_minimum_size = api.Margin(*this) + m_extra_height;
-		if (GetChildrenNo() != 0)
+		m_minimum_size.x = PADDING;
+		m_minimum_size.y = PADDING;
+		if (m_content != nullptr)
 			m_minimum_size += m_content->GetMinimumSize() + PADDING;
 	}
 
 	yui::Widget::ChildInLayout GetChildInLayout(yui::LayoutApi&, size_t, yui::Vector size, yui::Vector) const override
 	{
-		return {*m_content, m_extra_height + PADDING / 2, m_content->GetSize(size - PADDING), {}};
+		return {*m_content, {PADDING / 2, PADDING / 2}, m_content->GetSize(size - PADDING), {}};
 	}
 
 	void OnDraw(yui::DrawApi& api, yui::Rect allowed_draw_area) override
 	{
-		api.SetHitArea(allowed_draw_area);
-		api.DrawBorder({allowed_draw_area.pos + m_extra_height, allowed_draw_area.size - m_extra_height},
-		               yui::DrawApi::BorderStyle::Frame);
+		yui::Vector size = GetSize(allowed_draw_area.size);
+		size.x = std::max(size.x, m_minimum_size.x - PADDING); // Try to preserve minimum size in the cases where
+		size.y = std::max(size.y, m_minimum_size.y - PADDING); // screen gives us less that that... obviously it
+		                                                       // will clip
 
-		api.DrawText(yui::DrawApi::BLACK, {allowed_draw_area.pos.x + PADDING / 2, allowed_draw_area.pos.y}, m_label);
+		api.SetHitArea({allowed_draw_area.pos, size});
+		api.DrawBorder({allowed_draw_area.pos, size}, yui::DrawApi::BorderStyle::Frame);
 
 #if 0
 		api.DrawCheckerBoardRectangle(yui::DrawApi::RED, allowed_draw_area);
@@ -140,16 +146,6 @@ class VoiceFrame : public yui::Frame // Just decoration
 	}
 };
 
-class Toolbar : public yui::HBox
-{
-  public:
-	Toolbar()
-	{
-		SetStretch(true, false);
-		AddNewChild<yui::Spacer>();
-		AddNewChild<yui::ButtonWithText>("matsuri", yui::Button::Style::Flat);
-	}
-};
 
 class MainContainer : public yui::VBox
 {
@@ -168,8 +164,7 @@ void UiFrontend::CreateUi(yui::Frame& root)
 	main_container.SetStretch(true, true);
 
 #if 1
-	main_container.AddNewChild<Toolbar>();
-
+	if (true)
 	{
 		// Just another toolbar for debugging purposes
 		auto& dev_toolbar = main_container.AddNewChild<yui::HBox>();
@@ -191,17 +186,21 @@ void UiFrontend::CreateUi(yui::Frame& root)
 	voices.SetStretch(true, true);
 	voices.SetWrap(true);
 
-	voices.AddNewChild<VoiceFrame>("bass drum").SetNewChild<VoiceRack>(EXTRA_TRANSIENT).SetCookie(COOKIE_BD);
-	voices.AddNewChild<VoiceFrame>("snare drum").SetNewChild<VoiceRack>().SetCookie(COOKIE_SD);
-	voices.AddNewChild<VoiceFrame>("hat closed").SetNewChild<VoiceRack>().SetCookie(COOKIE_HC);
-	voices.AddNewChild<VoiceFrame>("hat open").SetNewChild<VoiceRack>().SetCookie(COOKIE_HO);
-	voices.AddNewChild<VoiceFrame>("cymbal").SetNewChild<VoiceRack>().SetCookie(COOKIE_CY);
-	voices.AddNewChild<VoiceFrame>("tom high").SetNewChild<VoiceRack>(EXTRA_TRANSIENT).SetCookie(COOKIE_TH);
-	voices.AddNewChild<VoiceFrame>("tom low").SetNewChild<VoiceRack>(EXTRA_TRANSIENT).SetCookie(COOKIE_TL);
+	voices.AddNewChild<RackFrame>().SetNewChild<VoiceRack>("Bass Drum").SetCookie(COOKIE_BD);
+	voices.AddNewChild<RackFrame>().SetNewChild<VoiceRack>("Snare Drum").SetCookie(COOKIE_SD);
+	voices.AddNewChild<RackFrame>().SetNewChild<VoiceRack>("Hat Closed").SetCookie(COOKIE_HC);
+	voices.AddNewChild<RackFrame>().SetNewChild<VoiceRack>("Hat Open").SetCookie(COOKIE_HO);
+	voices.AddNewChild<RackFrame>().SetNewChild<VoiceRack>("Cymbal").SetCookie(COOKIE_CY);
+	voices.AddNewChild<RackFrame>().SetNewChild<VoiceRack>("Tom High").SetCookie(COOKIE_TH);
+	voices.AddNewChild<RackFrame>().SetNewChild<VoiceRack>("Tom Low").SetCookie(COOKIE_TL);
+	voices.AddNewChild<RackFrame>().SetNewChild<AboutRack>();
 
 	// I cannot think on a purpose for a status bar, so far it only
 	// helps on debuging the layout
-	main_container.AddNewChild<yui::ButtonWithText>("[status bar]").SetStretch(true, false);
+	if (true)
+	{
+		main_container.AddNewChild<yui::ButtonWithText>("[status bar]").SetStretch(true, false);
+	}
 #else
 	main_container.AddNewChild<yui::Text>("Simple test");
 	main_container.AddNewChild<yui::ButtonWithText>("Hello 1");
