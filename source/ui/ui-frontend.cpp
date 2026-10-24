@@ -12,6 +12,8 @@ can obtain one at https://opensource.org/license/CDDL-1.0.
 
 #include "ui.hpp"
 #include <assert.h>
+#include <algorithm>
+
 
 
 namespace yui = yuika;

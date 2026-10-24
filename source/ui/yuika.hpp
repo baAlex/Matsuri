@@ -51,10 +51,10 @@ struct Rect
 	Vector pos;
 	Vector size;
 
-	bool IsPointInside(Vector pos) const
+	bool IsPointInside(Vector position) const
 	{
-		if (pos.x >= this->pos.x && pos.y >= this->pos.y && //
-		    pos.x < this->pos.x + this->size.x && pos.y < this->pos.y + this->size.y)
+		if (position.x >= this->pos.x && position.y >= this->pos.y && //
+		    position.x < this->pos.x + this->size.x && position.y < this->pos.y + this->size.y)
 			return true;
 		return false;
 	}

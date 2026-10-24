@@ -964,7 +964,7 @@ class yuika::BoxFriend
 			{
 				fwend_size.y = child_entry.widget->GetMinimumSize().y + row_start_entry.stretch;
 				if (static_cast<int>(child_entry.position) < row_start_entry.stretch_remainder)
-					fwend_size.x += 1;
+					fwend_size.y += 1;
 			}
 
 			child_size = child_entry.widget->GetSize(fwend_size);
